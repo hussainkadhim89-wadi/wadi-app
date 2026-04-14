@@ -7,42 +7,8 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.62</title>
-<!-- Early script: doLogin متاحة فوراً حتى قبل Supabase CDN -->
-<script>
-function doLogin(){
-  // انتظر sb يكون جاهز (max 10 ثوان)
-  if(!window.sb){
-    const btn=document.querySelector('.btn-login');
-    if(btn){btn.textContent='جاري التحميل...';btn.disabled=true;}
-    let tries=0;
-    const wait=setInterval(()=>{
-      tries++;
-      if(window.sb){
-        clearInterval(wait);
-        if(btn){btn.textContent='دخول ←';btn.disabled=false;}
-        doLogin();
-      } else if(tries>100){
-        clearInterval(wait);
-        if(btn){btn.textContent='دخول ←';btn.disabled=false;}
-        alert('خطأ في التحميل — يرجى تحديث الصفحة');
-      }
-    },100);
-    return;
-  }
-  const email=document.getElementById('login-email').value.trim();
-  const pass=document.getElementById('login-password').value;
-  const err=document.getElementById('login-err');
-  err.style.display='none';
-  if(!email||!pass){err.textContent='أدخل البريد وكلمة المرور';err.style.display='block';return;}
-  const btn=document.querySelector('.btn-login');
-  btn.textContent='جاري الدخول...';btn.disabled=true;
-  window.sb.auth.signInWithPassword({email,password:pass}).then(({error})=>{
-    if(error){err.textContent='بيانات الدخول غير صحيحة';err.style.display='block';btn.textContent='دخول ←';btn.disabled=false;}
-  });
-}
-window.doLogin=doLogin;
-</script>
+<title>وادي الطاقة — v44.63</title>
+
 <script>
 /**
  * Minified by jsDelivr using Terser v5.39.0.
@@ -1884,7 +1850,7 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.62 · Supabase Auth</div>
+    <div class="login-sub">نظام الإدارة المالية · v44.63 · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
     <button class="btn-login" onclick="(window.doLogin||function(){alert('جاري التحميل...')})()">دخول ←</button>
@@ -5920,7 +5886,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.62';
+const APP_VERSION = 'v44.63';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
