@@ -9882,5 +9882,33 @@ window.NotifEngine = (() => {
   return { refresh, markAllSeen, getAll, reset, startInterval, stopInterval, updateBell:_updateBell };
 
 })();
+  async function doLogin() {
+  try {
+    const email = document.querySelector('input[type="email"]').value;
+    const password = document.querySelector('input[type="password"]').value;
+
+    if (!email || !password) {
+      alert('ادخل الايميل والباسورد');
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      alert('فشل تسجيل الدخول: ' + error.message);
+      return;
+    }
+
+    location.reload();
+  } catch (e) {
+    console.error(e);
+    alert('خطأ غير متوقع');
+  }
+}
+
+window.doLogin = doLogin;
 // ============================================================
 
