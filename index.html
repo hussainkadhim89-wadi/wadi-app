@@ -7,8 +7,8 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.54</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=44.54"></script>
+<title>وادي الطاقة — v44.55</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=44.55"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2395,10 +2395,12 @@ async function doLogin(){
   const{error}=await sb.auth.signInWithPassword({email,password:pass});
   if(error){err.textContent='بيانات الدخول غير صحيحة';err.style.display='block';btn.textContent='دخول ←';btn.disabled=false;}
 }
+window.doLogin = doLogin;  // ← تثبيت على window — يحل مشكلة GitHub Pages
 async function doLogout(){
   if(window.NotifEngine){ NotifEngine.stopInterval(); NotifEngine.reset(); }
   await sb.auth.signOut();
 }
+window.doLogout = doLogout;  // ← تثبيت على window
 async function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -5874,7 +5876,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.54';
+const APP_VERSION = 'v44.55';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
@@ -6633,9 +6635,16 @@ document.addEventListener('keydown',e=>{
 });
 document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
-checkForUpdates();
-_initNavGroups();
-initAuth();
+// ── تأكيد تحميل Supabase + تشغيل النظام ──────────────────
+if(typeof supabase === 'undefined'){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>⚠️ خطأ في التحميل</h2><p>يرجى تحديث الصفحة أو التحقق من الاتصال بالإنترنت</p><button onclick="location.reload()" style="padding:12px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px">تحديث الصفحة</button></div>';
+  });
+} else {
+  checkForUpdates();
+  _initNavGroups();
+  initAuth();
+}
 
 // ── Role Sync عند العودة للتبويب ──────────────────────────
 // [1] debounce: لا يكرر fetch أكثر من مرة كل 30 ثانية
@@ -6755,14 +6764,17 @@ function calcSimpleMargin(){
 }
 
 // ══════════════════════════════════════════
-// 💾 BACKUP & RESTORE SYSTEM
+// 💾 BACKUP & RESTORE SYSTEM (v44.55)
 // ══════════════════════════════════════════
 const BACKUP_TABLES=[
-  'invoices','invoice_lines','receivables','payments',
-  'expenses','withdrawals','clients','capital_movements','client_credits'
+  'clients','invoices','invoice_lines','receivables','payments',
+  'expenses','withdrawals','capital_movements','client_credits'
 ];
 
 async function doBackup(btn){
+  // [Guard] admin فقط
+  if(!canDo('manage_users')){ showToast('غير مصرح — admin فقط','error'); return; }
+
   const restore=btnLoad(btn,'جاري التجميع...');
   const progress=document.getElementById('backup-progress');
   if(progress){progress.style.display='block';progress.innerHTML='<div style="font-size:12px;color:var(--text3)">جاري جلب البيانات...</div>';}
@@ -6770,23 +6782,23 @@ async function doBackup(btn){
   try{
     const backup={
       version:'wadi-backup-v1',
-      date:new Date().toISOString(),
-      app_version:'v42.8',
+      exported_at:new Date().toISOString(),
+      exported_by:currentUser?.email||'—',
+      app_version:APP_VERSION,
       tables:{}
     };
 
     for(const table of BACKUP_TABLES){
-      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">جاري جلب ${table}...</div>`;
+      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ جاري جلب ${table}...</div>`;
       const{data,error}=await sb.from(table).select('*');
-      if(error){console.error(`Backup error ${table}:`,error.message);backup.tables[table]=[];}
+      if(error){console.warn(`Backup error ${table}:`,error.message);backup.tables[table]=[];}
       else backup.tables[table]=data||[];
     }
 
-    // إحصائيات
-    const stats=Object.entries(backup.tables).map(([t,d])=>`${t}: ${d.length}`).join(' | ');
-    backup.stats=stats;
+    const totalRows=Object.values(backup.tables).reduce((s,d)=>s+d.length,0);
+    const counts=Object.fromEntries(Object.entries(backup.tables).map(([t,d])=>[t,d.length]));
+    backup.stats=counts;
 
-    // تنزيل
     const json=JSON.stringify(backup,null,2);
     const blob=new Blob([json],{type:'application/json'});
     const a=document.createElement('a');
@@ -6795,9 +6807,11 @@ async function doBackup(btn){
     a.click();
     URL.revokeObjectURL(a.href);
 
-    const totalRows=Object.values(backup.tables).reduce((s,d)=>s+d.length,0);
+    // audit log
+    auditLog('backup_export','system','all',{ tables:BACKUP_TABLES.length, rows:totalRows });
+
     if(progress)progress.innerHTML=`<div style="background:var(--green-light);border:1px solid #a7f3d0;border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46"><b>✅ تم الـ Backup بنجاح</b><br>${totalRows} سجل من ${BACKUP_TABLES.length} جداول · ${(json.length/1024).toFixed(1)} KB</div>`;
-    showToast('تم تنزيل النسخة الاحتياطية','success');
+    showToast(`✅ تم تنزيل النسخة الاحتياطية — ${totalRows} سجل`,'success');
     addNotif('💾','تم إنشاء نسخة احتياطية بنجاح','success');
   }catch(e){
     if(progress)progress.innerHTML=`<div style="background:var(--red-light);border:1px solid var(--row-profit-low-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red)">❌ خطأ: ${e.message}</div>`;
@@ -6806,6 +6820,7 @@ async function doBackup(btn){
     restore();
   }
 }
+window.doBackup = doBackup;  // ← window تثبيت
 
 async function doRestore(input){
   const file=input.files[0];
@@ -6872,6 +6887,7 @@ async function doRestore(input){
     const msg=errors>0?`تم الاستعادة مع ${errors} خطأ`:'تمت الاستعادة بنجاح';
     if(progress)progress.innerHTML=`<div style="background:${errors?'#fffbeb':'var(--green-light)'};border:1px solid ${errors?'#fde68a':'#a7f3d0'};border-radius:8px;padding:10px 14px;font-size:12px;color:${errors?'#92400e':'#065f46'}"><b>${errors?'⚠️':'✅'} ${msg}</b><br>${restored} سجل تم استعادته من ${BACKUP_TABLES.length} جداول</div>`;
     showToast(msg, errors?'warning':'success');
+    auditLog('backup_restore','system','all',{ restored, errors, tables:BACKUP_TABLES.length });
     addNotif('↩️','تم استعادة النسخة الاحتياطية','info');
     setTimeout(()=>showPage('dashboard'),1500);
 
@@ -6880,6 +6896,7 @@ async function doRestore(input){
     showToast('خطأ في الـ Restore: '+e.message,'error');
   }
 }
+window.doRestore = doRestore;  // ← window تثبيت
 
 
 // ══════════════════════════════════════════
@@ -9866,3 +9883,4 @@ window.NotifEngine = (() => {
 
 })();
 // ============================================================
+
