@@ -1850,7 +1850,7 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.67 · Supabase Auth</div>
+    <div class="login-sub">نظام الإدارة المالية · v44.68 · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
     <button class="btn-login" onclick="doLogin()">دخول ←</button>
@@ -5902,7 +5902,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.67';
+const APP_VERSION = 'v44.68';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
@@ -6793,7 +6793,7 @@ function calcSimpleMargin(){
 }
 
 // ══════════════════════════════════════════
-// 💾 BACKUP & RESTORE SYSTEM (v44.67)
+// 💾 BACKUP & RESTORE SYSTEM (v44.68)
 // ══════════════════════════════════════════
 const BACKUP_TABLES=[
   'clients','invoices','invoice_lines','receivables','payments',
@@ -6868,8 +6868,10 @@ async function doBackup(btn){
 window.doBackup = doBackup;  // ← window تثبيت
 
 async function doRestore(input){
+  console.log('🔧 doRestore called with:', input);
   const file=input.files[0];
-  if(!file)return;
+  console.log('📄 File selected:', file?.name, file?.size, 'bytes');
+  if(!file){console.log('❌ No file, returning');return;}
   input.value='';
 
   // ── Step 1: قراءة وتحقق من الملف أولاً ──
@@ -6894,6 +6896,7 @@ async function doRestore(input){
 
   // ── Step 3: modal اختيار Overwrite أو Append ──
   const mode=await new Promise(resolve=>{
+    console.log('📋 Opening mode selection modal (Overwrite/Append)');
     openModal('↩️ استعادة نسخة احتياطية',
       `<div style="font-size:13px">
         <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:14px">
@@ -6932,7 +6935,11 @@ async function doRestore(input){
     );
     window._restoreResolve=resolve;
   });
-  if(!mode)return;
+  if(!mode){console.log('❌ Mode not selected, aborting');return;}
+  console.log('✅ Mode selected:', mode);
+
+  // ── Restore Phase Starting ──
+  console.log('🚀 Starting restore with mode:', mode, 'Total rows:', totalRows);
 
   // ── Step 4: تأكيد نهائي (خصوصاً للـ Overwrite) ──
   if(mode==='overwrite'){
@@ -6953,19 +6960,16 @@ async function doRestore(input){
 
   // ── Step 5: تنفيذ الاستعادة ──
   const progress=document.getElementById('backup-progress');
-  if(progress){progress.style.display='block';}
+  console.log('📊 Progress element found:', progress ? '✅ yes' : '❌ NO');
+  if(progress){progress.style.display='block'; console.log('✅ Progress element shown');}
+  else{console.warn('⚠️ Progress element not found!');
+  }
 
   let restored=0, skipped=0, errors=0;
   const errorLog=[];
-  const batchSize=100; // ✅ ثابت محسّن — تجنب timeouts
-
-  // ✅ دالة للتحقق من خطورة الخطأ
-  function isCriticalError(err){
-    if(!err)return false;
-    const msg=(err.message||'').toLowerCase();
-    const code=(err.code||'').toLowerCase();
-    return msg.includes('quota')||msg.includes('permission')||msg.includes('authentication')||msg.includes('unauthorized')||code.includes('pgrst')||code.includes('auth');
-  }
+  const batchSize=100;  // ✅ تصحيح: 500 → 100
+  
+  console.log('⏳ Starting restore process — batchSize:', batchSize);
 
   try{
     // ── Overwrite: احذف بترتيب عكسي (children أولاً) ──
@@ -6974,54 +6978,43 @@ async function doRestore(input){
       for(const table of DELETE_ORDER){
         const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
         if(delErr){
-          console.error(`❌ Delete error ${table}:`,delErr.message,delErr.code);
-          // ✅ إذا حذف حرج → نوقف فوراً
-          if(isCriticalError(delErr)){
-            throw new Error(`❌ CRITICAL DELETE: ${table} — ${delErr.message}`);
-          }
-          // بدونه فقط warning
+          console.error(`Delete error ${table}:`,delErr.message);
           errorLog.push(`حذف ${table}: ${delErr.message}`);
           errors++;
         }
       }
       if(errors>0){
-        showToast(`⚠️ ${errors} خطأ في الحذف — لكن نكمل...`,'warning');
-        errors=0; // reset
+        showToast(`تحذير: ${errors} خطأ في الحذف — راجع الـ console`,'warning');
+        errors=0; // reset — نكمل الإدراج
       }
     }
 
     // ── Insert/Upsert بترتيب RESTORE_ORDER (parents أولاً) ──
     for(const table of RESTORE_ORDER){
       const rows=tables[table]||[];
-      // ✅ جدول فاضي → تجاهل بدون error
+      console.log(`📋 Table: ${table} — ${rows.length} rows`);
       if(!rows.length){
+        console.log(`⏭️  Skipping ${table} (empty)`);
         if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي</div>`;
         continue;
       }
 
+      console.log(`⏳ Processing ${table} (${rows.length} rows) in batches of ${batchSize}`);
       if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${mode==='overwrite'?'إدراج':'إضافة'} ${table} (${rows.length} سجل)...</div>`;
 
-      // ✅ Insert/Upsert في batches
       for(let i=0;i<rows.length;i+=batchSize){
         const batch=rows.slice(i,i+batchSize);
         const percent=Math.round(((i+batch.length)/rows.length)*100);
-        
-        // ✅ Progress يظهر مع كل batch، ما في النهاية بس
-        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${table} — ${percent}% (${i+batch.length}/${rows.length})</div>`;
+        console.log(`  📦 Batch ${i}/${rows.length} (${percent}%) — ${batch.length} rows`);
 
         if(mode==='append'){
-          // upsert: يضيف الجديد، يتجاهل الـ conflict على id
+          // upsert: يضيف الجديد، يتجاهل الـ conflict على id بدون error
           const{error:upsErr}=await sb.from(table).upsert(batch,{
             onConflict:'id',
             ignoreDuplicates:true
           });
           if(upsErr){
-            console.error(`⚠️ Upsert error ${table} batch ${i}:`,upsErr.message,upsErr.code);
-            // ✅ إذا upsert حرج → نوقف فوراً
-            if(isCriticalError(upsErr)){
-              throw new Error(`❌ CRITICAL UPSERT: ${table} batch ${i} — ${upsErr.message}`);
-            }
-            // بدونه فقط log
+            console.error(`Upsert error ${table}:`,upsErr.message);
             errorLog.push(`${table} batch ${i}: ${upsErr.message}`);
             errors++;
           } else {
@@ -7031,12 +7024,7 @@ async function doRestore(input){
           // overwrite insert — بعد الحذف، ما فيه conflict
           const{error:insErr}=await sb.from(table).insert(batch);
           if(insErr){
-            console.error(`⚠️ Insert error ${table} batch ${i}:`,insErr.message,insErr.code);
-            // ✅ إذا insert حرج → نوقف فوراً
-            if(isCriticalError(insErr)){
-              throw new Error(`❌ CRITICAL INSERT: ${table} batch ${i} — ${insErr.message}`);
-            }
-            // بدونه فقط log
+            console.error(`Insert error ${table}:`,insErr.message);
             errorLog.push(`${table} batch ${i}: ${insErr.message}`);
             errors++;
           } else {
@@ -7049,6 +7037,7 @@ async function doRestore(input){
     clearCache();
 
     const modeLabel=mode==='overwrite'?'Overwrite':'Append';
+    console.log(`✅ RESTORE COMPLETE — Mode: ${modeLabel}, Restored: ${restored}, Errors: ${errors}`);
     const msg=errors>0
       ?`${modeLabel}: ${restored} سجل — ${errors} خطأ`
       :`${modeLabel}: ${restored} سجل تمت استعادتهم بنجاح`;
@@ -7069,19 +7058,8 @@ async function doRestore(input){
     setTimeout(()=>showPage('dashboard'),1500);
 
   }catch(e){
-    const isCritical=e.message.includes('CRITICAL');
-    const errorMsg=isCritical
-      ?`⛔ استعادة متوقفة — مشكلة حرجة: ${e.message.replace('❌ CRITICAL ','')}`
-      :`خطأ في الـ Restore: ${e.message}`;
-    
-    if(progress)progress.innerHTML=`<div style="background:${isCritical?'#fee2e2':'var(--red-light)'};border:1px solid ${isCritical?'#fca5a5':'var(--row-profit-low-border)'};border-radius:8px;padding:10px 14px;font-size:12px;color:${isCritical?'#dc2626':'var(--red)'}">
-      <b>${isCritical?'⛔ CRITICAL FAILURE':'❌ خطأ'}</b><br>
-      <span style="font-size:11px;margin-top:6px;display:block;line-height:1.4">${errorMsg}</span>
-      <span style="font-size:10px;color:var(--text3);margin-top:4px;display:block">البيانات الحالية لم تُمس — يمكنك إعادة المحاولة</span>
-    </div>`;
-    
-    showToast(errorMsg, isCritical?'error':'error');
-    console.error('🛑 Restore Failed:', e.message);
+    if(progress)progress.innerHTML=`<div style="background:var(--red-light);border:1px solid var(--row-profit-low-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red)">❌ خطأ: ${e.message}</div>`;
+    showToast('خطأ في الـ Restore: '+e.message,'error');
   }
 }
 window.doRestore = doRestore;
