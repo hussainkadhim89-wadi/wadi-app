@@ -6957,7 +6957,15 @@ async function doRestore(input){
 
   let restored=0, skipped=0, errors=0;
   const errorLog=[];
-  const batchSize=500;
+  const batchSize=100; // ✅ ثابت محسّن — تجنب timeouts
+
+  // ✅ دالة للتحقق من خطورة الخطأ
+  function isCriticalError(err){
+    if(!err)return false;
+    const msg=(err.message||'').toLowerCase();
+    const code=(err.code||'').toLowerCase();
+    return msg.includes('quota')||msg.includes('permission')||msg.includes('authentication')||msg.includes('unauthorized')||code.includes('pgrst')||code.includes('auth');
+  }
 
   try{
     // ── Overwrite: احذف بترتيب عكسي (children أولاً) ──
@@ -6966,38 +6974,54 @@ async function doRestore(input){
       for(const table of DELETE_ORDER){
         const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
         if(delErr){
-          console.error(`Delete error ${table}:`,delErr.message);
+          console.error(`❌ Delete error ${table}:`,delErr.message,delErr.code);
+          // ✅ إذا حذف حرج → نوقف فوراً
+          if(isCriticalError(delErr)){
+            throw new Error(`❌ CRITICAL DELETE: ${table} — ${delErr.message}`);
+          }
+          // بدونه فقط warning
           errorLog.push(`حذف ${table}: ${delErr.message}`);
           errors++;
         }
       }
       if(errors>0){
-        showToast(`تحذير: ${errors} خطأ في الحذف — راجع الـ console`,'warning');
-        errors=0; // reset — نكمل الإدراج
+        showToast(`⚠️ ${errors} خطأ في الحذف — لكن نكمل...`,'warning');
+        errors=0; // reset
       }
     }
 
     // ── Insert/Upsert بترتيب RESTORE_ORDER (parents أولاً) ──
     for(const table of RESTORE_ORDER){
       const rows=tables[table]||[];
+      // ✅ جدول فاضي → تجاهل بدون error
       if(!rows.length){
-        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي...</div>`;
+        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي</div>`;
         continue;
       }
 
       if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${mode==='overwrite'?'إدراج':'إضافة'} ${table} (${rows.length} سجل)...</div>`;
 
+      // ✅ Insert/Upsert في batches
       for(let i=0;i<rows.length;i+=batchSize){
         const batch=rows.slice(i,i+batchSize);
+        const percent=Math.round(((i+batch.length)/rows.length)*100);
+        
+        // ✅ Progress يظهر مع كل batch، ما في النهاية بس
+        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${table} — ${percent}% (${i+batch.length}/${rows.length})</div>`;
 
         if(mode==='append'){
-          // upsert: يضيف الجديد، يتجاهل الـ conflict على id بدون error
+          // upsert: يضيف الجديد، يتجاهل الـ conflict على id
           const{error:upsErr}=await sb.from(table).upsert(batch,{
             onConflict:'id',
             ignoreDuplicates:true
           });
           if(upsErr){
-            console.error(`Upsert error ${table}:`,upsErr.message);
+            console.error(`⚠️ Upsert error ${table} batch ${i}:`,upsErr.message,upsErr.code);
+            // ✅ إذا upsert حرج → نوقف فوراً
+            if(isCriticalError(upsErr)){
+              throw new Error(`❌ CRITICAL UPSERT: ${table} batch ${i} — ${upsErr.message}`);
+            }
+            // بدونه فقط log
             errorLog.push(`${table} batch ${i}: ${upsErr.message}`);
             errors++;
           } else {
@@ -7007,7 +7031,12 @@ async function doRestore(input){
           // overwrite insert — بعد الحذف، ما فيه conflict
           const{error:insErr}=await sb.from(table).insert(batch);
           if(insErr){
-            console.error(`Insert error ${table}:`,insErr.message);
+            console.error(`⚠️ Insert error ${table} batch ${i}:`,insErr.message,insErr.code);
+            // ✅ إذا insert حرج → نوقف فوراً
+            if(isCriticalError(insErr)){
+              throw new Error(`❌ CRITICAL INSERT: ${table} batch ${i} — ${insErr.message}`);
+            }
+            // بدونه فقط log
             errorLog.push(`${table} batch ${i}: ${insErr.message}`);
             errors++;
           } else {
