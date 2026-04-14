@@ -7,8 +7,8 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.55</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>وادي الطاقة — v44.56</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=44.56"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -2082,10 +2082,22 @@ input:focus,select:focus,textarea:focus{
 </div>
 
 <script>
-const sb = supabase.createClient(
-  'https://lakokpqtksrpiillbuzb.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
-);
+// [Guard] ينتظر Supabase CDN قبل createClient
+function _initSupabase(){
+  if(typeof supabase === 'undefined'){
+    document.getElementById('login-screen').innerHTML += '<div id="sb-wait" style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:center">جاري تحميل المكتبات...</div>';
+    setTimeout(()=>{
+      document.getElementById('sb-wait')?.remove();
+      _initSupabase();
+    }, 800);
+    return;
+  }
+  window.sb = supabase.createClient(
+    'https://lakokpqtksrpiillbuzb.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
+  );
+}
+_initSupabase();
 
 let currentUser = null;
 let currentRole = 'viewer'; // [fallback] دايماً viewer حتى يتأكد من DB
@@ -5876,7 +5888,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.55';
+const APP_VERSION = 'v44.56';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
@@ -6635,16 +6647,17 @@ document.addEventListener('keydown',e=>{
 });
 document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
-// ── تأكيد تحميل Supabase + تشغيل النظام ──────────────────
-if(typeof supabase === 'undefined'){
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>⚠️ خطأ في التحميل</h2><p>يرجى تحديث الصفحة أو التحقق من الاتصال بالإنترنت</p><button onclick="location.reload()" style="padding:12px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:16px">تحديث الصفحة</button></div>';
-  });
-} else {
-  checkForUpdates();
-  _initNavGroups();
-  initAuth();
-}
+// ── تشغيل النظام بعد تحميل Supabase ─────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  const _waitSb = setInterval(()=>{
+    if(window.sb){
+      clearInterval(_waitSb);
+      checkForUpdates();
+      _initNavGroups();
+      initAuth();
+    }
+  }, 100);
+});
 
 // ── Role Sync عند العودة للتبويب ──────────────────────────
 // [1] debounce: لا يكرر fetch أكثر من مرة كل 30 ثانية
@@ -9882,36 +9895,5 @@ window.NotifEngine = (() => {
   return { refresh, markAllSeen, getAll, reset, startInterval, stopInterval, updateBell:_updateBell };
 
 })();
-  async function doLogin() {
-  try {
-    const email = document.querySelector('input[type="email"]').value;
-    const password = document.querySelector('input[type="password"]').value;
-
-    if (!email || !password) {
-      alert('ادخل الايميل والباسورد');
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      alert('فشل تسجيل الدخول: ' + error.message);
-      return;
-    }
-
-    location.reload();
-  } catch (e) {
-    console.error(e);
-    alert('خطأ غير متوقع');
-  }
-}
-
-window.doLogin = doLogin;
-  </script>
-</body>
-</html>
 // ============================================================
 
