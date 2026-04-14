@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.64</title>
+<title>وادي الطاقة — v44.65</title>
 
 <script>
 /**
@@ -1850,10 +1850,10 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.64 · Supabase Auth</div>
+    <div class="login-sub">نظام الإدارة المالية · v44.65 · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
-    <button class="btn-login" onclick="(window.doLogin||function(){alert('جاري التحميل...')})()">دخول ←</button>
+    <button class="btn-login" onclick="doLogin()">دخول ←</button>
     <div class="login-err" id="login-err"></div>
   </div>
 </div>
@@ -5902,7 +5902,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.64';
+const APP_VERSION = 'v44.65';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
