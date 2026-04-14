@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.65</title>
+<title>وادي الطاقة — v44.66</title>
 
 <script>
 /**
@@ -1850,7 +1850,7 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.65 · Supabase Auth</div>
+    <div class="login-sub">نظام الإدارة المالية · v44.66 · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
     <button class="btn-login" onclick="doLogin()">دخول ←</button>
@@ -5902,7 +5902,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.65';
+const APP_VERSION = 'v44.66';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
@@ -6854,57 +6854,119 @@ window.doBackup = doBackup;  // ← window تثبيت
 async function doRestore(input){
   const file=input.files[0];
   if(!file)return;
-  input.value=''; // reset
+  input.value='';
 
-  // تأكيد مزدوج
-  const ok=await confirmDelete('⚠️ هذا سيحذف كل البيانات الحالية ويستبدلها بالملف المختار. هل أنت متأكد؟');
-  if(!ok)return;
+  // ── Step 1: قراءة وتحقق من الملف أولاً ──
+  let backup;
+  try{
+    const text=await file.text();
+    backup=JSON.parse(text);
+  }catch(e){
+    showToast('الملف غير صالح — تعذّر قراءة JSON','error');
+    return;
+  }
 
-  const ok2=await new Promise(resolve=>{
-    openModal('🔴 تأكيد نهائي',
-      `<div style="text-align:center;padding:16px 0">
-        <div style="font-size:40px;margin-bottom:12px">🔴</div>
-        <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:8px">هذا الإجراء لا يمكن التراجع عنه</div>
-        <div style="font-size:13px;color:var(--text3)">سيتم حذف كل البيانات الحالية واستبدالها بملف الـ Backup</div>
-        <div style="margin-top:12px;background:var(--red-light);padding:10px;border-radius:8px;font-size:12px;color:#991b1b;font-weight:600">الملف: ${file.name}</div>
+  if(!backup.version?.startsWith('wadi-backup')){
+    showToast('الملف غير صالح — ليس ملف Backup من وادي الطاقة','error');
+    return;
+  }
+
+  // ── Step 2: إحصائيات الملف ──
+  const tables=backup.tables||{};
+  const totalRows=Object.values(tables).reduce((s,d)=>s+(Array.isArray(d)?d.length:0),0);
+  const tableStats=BACKUP_TABLES.map(t=>`<tr><td style="padding:3px 8px;color:var(--text2)">${t}</td><td style="padding:3px 8px;text-align:center;font-weight:600">${(tables[t]||[]).length}</td></tr>`).join('');
+
+  // ── Step 3: modal اختيار Overwrite أو Append ──
+  const mode=await new Promise(resolve=>{
+    openModal('↩️ استعادة نسخة احتياطية',
+      `<div style="font-size:13px">
+        <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+          <div style="font-weight:700;margin-bottom:6px;color:var(--text)">📁 معلومات الملف</div>
+          <div style="color:var(--text3);font-size:12px;line-height:1.8">
+            <b>الملف:</b> ${file.name}<br>
+            <b>تاريخ النسخة:</b> ${backup.exported_at?new Date(backup.exported_at).toLocaleString('ar-IQ'):'—'}<br>
+            <b>الإصدار:</b> ${backup.app_version||'—'}<br>
+            <b>إجمالي السجلات:</b> ${totalRows} سجل
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;background:var(--bg3);border-radius:8px;overflow:hidden">
+          <tr style="background:var(--bg4)"><th style="padding:5px 8px;text-align:right">الجدول</th><th style="padding:5px 8px">عدد السجلات</th></tr>
+          ${tableStats}
+        </table>
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">اختر طريقة الاستعادة:</div>
+        <div style="display:grid;gap:8px">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;transition:.2s" id="lbl-overwrite">
+            <input type="radio" name="restore-mode" value="overwrite" checked style="margin-top:2px" onchange="document.getElementById('lbl-overwrite').style.borderColor='var(--red)';document.getElementById('lbl-append').style.borderColor='var(--border)'">
+            <div>
+              <div style="font-weight:700;color:var(--red)">🔴 Overwrite — استبدال كامل</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">يحذف كل البيانات الحالية ويستبدلها بالملف. لا يمكن التراجع.</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;transition:.2s" id="lbl-append">
+            <input type="radio" name="restore-mode" value="append" style="margin-top:2px" onchange="document.getElementById('lbl-append').style.borderColor='var(--accent)';document.getElementById('lbl-overwrite').style.borderColor='var(--border)'">
+            <div>
+              <div style="font-weight:700;color:var(--accent)">🔵 Append — إضافة فقط</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">يضيف السجلات الجديدة فقط — السجلات الموجودة تبقى. آمن أكثر.</div>
+            </div>
+          </label>
+        </div>
       </div>`,
-      `<button class="btn btn-secondary" onclick="closeModal();window._restoreResolve(false)">إلغاء</button>
-       <button class="btn btn-danger" onclick="closeModal();window._restoreResolve(true)">🔴 متابعة الاستعادة</button>`
+      `<button class="btn btn-secondary" onclick="closeModal();window._restoreResolve(null)">إلغاء</button>
+       <button class="btn btn-primary" onclick="closeModal();window._restoreResolve(document.querySelector('input[name=restore-mode]:checked')?.value||'overwrite')">متابعة ←</button>`
     );
     window._restoreResolve=resolve;
   });
-  if(!ok2)return;
+  if(!mode)return;
 
+  // ── Step 4: تأكيد نهائي (خصوصاً للـ Overwrite) ──
+  if(mode==='overwrite'){
+    const confirmed=await new Promise(resolve=>{
+      openModal('🔴 تأكيد نهائي — Overwrite',
+        `<div style="text-align:center;padding:12px 0">
+          <div style="font-size:44px;margin-bottom:10px">⚠️</div>
+          <div style="font-weight:700;color:var(--red);font-size:15px;margin-bottom:8px">هذا الإجراء لا يمكن التراجع عنه!</div>
+          <div style="font-size:13px;color:var(--text3);line-height:1.7">سيتم <b>حذف كل البيانات الحالية</b><br>واستبدالها بـ <b>${totalRows} سجل</b> من ملف الـ Backup</div>
+        </div>`,
+        `<button class="btn btn-secondary" onclick="closeModal();window._restoreResolve2(false)">إلغاء</button>
+         <button class="btn btn-danger" onclick="closeModal();window._restoreResolve2(true)">🔴 نعم، احذف واستبدل</button>`
+      );
+      window._restoreResolve2=resolve;
+    });
+    if(!confirmed)return;
+  }
+
+  // ── Step 5: تنفيذ الاستعادة ──
   const progress=document.getElementById('backup-progress');
   if(progress){progress.style.display='block';}
 
+  let restored=0, skipped=0, errors=0;
+
   try{
-    // قراءة الملف
-    const text=await file.text();
-    const backup=JSON.parse(text);
-
-    if(!backup.version?.startsWith('wadi-backup')){
-      showToast('الملف غير صالح — ليس ملف Backup من وادي الطاقة','error');
-      return;
-    }
-
-    const tables=backup.tables||{};
-    let restored=0,errors=0;
-
     for(const table of BACKUP_TABLES){
       const rows=tables[table]||[];
-      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">جاري استعادة ${table} (${rows.length} سجل)...</div>`;
+      if(!rows.length){
+        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي...</div>`;
+        continue;
+      }
 
-      // حذف البيانات الحالية
-      const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
-      if(delErr){console.error(`Delete error ${table}:`,delErr.message);errors++;continue;}
+      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${mode==='overwrite'?'حذف وإدراج':'إضافة'} ${table} (${rows.length} سجل)...</div>`;
 
-      // إدراج البيانات الجديدة
-      if(rows.length>0){
-        // نقسم على batches لو أكثر من 500
-        const batchSize=500;
-        for(let i=0;i<rows.length;i+=batchSize){
-          const batch=rows.slice(i,i+batchSize);
+      if(mode==='overwrite'){
+        // حذف الحالي أولاً
+        const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
+        if(delErr){console.error(`Delete error ${table}:`,delErr.message);errors++;continue;}
+      }
+
+      // إدراج بـ batches
+      const batchSize=500;
+      for(let i=0;i<rows.length;i+=batchSize){
+        const batch=rows.slice(i,i+batchSize);
+        if(mode==='append'){
+          // upsert — يضيف الجديد ويتجاهل الموجود
+          const{error:upsErr,data}=await sb.from(table).upsert(batch,{onConflict:'id',ignoreDuplicates:true});
+          if(upsErr){console.error(`Upsert error ${table}:`,upsErr.message);errors++;}
+          else restored+=batch.length;
+        }else{
           const{error:insErr}=await sb.from(table).insert(batch);
           if(insErr){console.error(`Insert error ${table}:`,insErr.message);errors++;}
           else restored+=batch.length;
@@ -6913,19 +6975,27 @@ async function doRestore(input){
     }
 
     clearCache();
-    const msg=errors>0?`تم الاستعادة مع ${errors} خطأ`:'تمت الاستعادة بنجاح';
-    if(progress)progress.innerHTML=`<div style="background:${errors?'#fffbeb':'var(--green-light)'};border:1px solid ${errors?'#fde68a':'#a7f3d0'};border-radius:8px;padding:10px 14px;font-size:12px;color:${errors?'#92400e':'#065f46'}"><b>${errors?'⚠️':'✅'} ${msg}</b><br>${restored} سجل تم استعادته من ${BACKUP_TABLES.length} جداول</div>`;
-    showToast(msg, errors?'warning':'success');
-    auditLog('backup_restore','system','all',{ restored, errors, tables:BACKUP_TABLES.length });
-    addNotif('↩️','تم استعادة النسخة الاحتياطية','info');
+
+    const modeLabel=mode==='overwrite'?'Overwrite':'Append';
+    const msg=errors>0?`${modeLabel}: ${restored} سجل مع ${errors} خطأ`:`${modeLabel}: ${restored} سجل تمت استعادتهم`;
+    const isOk=errors===0;
+
+    if(progress)progress.innerHTML=`<div style="background:${isOk?'var(--green-light)':'#fffbeb'};border:1px solid ${isOk?'#a7f3d0':'#fde68a'};border-radius:8px;padding:10px 14px;font-size:12px;color:${isOk?'#065f46':'#92400e'}">
+      <b>${isOk?'✅':'⚠️'} ${msg}</b><br>
+      الوضع: ${modeLabel} · ${BACKUP_TABLES.length} جداول
+    </div>`;
+
+    showToast(msg, isOk?'success':'warning');
+    auditLog('backup_restore','system','all',{mode, restored, errors, tables:BACKUP_TABLES.length});
+    addNotif('↩️',`تم استعادة النسخة الاحتياطية (${modeLabel})`,'info');
     setTimeout(()=>showPage('dashboard'),1500);
 
   }catch(e){
-    if(progress)progress.innerHTML=`<div style="background:var(--red-light);border:1px solid var(--row-profit-low-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red)">❌ خطأ في القراءة: ${e.message}</div>`;
+    if(progress)progress.innerHTML=`<div style="background:var(--red-light);border:1px solid var(--row-profit-low-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red)">❌ خطأ: ${e.message}</div>`;
     showToast('خطأ في الـ Restore: '+e.message,'error');
   }
 }
-window.doRestore = doRestore;  // ← window تثبيت
+window.doRestore = doRestore;
 
 
 // ══════════════════════════════════════════
