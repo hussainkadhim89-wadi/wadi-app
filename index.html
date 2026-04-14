@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.58</title>
+<title>وادي الطاقة — v44.59</title>
 <!-- Early script: doLogin متاحة فوراً حتى قبل Supabase CDN -->
 <script>
 function doLogin(){
@@ -42,6 +42,13 @@ function doLogin(){
   });
 }
 window.doLogin=doLogin;
+</script>
+<script>
+// ✅ window.sb هنا — مباشرة بعد Supabase inline، قبل أي كود آخر
+window.sb = supabase.createClient(
+  'https://lakokpqtksrpiillbuzb.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
+);
 </script>
 <script>
 /**
@@ -2126,15 +2133,6 @@ input:focus,select:focus,textarea:focus{
 </div>
 
 <script>
-// Supabase inline — يُنفَّذ قبل هذا السكربت مباشرة
-// createClient يكون جاهزاً هنا دائماً
-window.sb = (typeof supabase !== 'undefined')
-  ? supabase.createClient(
-      'https://lakokpqtksrpiillbuzb.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
-    )
-  : null;
-
 let currentUser = null;
 let currentRole = 'viewer'; // [fallback] دايماً viewer حتى يتأكد من DB
 const PS = 25;
@@ -5924,7 +5922,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.58';
+const APP_VERSION = 'v44.59';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
