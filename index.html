@@ -2126,22 +2126,14 @@ input:focus,select:focus,textarea:focus{
 </div>
 
 <script>
-// [Guard] ينتظر Supabase CDN قبل createClient
-function _initSupabase(){
-  if(typeof supabase === 'undefined'){
-    document.getElementById('login-screen').innerHTML += '<div id="sb-wait" style="font-size:11px;color:#94a3b8;margin-top:8px;text-align:center">جاري تحميل المكتبات...</div>';
-    setTimeout(()=>{
-      document.getElementById('sb-wait')?.remove();
-      _initSupabase();
-    }, 800);
-    return;
-  }
-  window.sb = supabase.createClient(
-    'https://lakokpqtksrpiillbuzb.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
-  );
-}
-_initSupabase();
+// Supabase inline — يُنفَّذ قبل هذا السكربت مباشرة
+// createClient يكون جاهزاً هنا دائماً
+window.sb = (typeof supabase !== 'undefined')
+  ? supabase.createClient(
+      'https://lakokpqtksrpiillbuzb.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
+    )
+  : null;
 
 let currentUser = null;
 let currentRole = 'viewer'; // [fallback] دايماً viewer حتى يتأكد من DB
@@ -6691,16 +6683,16 @@ document.addEventListener('keydown',e=>{
 });
 document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
-// ── تشغيل النظام بعد تحميل Supabase ─────────────────────
+// ── تشغيل النظام ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', ()=>{
-  const _waitSb = setInterval(()=>{
-    if(window.sb){
-      clearInterval(_waitSb);
-      checkForUpdates();
-      _initNavGroups();
-      initAuth();
-    }
-  }, 100);
+  if(!window.sb){
+    // sb = null يعني Supabase ما اتحمّل — حالة نادرة جداً مع inline
+    document.querySelector('.login-sub').textContent = '⚠️ خطأ في التحميل — يرجى تحديث الصفحة';
+    return;
+  }
+  checkForUpdates();
+  _initNavGroups();
+  initAuth();
 });
 
 // ── Role Sync عند العودة للتبويب ──────────────────────────
