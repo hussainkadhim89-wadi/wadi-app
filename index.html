@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.67</title>
+<title>وادي الطاقة — v44.68</title>
 
 <script>
 /**
@@ -7069,8 +7069,19 @@ async function doRestore(input){
     setTimeout(()=>showPage('dashboard'),1500);
 
   }catch(e){
-    if(progress)progress.innerHTML=`<div style="background:var(--red-light);border:1px solid var(--row-profit-low-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red)">❌ خطأ: ${e.message}</div>`;
-    showToast('خطأ في الـ Restore: '+e.message,'error');
+    const isCritical=e.message.includes('CRITICAL');
+    const errorMsg=isCritical
+      ?`⛔ استعادة متوقفة — مشكلة حرجة: ${e.message.replace('❌ CRITICAL ','')}`
+      :`خطأ في الـ Restore: ${e.message}`;
+    
+    if(progress)progress.innerHTML=`<div style="background:${isCritical?'#fee2e2':'var(--red-light)'};border:1px solid ${isCritical?'#fca5a5':'var(--row-profit-low-border)'};border-radius:8px;padding:10px 14px;font-size:12px;color:${isCritical?'#dc2626':'var(--red)'}">
+      <b>${isCritical?'⛔ CRITICAL FAILURE':'❌ خطأ'}</b><br>
+      <span style="font-size:11px;margin-top:6px;display:block;line-height:1.4">${errorMsg}</span>
+      <span style="font-size:10px;color:var(--text3);margin-top:4px;display:block">البيانات الحالية لم تُمس — يمكنك إعادة المحاولة</span>
+    </div>`;
+    
+    showToast(errorMsg, isCritical?'error':'error');
+    console.error('🛑 Restore Failed:', e.message);
   }
 }
 window.doRestore = doRestore;
