@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.66</title>
+<title>وادي الطاقة — v44.67</title>
 
 <script>
 /**
@@ -1850,7 +1850,7 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.66 · Supabase Auth</div>
+    <div class="login-sub">نظام الإدارة المالية · v44.67 · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
     <button class="btn-login" onclick="doLogin()">دخول ←</button>
@@ -5902,7 +5902,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.66';
+const APP_VERSION = 'v44.67';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
@@ -6793,12 +6793,28 @@ function calcSimpleMargin(){
 }
 
 // ══════════════════════════════════════════
-// 💾 BACKUP & RESTORE SYSTEM (v44.55)
+// 💾 BACKUP & RESTORE SYSTEM (v44.67)
 // ══════════════════════════════════════════
 const BACKUP_TABLES=[
   'clients','invoices','invoice_lines','receivables','payments',
   'expenses','withdrawals','capital_movements','client_credits'
 ];
+
+// ترتيب Restore — parents قبل children (يحترم الـ foreign keys)
+const RESTORE_ORDER=[
+  'clients',
+  'invoices',
+  'invoice_lines',
+  'payments',
+  'receivables',
+  'expenses',
+  'withdrawals',
+  'capital_movements',
+  'client_credits'
+];
+
+// ترتيب الحذف عند Overwrite — عكس Restore (children قبل parents)
+const DELETE_ORDER=[...RESTORE_ORDER].reverse();
 
 async function doBackup(btn){
   // [Guard] admin فقط
@@ -6940,36 +6956,63 @@ async function doRestore(input){
   if(progress){progress.style.display='block';}
 
   let restored=0, skipped=0, errors=0;
+  const errorLog=[];
+  const batchSize=500;
 
   try{
-    for(const table of BACKUP_TABLES){
+    // ── Overwrite: احذف بترتيب عكسي (children أولاً) ──
+    if(mode==='overwrite'){
+      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">🗑️ جاري حذف البيانات الحالية...</div>`;
+      for(const table of DELETE_ORDER){
+        const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
+        if(delErr){
+          console.error(`Delete error ${table}:`,delErr.message);
+          errorLog.push(`حذف ${table}: ${delErr.message}`);
+          errors++;
+        }
+      }
+      if(errors>0){
+        showToast(`تحذير: ${errors} خطأ في الحذف — راجع الـ console`,'warning');
+        errors=0; // reset — نكمل الإدراج
+      }
+    }
+
+    // ── Insert/Upsert بترتيب RESTORE_ORDER (parents أولاً) ──
+    for(const table of RESTORE_ORDER){
       const rows=tables[table]||[];
       if(!rows.length){
         if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي...</div>`;
         continue;
       }
 
-      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${mode==='overwrite'?'حذف وإدراج':'إضافة'} ${table} (${rows.length} سجل)...</div>`;
+      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${mode==='overwrite'?'إدراج':'إضافة'} ${table} (${rows.length} سجل)...</div>`;
 
-      if(mode==='overwrite'){
-        // حذف الحالي أولاً
-        const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
-        if(delErr){console.error(`Delete error ${table}:`,delErr.message);errors++;continue;}
-      }
-
-      // إدراج بـ batches
-      const batchSize=500;
       for(let i=0;i<rows.length;i+=batchSize){
         const batch=rows.slice(i,i+batchSize);
+
         if(mode==='append'){
-          // upsert — يضيف الجديد ويتجاهل الموجود
-          const{error:upsErr,data}=await sb.from(table).upsert(batch,{onConflict:'id',ignoreDuplicates:true});
-          if(upsErr){console.error(`Upsert error ${table}:`,upsErr.message);errors++;}
-          else restored+=batch.length;
+          // upsert: يضيف الجديد، يتجاهل الـ conflict على id بدون error
+          const{error:upsErr}=await sb.from(table).upsert(batch,{
+            onConflict:'id',
+            ignoreDuplicates:true
+          });
+          if(upsErr){
+            console.error(`Upsert error ${table}:`,upsErr.message);
+            errorLog.push(`${table} batch ${i}: ${upsErr.message}`);
+            errors++;
+          } else {
+            restored+=batch.length;
+          }
         }else{
+          // overwrite insert — بعد الحذف، ما فيه conflict
           const{error:insErr}=await sb.from(table).insert(batch);
-          if(insErr){console.error(`Insert error ${table}:`,insErr.message);errors++;}
-          else restored+=batch.length;
+          if(insErr){
+            console.error(`Insert error ${table}:`,insErr.message);
+            errorLog.push(`${table} batch ${i}: ${insErr.message}`);
+            errors++;
+          } else {
+            restored+=batch.length;
+          }
         }
       }
     }
@@ -6977,16 +7020,22 @@ async function doRestore(input){
     clearCache();
 
     const modeLabel=mode==='overwrite'?'Overwrite':'Append';
-    const msg=errors>0?`${modeLabel}: ${restored} سجل مع ${errors} خطأ`:`${modeLabel}: ${restored} سجل تمت استعادتهم`;
+    const msg=errors>0
+      ?`${modeLabel}: ${restored} سجل — ${errors} خطأ`
+      :`${modeLabel}: ${restored} سجل تمت استعادتهم بنجاح`;
     const isOk=errors===0;
+    const errDetails=errorLog.length>0
+      ?`<div style="margin-top:6px;font-size:11px;color:#92400e;max-height:80px;overflow-y:auto">${errorLog.slice(0,5).map(e=>`• ${e}`).join('<br>')}${errorLog.length>5?`<br>... و${errorLog.length-5} أخرى`:''}</div>`
+      :'';
 
     if(progress)progress.innerHTML=`<div style="background:${isOk?'var(--green-light)':'#fffbeb'};border:1px solid ${isOk?'#a7f3d0':'#fde68a'};border-radius:8px;padding:10px 14px;font-size:12px;color:${isOk?'#065f46':'#92400e'}">
       <b>${isOk?'✅':'⚠️'} ${msg}</b><br>
-      الوضع: ${modeLabel} · ${BACKUP_TABLES.length} جداول
+      <span style="color:var(--text3)">الوضع: ${modeLabel} · ${RESTORE_ORDER.length} جداول · ترتيب FK-safe</span>
+      ${errDetails}
     </div>`;
 
     showToast(msg, isOk?'success':'warning');
-    auditLog('backup_restore','system','all',{mode, restored, errors, tables:BACKUP_TABLES.length});
+    auditLog('backup_restore','system','all',{mode, restored, errors, tables:RESTORE_ORDER.length, errorLog});
     addNotif('↩️',`تم استعادة النسخة الاحتياطية (${modeLabel})`,'info');
     setTimeout(()=>showPage('dashboard'),1500);
 
