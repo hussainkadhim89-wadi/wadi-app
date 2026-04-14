@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<title>وادي الطاقة — v44.68</title>
+<title>وادي الطاقة — v44.67</title>
 
 <script>
 /**
@@ -1850,7 +1850,7 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.68 · Supabase Auth</div>
+    <div class="login-sub">نظام الإدارة المالية · v44.67 · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
     <button class="btn-login" onclick="doLogin()">دخول ←</button>
@@ -5902,7 +5902,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 // ── UPDATE NOTIFICATION ──
 // [1] النسخة الرسمية — تتغير مع كل تحديث
-const APP_VERSION = 'v44.68';
+const APP_VERSION = 'v44.67';
 const VERSION_KEY = 'wadi_app_version';
 
 // [2] Optional Update System — يشتغل فور تحميل الصفحة
@@ -6793,7 +6793,7 @@ function calcSimpleMargin(){
 }
 
 // ══════════════════════════════════════════
-// 💾 BACKUP & RESTORE SYSTEM (v44.68)
+// 💾 BACKUP & RESTORE SYSTEM (v44.67)
 // ══════════════════════════════════════════
 const BACKUP_TABLES=[
   'clients','invoices','invoice_lines','receivables','payments',
@@ -6868,10 +6868,8 @@ async function doBackup(btn){
 window.doBackup = doBackup;  // ← window تثبيت
 
 async function doRestore(input){
-  console.log('🔧 doRestore called with:', input);
   const file=input.files[0];
-  console.log('📄 File selected:', file?.name, file?.size, 'bytes');
-  if(!file){console.log('❌ No file, returning');return;}
+  if(!file)return;
   input.value='';
 
   // ── Step 1: قراءة وتحقق من الملف أولاً ──
@@ -6896,7 +6894,6 @@ async function doRestore(input){
 
   // ── Step 3: modal اختيار Overwrite أو Append ──
   const mode=await new Promise(resolve=>{
-    console.log('📋 Opening mode selection modal (Overwrite/Append)');
     openModal('↩️ استعادة نسخة احتياطية',
       `<div style="font-size:13px">
         <div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-bottom:14px">
@@ -6935,11 +6932,7 @@ async function doRestore(input){
     );
     window._restoreResolve=resolve;
   });
-  if(!mode){console.log('❌ Mode not selected, aborting');return;}
-  console.log('✅ Mode selected:', mode);
-
-  // ── Restore Phase Starting ──
-  console.log('🚀 Starting restore with mode:', mode, 'Total rows:', totalRows);
+  if(!mode)return;
 
   // ── Step 4: تأكيد نهائي (خصوصاً للـ Overwrite) ──
   if(mode==='overwrite'){
@@ -6960,16 +6953,11 @@ async function doRestore(input){
 
   // ── Step 5: تنفيذ الاستعادة ──
   const progress=document.getElementById('backup-progress');
-  console.log('📊 Progress element found:', progress ? '✅ yes' : '❌ NO');
-  if(progress){progress.style.display='block'; console.log('✅ Progress element shown');}
-  else{console.warn('⚠️ Progress element not found!');
-  }
+  if(progress){progress.style.display='block';}
 
   let restored=0, skipped=0, errors=0;
   const errorLog=[];
-  const batchSize=100;  // ✅ تصحيح: 500 → 100
-  
-  console.log('⏳ Starting restore process — batchSize:', batchSize);
+  const batchSize=500;
 
   try{
     // ── Overwrite: احذف بترتيب عكسي (children أولاً) ──
@@ -6992,20 +6980,15 @@ async function doRestore(input){
     // ── Insert/Upsert بترتيب RESTORE_ORDER (parents أولاً) ──
     for(const table of RESTORE_ORDER){
       const rows=tables[table]||[];
-      console.log(`📋 Table: ${table} — ${rows.length} rows`);
       if(!rows.length){
-        console.log(`⏭️  Skipping ${table} (empty)`);
-        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي</div>`;
+        if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏭️ ${table} — فارغ، تخطّي...</div>`;
         continue;
       }
 
-      console.log(`⏳ Processing ${table} (${rows.length} rows) in batches of ${batchSize}`);
       if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">⏳ ${mode==='overwrite'?'إدراج':'إضافة'} ${table} (${rows.length} سجل)...</div>`;
 
       for(let i=0;i<rows.length;i+=batchSize){
         const batch=rows.slice(i,i+batchSize);
-        const percent=Math.round(((i+batch.length)/rows.length)*100);
-        console.log(`  📦 Batch ${i}/${rows.length} (${percent}%) — ${batch.length} rows`);
 
         if(mode==='append'){
           // upsert: يضيف الجديد، يتجاهل الـ conflict على id بدون error
@@ -7037,7 +7020,6 @@ async function doRestore(input){
     clearCache();
 
     const modeLabel=mode==='overwrite'?'Overwrite':'Append';
-    console.log(`✅ RESTORE COMPLETE — Mode: ${modeLabel}, Restored: ${restored}, Errors: ${errors}`);
     const msg=errors>0
       ?`${modeLabel}: ${restored} سجل — ${errors} خطأ`
       :`${modeLabel}: ${restored} سجل تمت استعادتهم بنجاح`;
