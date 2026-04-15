@@ -2314,25 +2314,19 @@ async function safeQuery(fn, fallback=[], timeoutMs=12000){
     const timeoutPromise=new Promise((_,reject)=>
       setTimeout(()=>reject(new Error('Query timeout بعد '+timeoutMs/1000+' ثانية')),timeoutMs)
     );
-    const t0=Date.now();
     const result=await Promise.race([fn(),timeoutPromise]);
-    console.log(`safeQuery ✅ (${Date.now()-t0}ms)`);
     if(!result)return fallback;
     const{data,error}=result;
     if(error){
       console.error('safeQuery ❌ Supabase error:',error.code, error.message, error.details, error.hint);
       return fallback;
     }
-    console.log(`safeQuery 📦 rows:`, data?.length??0);
     return data||fallback;
   }catch(e){
     console.error('safeQuery 💥 exception:',e.message);
     return fallback;
   }
 }
-
-// ── DEBUG: اختبار جدول payments لوحده ──
-
 
 // ── AUTH ──
 async function initAuth(){
@@ -5788,7 +5782,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.43';
+const APP_VERSION = 'v44.44';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
