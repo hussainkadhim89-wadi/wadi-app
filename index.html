@@ -2301,13 +2301,6 @@ function moneyCell(v,color=''){return`<td class="td-mono${color?' text-'+color:'
 // ── DATA CACHE (تقليل الطلبات المكررة) ──
 const _cache={};
 const CACHE_TTL=60000; // دقيقة وحدة
-async function cached(key, fetchFn){
-  const now=Date.now();
-  if(_cache[key]&&(now-_cache[key].ts)<CACHE_TTL)return _cache[key].data;
-  const data=await fetchFn();
-  _cache[key]={data,ts:now};
-  return data;
-}
 function clearCache(key){
   if(key)delete _cache[key];
   else Object.keys(_cache).forEach(k=>delete _cache[k]);
@@ -5795,7 +5788,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.42';
+const APP_VERSION = 'v44.43';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
