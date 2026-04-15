@@ -5502,6 +5502,7 @@ async function saveClient(existingId){
       sb.from('invoices').update({customer_name:payload.name}).eq('customer_name',oldName),
       sb.from('receivables').update({customer_name:payload.name}).eq('customer_name',oldName),
       sb.from('payments').update({customer_name:payload.name}).eq('customer_name',oldName),
+      sb.from('invoice_lines').update({customer:payload.name}).eq('customer',oldName),
     ]);
   }
 
@@ -5778,7 +5779,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.47';
+const APP_VERSION = 'v44.48';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
