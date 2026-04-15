@@ -2465,7 +2465,6 @@ async function renderDashboard(){
   setLoading('الذمم...');
   const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
   setLoading('المصروفات...');
-  const exps=await safeQuery(()=>sb.from('expenses').select('amount'));
   const wds=await safeQuery(()=>sb.from('withdrawals').select('amount,partner'));
   const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').order('date',{ascending:false}).limit(6));
   // تعريف nowKey مبكراً (مطلوب للـ BI cache)
@@ -2494,7 +2493,7 @@ async function renderDashboard(){
   const recCalc=recs.map(r=>calcPay(r));
   const totalRem=recCalc.reduce((s,r)=>s+r.rem,0);
   const overdue=recs.filter((r,i)=>recCalc[i].rem>0&&r.due_date&&new Date(r.due_date)<new Date()).length;
-  const totalExp=exps.reduce((s,e)=>s+(+e.amount||0),0);
+  const totalExp=biExpsBI.reduce((s,e)=>s+(+e.amount||0),0);
   const totalWd=wds.reduce((s,w)=>s+(+w.amount||0),0);
   const active=invs.filter(i=>i.stage&&!i.stage.includes('🏁')).length;
   const simpleCount=invs.filter(i=>i.invoice_type==='simple').length;
@@ -5796,7 +5795,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.41';
+const APP_VERSION = 'v44.42';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
