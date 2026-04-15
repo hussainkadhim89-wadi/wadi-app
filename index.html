@@ -5791,7 +5791,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.56';
+const APP_VERSION = 'v44.57';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -7636,6 +7636,7 @@ async function loadInvPriceCache(invId){
 function drawSalesChart(months, monthly){
   const canvas=document.getElementById('chart-sales');
   if(!canvas)return;
+  if(canvas._drawing)return; // منع التكرار
   // نقرأ العرض من getBoundingClientRect أو من الـ card الأب
   const rect=canvas.parentElement?.getBoundingClientRect();
   const W=Math.round(rect?.width||0) || canvas.parentElement?.offsetWidth || document.getElementById('page-content')?.offsetWidth/2 || 400;
@@ -7643,6 +7644,7 @@ function drawSalesChart(months, monthly){
     setTimeout(()=>drawSalesChart(months,monthly),150);
     return;
   }
+  canvas._drawing=true;
   console.log('🎨 drawSalesChart: W='+W+' months='+months.length);
   const ctx=canvas.getContext('2d');
   const H=220;
@@ -7708,6 +7710,7 @@ function drawSalesChart(months, monthly){
     });
   };
   canvas.onmouseleave=function(){tooltip.style.display='none';};
+  canvas._drawing=false;
 }
 
 function drawStagesChart(invs){
