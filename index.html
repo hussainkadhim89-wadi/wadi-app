@@ -2692,7 +2692,7 @@ async function renderDashboard(){
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   );
 
-  setTimeout(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);},100);
+  setTimeout(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);},300);
   // تشغيل Alert Intelligence
   setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
   // Smart Decision Toast — Priority 1 فقط، بدون إزعاج
@@ -5787,7 +5787,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.60';
+const APP_VERSION = 'v44.61';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -7631,9 +7631,8 @@ async function loadInvPriceCache(invId){
 // ══════════════════════════════════════════
 function drawSalesChart(months, monthly){
   const canvas=document.getElementById('chart-sales');
-  if(!canvas||canvas._drawn)return;
+  if(!canvas)return;
 
-  // نقرأ العرض من الـ parent مباشرة بعد layout
   const wrap=canvas.parentElement;
   const W=wrap?.offsetWidth||wrap?.clientWidth||0;
   if(W<50){
@@ -7641,13 +7640,9 @@ function drawSalesChart(months, monthly){
     return;
   }
 
-  canvas._drawn=true;
   const H=220;
-  // تثبيت internal resolution = CSS size
   canvas.width=W;
   canvas.height=H;
-  canvas.style.width=W+'px';
-  canvas.style.height=H+'px';
 
   const ctx=canvas.getContext('2d');
   const pad={top:20,right:20,bottom:40,left:72};
