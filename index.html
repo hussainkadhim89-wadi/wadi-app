@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>وادي الطاقة — v44.37</title>
+<title>وادي الطاقة — v44.38</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -5795,7 +5795,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.36';
+const APP_VERSION = 'v44.38';
 const VERSION_KEY = 'wadi_app_version';
 
 
@@ -6323,8 +6323,8 @@ async function checkForUpdatesSidebar(){
     const res=await fetch('https://hussainkadhim89-wadi.github.io/wadi-app/?nc='+now,{cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const html=await res.text();
-    const match=html.match(/v(\d+\.\d+)/);
-    const remoteVer=match?'v'+match[1]:APP_VERSION;
+    const match=html.match(/<title>[^<]*(v\d+\.\d+)[^<]*<\/title>/i);
+    const remoteVer=match?match[1]:APP_VERSION;
 
     _lastUpdateCheck=now;
     _lastUpdateResult={remoteVer, ok:true};
