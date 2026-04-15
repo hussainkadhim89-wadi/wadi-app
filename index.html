@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>وادي الطاقة — v44.38</title>
+<title>وادي الطاقة — v44.40</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -1831,7 +1831,7 @@ input:focus,select:focus,textarea:focus{
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">⚡ وادي الطاقة</div>
-    <div class="login-sub">نظام الإدارة المالية · v44.20 · Supabase Auth</div>
+    <div class="login-sub" id="login-ver-sub">نظام الإدارة المالية · Supabase Auth</div>
     <input type="email" id="login-email" placeholder="البريد الإلكتروني" value="hussain.kadhim89@gmail.com">
     <input type="password" id="login-password" placeholder="كلمة المرور">
     <button class="btn-login" onclick="doLogin()">دخول ←</button>
@@ -4151,7 +4151,7 @@ async function renderSettings(){
     <div class="table-card">
       <div class="table-header"><div class="table-title">⚙️ إعدادات مالية</div></div>
       <div style="padding:20px">
-        ${[['أيام الائتمان — Prime Support','60 يوم'],['أيام الائتمان — ALMCO','60 يوم'],['توزيع الأرباح','50% حسين · 50% نوار'],['عمولة سيد عمر','3%'],['عمولة كابتن حسين','3%'],['عمولة الصيني','3%'],['البنك','BANK OF BAGHDAD'],['IBAN','IQ37BABI716007234428054'],['SWIFT','BABIIQBA'],['الإصدار','v44.2 · Supabase Auth + RLS ✅']].map(([l,v])=>`<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join('')}
+        ${[['أيام الائتمان — Prime Support','60 يوم'],['أيام الائتمان — ALMCO','60 يوم'],['توزيع الأرباح','50% حسين · 50% نوار'],['عمولة سيد عمر','3%'],['عمولة كابتن حسين','3%'],['عمولة الصيني','3%'],['البنك','BANK OF BAGHDAD'],['IBAN','IQ37BABI716007234428054'],['SWIFT','BABIIQBA'],['الإصدار',APP_VERSION+' · Supabase Auth + RLS ✅']].map(([l,v])=>`<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join('')}
       </div>
     </div>
   </div>
@@ -5795,7 +5795,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.38';
+const APP_VERSION = 'v44.40';
 const VERSION_KEY = 'wadi_app_version';
 
 
@@ -6258,6 +6258,9 @@ function checkForUpdates(){
     const el=document.getElementById(id);
     if(el) el.textContent=APP_VERSION;
   });
+  // تحديث login screen
+  const loginSub=document.getElementById('login-ver-sub');
+  if(loginSub) loginSub.textContent='نظام الإدارة المالية · '+APP_VERSION+' · Supabase Auth';
   // الـ badge الافتراضي
   const badge=document.getElementById('update-status-badge');
   if(badge && badge.textContent==='—'){
@@ -6572,7 +6575,7 @@ async function doBackup(btn){
     const backup={
       version:'wadi-backup-v1',
       date:new Date().toISOString(),
-      app_version:'v42.8',
+      app_version:APP_VERSION,
       tables:{}
     };
 
