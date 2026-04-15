@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>وادي الطاقة — v44.35</title>
+<title>وادي الطاقة — v44.36</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -2338,30 +2338,7 @@ async function safeQuery(fn, fallback=[], timeoutMs=12000){
 }
 
 // ── DEBUG: اختبار جدول payments لوحده ──
-async function debugPayments(){
-  console.log('🧪 بدء اختبار payments...');
-  // 1. limit(1) — هل يرجع أي شي؟
-  console.log('1️⃣ جاري limit(1)...');
-  const t1=Date.now();
-  const r1=await sb.from('payments').select('id').limit(1);
-  console.log(`limit(1) → ${Date.now()-t1}ms`, r1.error?'❌ '+r1.error.message:'✅ rows:'+r1.data?.length);
 
-  // 2. count فقط — بدون بيانات
-  console.log('2️⃣ جاري count...');
-  const t2=Date.now();
-  const r2=await sb.from('payments').select('*',{count:'exact',head:true});
-  console.log(`count → ${Date.now()-t2}ms`, r2.error?'❌ '+r2.error.message:'✅ count:'+r2.count);
-
-  // 3. بدون فلتر — full select
-  console.log('3️⃣ جاري full select...');
-  const t3=Date.now();
-  const r3=await sb.from('payments').select('invoice_id,amount,payment_date').order('payment_date',{ascending:false}).limit(4);
-  console.log(`full select → ${Date.now()-t3}ms`, r3.error?'❌ '+r3.error.message:'✅ rows:'+r3.data?.length);
-
-  console.log('🧪 انتهى الاختبار. شوف النتائج فوق.');
-}
-// شغّل الاختبار تلقائياً عند الفتح (مؤقت للـ debugging)
-window.addEventListener('load',()=>setTimeout(debugPayments,2000));
 
 // ── AUTH ──
 async function initAuth(){
