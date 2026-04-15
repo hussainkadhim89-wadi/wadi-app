@@ -2692,11 +2692,7 @@ async function renderDashboard(){
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   );
 
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    console.log('🎨 drawSalesChart: canvas=', document.getElementById('chart-sales')?.offsetWidth);
-    drawSalesChart(months,monthly);
-    drawStagesChart(invs);
-  }));
+  setTimeout(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);},100);
   // تشغيل Alert Intelligence
   setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
   // Smart Decision Toast — Priority 1 فقط، بدون إزعاج
@@ -5791,7 +5787,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.59';
+const APP_VERSION = 'v44.60';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -7635,29 +7631,32 @@ async function loadInvPriceCache(invId){
 // ══════════════════════════════════════════
 function drawSalesChart(months, monthly){
   const canvas=document.getElementById('chart-sales');
-  if(!canvas)return;
-  if(canvas._drawing)return; // منع التكرار
-  // نقرأ العرض من getBoundingClientRect أو من الـ card الأب
-  const rect=canvas.parentElement?.getBoundingClientRect();
-  const W=Math.round(rect?.width||0) || canvas.parentElement?.offsetWidth || document.getElementById('page-content')?.offsetWidth/2 || 400;
+  if(!canvas||canvas._drawn)return;
+
+  // نقرأ العرض من الـ parent مباشرة بعد layout
+  const wrap=canvas.parentElement;
+  const W=wrap?.offsetWidth||wrap?.clientWidth||0;
   if(W<50){
     setTimeout(()=>drawSalesChart(months,monthly),150);
     return;
   }
-  canvas._drawing=true;
-  console.log('🎨 drawSalesChart: W='+W+' months='+months.length);
-  const ctx=canvas.getContext('2d');
+
+  canvas._drawn=true;
   const H=220;
+  // تثبيت internal resolution = CSS size
   canvas.width=W;
   canvas.height=H;
+  canvas.style.width=W+'px';
+  canvas.style.height=H+'px';
+
+  const ctx=canvas.getContext('2d');
   const pad={top:20,right:20,bottom:40,left:72};
-  const vals=months.map(m=>typeof monthly[m]==='object'?monthly[m].s||0:monthly[m]||0);
+  const vals=months.map(m=>monthly[m]?.s||0);
   const maxV=Math.max(...vals,1);
-  console.log('📊 vals:', vals, 'maxV:', maxV);
   const cW=W-pad.left-pad.right;
   const cH=H-pad.top-pad.bottom;
 
-  // دالة تنسيق Y-axis تعتمد على حجم الأرقام
+  // Y-axis format
   const fmtY=v=>{
     if(v===0)return '0';
     if(v>=1e9)return (v/1e9).toFixed(1)+'B';
@@ -7666,7 +7665,7 @@ function drawSalesChart(months, monthly){
     return v.toFixed(0);
   };
 
-  // grid lines
+  // grid lines + Y labels
   ctx.strokeStyle='#f1f5f9';ctx.lineWidth=1;
   [0,.25,.5,.75,1].forEach(f=>{
     const y=pad.top+cH*(1-f);
@@ -7674,42 +7673,54 @@ function drawSalesChart(months, monthly){
     ctx.fillStyle='#94a3b8';ctx.font='10px monospace';ctx.textAlign='right';
     ctx.fillText(fmtY(maxV*f),pad.left-6,y+4);
   });
-  if(months.length===0){ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات',W/2,H/2);return;}
-  const bW=Math.min(40,(cW/months.length)*0.6);
-  const gap=(cW/months.length);
-  // bars
+
+  if(months.length===0){
+    ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';
+    ctx.fillText('لا توجد بيانات',W/2,H/2);
+    return;
+  }
+
+  const gap=cW/months.length;
+  const bW=Math.min(40,gap*0.6);
+
+  // bars + X labels
   months.forEach((m,i)=>{
     const x=pad.left+i*gap+gap/2-bW/2;
     const bH=Math.max(2,(vals[i]/maxV)*cH);
     const y=pad.top+cH-bH;
-    console.log(`bar[${i}] m=${m} val=${vals[i]} bH=${bH.toFixed(1)} x=${x.toFixed(1)}`);
     const grad=ctx.createLinearGradient(0,y,0,y+bH);
-    grad.addColorStop(0,'#1a56db');grad.addColorStop(1,'#0891b2');
+    grad.addColorStop(0,'#1a56db');
+    grad.addColorStop(1,'#0891b2');
     ctx.fillStyle=grad;
     ctx.beginPath();
     ctx.roundRect?ctx.roundRect(x,y,bW,bH,4):ctx.rect(x,y,bW,bH);
     ctx.fill();
-    // label
     ctx.fillStyle='#64748b';ctx.font='10px monospace';ctx.textAlign='center';
     ctx.fillText(m.slice(5),x+bW/2,H-pad.bottom+14);
   });
+
   // hover tooltip
   const tooltip=document.getElementById('chart-tooltip');
-  canvas.onmousemove=function(e){
-    const rect=canvas.getBoundingClientRect();
-    const mx=(e.clientX-rect.left)*(W/rect.width);
-    months.forEach((m,i)=>{
-      const x=pad.left+i*gap+gap/2-bW/2;
-      if(mx>=x&&mx<=x+bW){
-        tooltip.style.display='block';
-        tooltip.style.left=(x+bW+4)+'px';
-        tooltip.style.top='20px';
-        tooltip.innerHTML=m+'<br>'+fmtM(vals[i]);
-      }
-    });
-  };
-  canvas.onmouseleave=function(){tooltip.style.display='none';};
-  // الرسم اكتمل — لا نحتاج reset لأن كل renderDashboard ينشئ canvas جديد
+  if(tooltip){
+    canvas.onmousemove=function(e){
+      const r=canvas.getBoundingClientRect();
+      const scaleX=W/r.width;
+      const mx=(e.clientX-r.left)*scaleX;
+      let hit=false;
+      months.forEach((m,i)=>{
+        const x=pad.left+i*gap+gap/2-bW/2;
+        if(mx>=x&&mx<=x+bW){
+          tooltip.style.display='block';
+          tooltip.style.left=(x+bW+4)/scaleX+'px';
+          tooltip.style.top='20px';
+          tooltip.innerHTML=m+'<br>'+fmtM(vals[i]);
+          hit=true;
+        }
+      });
+      if(!hit)tooltip.style.display='none';
+    };
+    canvas.onmouseleave=()=>tooltip.style.display='none';
+  }
 }
 
 function drawStagesChart(invs){
