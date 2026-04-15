@@ -5485,10 +5485,29 @@ async function saveClient(existingId){
   const payload={id:document.getElementById('cu-id').value.trim(),name:document.getElementById('cu-name').value.trim(),address:document.getElementById('cu-addr').value,credit_days:+document.getElementById('cu-credit').value||60,notes:document.getElementById('cu-notes').value};
   if(!payload.id||!payload.name){showToast('أدخل رقم العميل والاسم','warning');return;}
   const btn=getModalSaveBtn();const restore=btnLoad(btn);
+
+  // جلب الاسم القديم قبل التحديث (للـ sync)
+  let oldName=null;
+  if(existingId){
+    const{data:oldClient}=await sb.from('clients').select('name').eq('id',existingId).maybeSingle();
+    oldName=oldClient?.name||null;
+  }
+
   const{error}=existingId?await sb.from('clients').update(payload).eq('id',existingId):await sb.from('clients').insert(payload);
   if(error){showToast('خطأ: '+error.message,'error');restore();return;}
+
+  // ── Sync اسم العميل في الجداول الأخرى إذا تغيّر ──
+  if(existingId && oldName && oldName!==payload.name){
+    await Promise.all([
+      sb.from('invoices').update({customer_name:payload.name}).eq('customer_name',oldName),
+      sb.from('receivables').update({customer_name:payload.name}).eq('customer_name',oldName),
+      sb.from('payments').update({customer_name:payload.name}).eq('customer_name',oldName),
+    ]);
+  }
+
   // ── Invalidate Risk Cache ──
   _smartCache.clear('risk_'+payload.name);
+  clearCache();
   closeModal();showToast('تم حفظ العميل','success');renderClientsWithRisk();
 }
 
@@ -5759,7 +5778,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.46';
+const APP_VERSION = 'v44.47';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
