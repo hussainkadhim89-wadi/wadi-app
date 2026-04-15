@@ -2625,11 +2625,11 @@ async function renderDashboard(){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
     <div class="table-card">
       <div class="table-header"><div class="table-title">📊 المبيعات الشهرية</div><span class="badge badge-blue">${months.length} شهر</span></div>
-      <div class="chart-container"><div class="chart-canvas-wrap"><canvas id="chart-sales"></canvas></div><div class="chart-tooltip" id="chart-tooltip"></div></div>
+      <div class="chart-container"><div class="chart-canvas-wrap" id="chart-sales-wrap"></div><div class="chart-tooltip" id="chart-tooltip"></div></div>
     </div>
     <div class="table-card">
       <div class="table-header"><div class="table-title">🥧 مراحل الفواتير</div></div>
-      <div class="chart-container"><div class="chart-canvas-wrap" style="height:200px"><canvas id="chart-stages"></canvas></div></div>
+      <div class="chart-container"><div class="chart-canvas-wrap" style="height:200px" id="chart-stages-wrap"></div></div>
     </div>
   </div>
   <div class="table-card" style="margin-bottom:20px">
@@ -2692,7 +2692,19 @@ async function renderDashboard(){
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   );
 
-  setTimeout(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);},300);
+  setTimeout(()=>{
+    // نضيف الـ canvas بعد اكتمال كل DOM writes
+    const salesWrap=document.getElementById('chart-sales-wrap');
+    if(salesWrap&&!document.getElementById('chart-sales')){
+      const c=document.createElement('canvas');c.id='chart-sales';salesWrap.appendChild(c);
+    }
+    const stagesWrap=document.getElementById('chart-stages-wrap');
+    if(stagesWrap&&!document.getElementById('chart-stages')){
+      const c=document.createElement('canvas');c.id='chart-stages';stagesWrap.appendChild(c);
+    }
+    drawSalesChart(months,monthly);
+    drawStagesChart(invs);
+  },100);
   // تشغيل Alert Intelligence
   setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
   // Smart Decision Toast — Priority 1 فقط، بدون إزعاج
@@ -5787,7 +5799,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.61';
+const APP_VERSION = 'v44.62';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
