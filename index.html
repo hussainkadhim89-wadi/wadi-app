@@ -2668,7 +2668,7 @@ async function renderDashboard(){
   }));
   activities.sort((a,b)=>b.ts>a.ts?1:b.ts<a.ts?-1:0).splice(10);
 
-  document.getElementById('page-content').innerHTML+=`
+  document.getElementById('page-content').insertAdjacentHTML('beforeend',`
   <div class="table-card">
     <div class="table-header"><div class="table-title">⚡ آخر النشاطات</div><span class="badge badge-gray">${activities.length} عملية</span></div>
     <div style="padding:4px 20px 8px">
@@ -2688,7 +2688,7 @@ async function renderDashboard(){
   </div>`;
 
   // ── Phase 4: إضافة قسم BI ──
-  document.getElementById('page-content').innerHTML+=renderBISection(
+  document.getElementById('page-content').insertAdjacentHTML('beforeend', renderBISection(
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   );
 
@@ -5793,7 +5793,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.63';
+const APP_VERSION = 'v44.64';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
