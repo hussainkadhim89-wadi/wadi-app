@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>وادي الطاقة — v44.36</title>
+<title>وادي الطاقة — v44.37</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -1860,7 +1860,7 @@ input:focus,select:focus,textarea:focus{
           </div>
         </button>
         <div class="update-cache-hint" id="update-cache-hint"></div>
-        <a class="update-action-btn" id="update-action-btn" href="https://hussainkadhim89-wadi.github.io/wadi-v40/" target="_blank" rel="noopener noreferrer">
+        <a class="update-action-btn" id="update-action-btn" href="https://hussainkadhim89-wadi.github.io/wadi-app/" target="_blank" rel="noopener noreferrer">
           🚀 عرض التحديث
         </a>
       </div>
@@ -6320,7 +6320,7 @@ async function checkForUpdatesSidebar(){
   if(dot){ dot.style.background='var(--yellow)'; dot.style.boxShadow='0 0 0 2px rgba(202,138,4,.2)'; }
 
   try{
-    const res=await fetch('https://hussainkadhim89-wadi.github.io/wadi-v40/?nc='+now,{cache:'no-store'});
+    const res=await fetch('https://hussainkadhim89-wadi.github.io/wadi-app/?nc='+now,{cache:'no-store'});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const html=await res.text();
     const match=html.match(/v(\d+\.\d+)/);
