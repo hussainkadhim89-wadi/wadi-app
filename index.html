@@ -5791,7 +5791,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.57';
+const APP_VERSION = 'v44.58';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -7684,6 +7684,7 @@ function drawSalesChart(months, monthly){
     const x=pad.left+i*gap+gap/2-bW/2;
     const bH=Math.max(2,(vals[i]/maxV)*cH);
     const y=pad.top+cH-bH;
+    console.log(`bar[${i}] m=${m} val=${vals[i]} bH=${bH.toFixed(1)} x=${x.toFixed(1)}`);
     const grad=ctx.createLinearGradient(0,y,0,y+bH);
     grad.addColorStop(0,'#1a56db');grad.addColorStop(1,'#0891b2');
     ctx.fillStyle=grad;
