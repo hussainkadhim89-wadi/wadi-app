@@ -5779,7 +5779,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.49';
+const APP_VERSION = 'v44.50';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -6605,25 +6605,22 @@ async function doRestore(input){
   if(!file)return;
   input.value=''; // reset
 
-  // تأكيد مزدوج
-  const ok=await confirmDelete('⚠️ هذا سيحذف كل البيانات الحالية ويستبدلها بالملف المختار. هل أنت متأكد؟');
-  if(!ok){console.log('🚫 doRestore: cancelled at step 1');return;}
-
-  const ok2=await new Promise(resolve=>{
-    openModal('🔴 تأكيد نهائي',
+  // مودال تأكيد واحد — بدون تسلسل
+  const confirmed=await new Promise(resolve=>{
+    openModal('🔴 تأكيد الاستعادة',
       `<div style="text-align:center;padding:16px 0">
-        <div style="font-size:40px;margin-bottom:12px">🔴</div>
+        <div style="font-size:40px;margin-bottom:12px">⚠️</div>
         <div style="font-size:15px;font-weight:700;color:var(--red);margin-bottom:8px">هذا الإجراء لا يمكن التراجع عنه</div>
-        <div style="font-size:13px;color:var(--text3)">سيتم حذف كل البيانات الحالية واستبدالها بملف الـ Backup</div>
-        <div style="margin-top:12px;background:var(--red-light);padding:10px;border-radius:8px;font-size:12px;color:#991b1b;font-weight:600">الملف: ${file.name}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:12px">سيتم <b>حذف كل البيانات الحالية</b> واستبدالها بملف الـ Backup</div>
+        <div style="background:var(--red-light);padding:10px;border-radius:8px;font-size:12px;color:#991b1b;font-weight:600">📁 الملف: ${file.name}</div>
       </div>`,
       `<button class="btn btn-secondary" onclick="closeModal();window._restoreResolve(false)">إلغاء</button>
-       <button class="btn btn-danger" onclick="closeModal();window._restoreResolve(true)">🔴 متابعة الاستعادة</button>`
+       <button class="btn btn-danger" onclick="console.log('confirm clicked');closeModal();window._restoreResolve(true)">🔴 نعم، استعادة</button>`
     );
     window._restoreResolve=resolve;
   });
-  if(!ok2){console.log('🚫 doRestore: cancelled at step 2');return;}
 
+  if(!confirmed){console.log('🚫 doRestore: cancelled');return;}
   console.log('✅ doRestore: confirmed — starting execution');
 
   // جلب progress — fallback لو اختفى بعد closeModal
