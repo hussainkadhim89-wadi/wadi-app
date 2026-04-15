@@ -2494,7 +2494,15 @@ async function renderDashboard(){
     monthly[k].s+=(+i.sale_amount||0);
     monthly[k].p+=calcInvoiceProfit(i).netProfit;
   });
-  const months=Object.keys(monthly).sort().slice(-6);
+  // بناء array ثابت لآخر 6 أشهر (حتى لو ما فيها بيانات)
+  const months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);
+    months.push(d.toISOString().slice(0,7));
+  }
+  // تأكد كل شهر موجود في monthly (حتى لو صفر)
+  months.forEach(m=>{if(!monthly[m])monthly[m]={s:0,p:0};});
+  console.log('📊 chart months:', months, 'vals:', months.map(m=>monthly[m].s));
   const maxM=Math.max(...months.map(m=>monthly[m].s),1);
   // ── Phase 4: حساب BI (مرة وحدة) ──
   const biAnalytics  = calcProfitAnalytics(invs, monthly);
