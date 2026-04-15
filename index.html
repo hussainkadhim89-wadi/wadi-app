@@ -2692,7 +2692,11 @@ async function renderDashboard(){
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   );
 
-  requestAnimationFrame(()=>setTimeout(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);},50));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    console.log('🎨 drawSalesChart: canvas=', document.getElementById('chart-sales')?.offsetWidth);
+    drawSalesChart(months,monthly);
+    drawStagesChart(invs);
+  }));
   // تشغيل Alert Intelligence
   setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
   // Smart Decision Toast — Priority 1 فقط، بدون إزعاج
@@ -7632,8 +7636,14 @@ async function loadInvPriceCache(invId){
 function drawSalesChart(months, monthly){
   const canvas=document.getElementById('chart-sales');
   if(!canvas)return;
+  // لو الـ canvas لسه ما أخذ حجمه — retry بعد 100ms
+  const W=Math.max(canvas.parentElement?.offsetWidth||0, 0);
+  if(W===0){
+    console.warn('⚠️ chart-sales: width=0, retrying...');
+    setTimeout(()=>drawSalesChart(months,monthly),100);
+    return;
+  }
   const ctx=canvas.getContext('2d');
-  const W=Math.max(canvas.parentElement.offsetWidth||0, 300);
   const H=220;
   canvas.width=W;canvas.height=H;
   const pad={top:20,right:20,bottom:40,left:72};
