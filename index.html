@@ -2243,7 +2243,7 @@ function sortTable(page,col){
     receivables:()=>renderReceivables(f.filterStatus||'',f.filterCustomer||''),
     expenses:()=>renderExpenses(f.filterType||'',f.filterPaidBy||''),
     withdrawals:()=>renderWithdrawals(f.filterPartner||''),
-    clients:()=>renderClients(f.search||''),
+    clients:()=>renderClientsWithRisk(f.search||''),
     lines:()=>renderLines(f.page||0,f.filterInv||'')
   };
   if(fn[page])fn[page]();
@@ -2434,7 +2434,7 @@ function showPage(page, arg){
   const fn={dashboard:renderDashboard,invoices:renderInvoices,lines:renderLines,workflow:renderWorkflow,
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
-    clients:renderClients,credits:renderCredits,reports:renderReports,settings:renderSettings,
+    clients:renderClientsWithRisk,credits:renderCredits,reports:renderReports,settings:renderSettings,
     invoice_center:renderInvoiceCenter};
   if(fn[page]) fn[page](arg).then?.(()=>_restoreScroll(page)) || setTimeout(()=>_restoreScroll(page),200);
 }
@@ -2710,7 +2710,7 @@ const _debouncedInvSearch = debounce(val => {
   if(val.length===0||val.length>=2) renderInvoices(0,val);
 }, 400);
 const _debouncedClientSearch = debounce(val => {
-  renderClients(val);
+  renderClientsWithRisk(val);
 }, 350);
 
 async function renderInvoices(page=0,search='',filterCustomer='',filterStage=''){
@@ -3918,10 +3918,10 @@ async function renderClientsWithRisk(search=''){
   document.getElementById('page-content').innerHTML=`
   <div class="filter-bar">
     <input type="text" placeholder="🔍 اسم العميل..." id="cl-s" value="${search}" style="min-width:200px"
-      onkeydown="if(event.key==='Enter')renderClients(this.value)"
+      onkeydown="if(event.key==='Enter')renderClientsWithRisk(this.value)"
       oninput="_debouncedClientSearch(this.value)">
-    <button class="btn btn-primary btn-sm" onclick="renderClients(document.getElementById('cl-s').value)">🔍 بحث</button>
-    <button class="btn btn-secondary btn-sm" onclick="renderClients('')">↺ إعادة</button>
+    <button class="btn btn-primary btn-sm" onclick="renderClientsWithRisk(document.getElementById('cl-s').value)">🔍 بحث</button>
+    <button class="btn btn-secondary btn-sm" onclick="renderClientsWithRisk('')">↺ إعادة</button>
   </div>
   <div class="table-card">
     <div class="table-header"><div class="table-title">👥 قاعدة العملاء</div><div class="table-count">${rows.length} عميل</div></div>
@@ -3982,10 +3982,6 @@ async function renderClientsWithRisk(search=''){
       addNotif('🔴',`${r.name} — عميل عالي الخطورة بالدفع`,'warning');
     });
   }
-}
-
-async function renderClients(search=''){
-  return renderClientsWithRisk(search);
 }
 
 // ── REPORTS ──
@@ -4340,10 +4336,6 @@ function openPanelLevel2(title, body, footer='', {breadcrumb='', contextLabel=''
 }
 
 // alias للتوافق مع الكود القديم
-function openPanelL2(title, body, footer=''){
-  openPanelLevel2(title, body, footer);
-}
-
 function closePanelLevel2(restoreFocusFlag=true){
   const p2=document.getElementById('panel-l2');
   const backdrop=document.getElementById('panel-l2-backdrop');
@@ -4364,21 +4356,6 @@ function closePanelLevel2(restoreFocusFlag=true){
     p2.dataset.panelId='';
     if(restoreFocusFlag) _restoreFocus(entry);
   },320);
-}
-
-// alias للتوافق
-function closePanelL2(silent=false){
-  if(silent){
-    const p2=document.getElementById('panel-l2');
-    const backdrop=document.getElementById('panel-l2-backdrop');
-    const overlay=document.getElementById('panel-overlay');
-    p2.style.transform='translateX(100%)';
-    if(backdrop) backdrop.classList.remove('open');
-    overlay.classList.remove('l2-open');
-    _panelStack.stack=_panelStack.stack.filter(e=>e.id!=='panel-l2');
-  } else {
-    closePanelLevel2();
-  }
 }
 
 // ── Escape: step-by-step إغلاق تدريجي ──
@@ -5512,7 +5489,7 @@ async function saveClient(existingId){
   if(error){showToast('خطأ: '+error.message,'error');restore();return;}
   // ── Invalidate Risk Cache ──
   _smartCache.clear('risk_'+payload.name);
-  closeModal();showToast('تم حفظ العميل','success');renderClients();
+  closeModal();showToast('تم حفظ العميل','success');renderClientsWithRisk();
 }
 
 async function showClientStatement(clientId, clientName){
@@ -5782,7 +5759,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.44';
+const APP_VERSION = 'v44.46';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
