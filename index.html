@@ -2684,7 +2684,7 @@ async function renderDashboard(){
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   );
 
-  requestAnimationFrame(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);});
+  requestAnimationFrame(()=>setTimeout(()=>{drawSalesChart(months,monthly);drawStagesChart(invs);},50));
   // تشغيل Alert Intelligence
   setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
   // Smart Decision Toast — Priority 1 فقط، بدون إزعاج
@@ -5779,7 +5779,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.50';
+const APP_VERSION = 'v44.51';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -6647,11 +6647,19 @@ async function doRestore(input){
 
     const tables=backup.tables||{};
     let restored=0,errors=0;
+    const totalTables=BACKUP_TABLES.length;
 
-    for(const table of BACKUP_TABLES){
+    const showProgress=(done,tableName,tableRows)=>{
+      const pct=Math.round((done/totalTables)*100);
+      const bar=`<div style="background:var(--border);border-radius:4px;height:6px;margin:8px 0"><div style="background:var(--accent);height:6px;border-radius:4px;width:${pct}%;transition:width .3s"></div></div>`;
+      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">${bar}<b style="color:var(--text)">${pct}%</b> — ${tableName} (${tableRows} سجل)</div>`;
+    };
+
+    for(let ti=0;ti<BACKUP_TABLES.length;ti++){
+      const table=BACKUP_TABLES[ti];
       const rows=tables[table]||[];
       console.log(`⏳ doRestore: table=${table} rows=${rows.length}`);
-      if(progress)progress.innerHTML=`<div style="font-size:12px;color:var(--text3)">جاري استعادة ${table} (${rows.length} سجل)...</div>`;
+      showProgress(ti, table, rows.length);
 
       // حذف البيانات الحالية
       const{error:delErr}=await sb.from(table).delete().neq('id',-999999);
@@ -6668,6 +6676,8 @@ async function doRestore(input){
         }
       }
     }
+    // 100%
+    showProgress(totalTables,'اكتمل',restored);
 
     clearCache();
     console.log(`✅ doRestore: done — restored=${restored} errors=${errors}`);
@@ -7615,22 +7625,31 @@ function drawSalesChart(months, monthly){
   const canvas=document.getElementById('chart-sales');
   if(!canvas)return;
   const ctx=canvas.getContext('2d');
-  const W=canvas.parentElement.offsetWidth||400;
+  const W=Math.max(canvas.parentElement.offsetWidth||0, 300);
   const H=220;
   canvas.width=W;canvas.height=H;
-  const pad={top:20,right:20,bottom:40,left:60};
+  const pad={top:20,right:20,bottom:40,left:72};
   const vals=months.map(m=>typeof monthly[m]==='object'?monthly[m].s||0:monthly[m]||0);
-  const profitVals=months.map(m=>typeof monthly[m]==='object'?monthly[m].p||0:0);
   const maxV=Math.max(...vals,1);
   const cW=W-pad.left-pad.right;
   const cH=H-pad.top-pad.bottom;
+
+  // دالة تنسيق Y-axis تعتمد على حجم الأرقام
+  const fmtY=v=>{
+    if(v===0)return '0';
+    if(v>=1e9)return (v/1e9).toFixed(1)+'B';
+    if(v>=1e6)return (v/1e6).toFixed(1)+'M';
+    if(v>=1e3)return (v/1e3).toFixed(0)+'K';
+    return v.toFixed(0);
+  };
+
   // grid lines
   ctx.strokeStyle='#f1f5f9';ctx.lineWidth=1;
   [0,.25,.5,.75,1].forEach(f=>{
     const y=pad.top+cH*(1-f);
     ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
     ctx.fillStyle='#94a3b8';ctx.font='10px monospace';ctx.textAlign='right';
-    ctx.fillText(fmt(maxV*f/1000000)+'M',pad.left-6,y+4);
+    ctx.fillText(fmtY(maxV*f),pad.left-6,y+4);
   });
   if(months.length===0){ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات',W/2,H/2);return;}
   const bW=Math.min(40,(cW/months.length)*0.6);
