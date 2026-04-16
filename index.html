@@ -1028,6 +1028,7 @@ body.dark .nav-item.predictive{
 .table-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.2px}
 .table-count{font-size:11px;color:var(--text3);font-family:var(--mono);background:var(--bg4);padding:2px 8px;border-radius:20px}
 .table-wrap{overflow-x:auto}
+.table-wrap.large{overflow-x:auto;overflow-y:auto;max-height:70vh}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead{position:sticky;top:0;z-index:5}
 /* TABLE — تحسينات المرحلة الثالثة */
@@ -2769,7 +2770,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   </div>
   <div class="table-card">
     <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px"><div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
-    <div class="table-wrap"><table id="inv-main-table" class="${localStorage.getItem('wadi_inv_expanded')==='1'?'':'table-compact'}">
+    <div class="table-wrap large"><table id="inv-main-table" class="${localStorage.getItem('wadi_inv_expanded')==='1'?'':'table-compact'}">
       <thead><tr>
         <th onclick="sortTable('invoices','id')" style="cursor:pointer">رقم الفاتورة ${sortIcon('invoices','id')}</th>
         <th onclick="sortTable('invoices','date')" style="cursor:pointer">التاريخ ${sortIcon('invoices','date')}</th>
@@ -2886,7 +2887,7 @@ async function renderLines(page=0,filterInv=''){
         <span class="table-count">${count||0} بند</span>
       </div>
     </div>
-    <div class="table-wrap"><table id="lines-table">
+    <div class="table-wrap large"><table id="lines-table">
       <thead><tr>
         <th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>الوصف</th>
         <th>الكمية</th><th>سعر البيع</th><th>إجمالي البيع</th>
@@ -3395,7 +3396,7 @@ async function renderReceivables(filterStatus='',filterCustomer=''){
   </div>
   <div class="table-card">
     <div class="table-header"><div class="table-title">💳 ذمم العملاء</div><div class="table-count">${rows.length} سجل</div></div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap large"><table>
       <thead><tr>
         <th onclick="sortTable('receivables','invoice_id')" style="cursor:pointer">رقم الفاتورة ${sortIcon('receivables','invoice_id')}</th>
         <th onclick="sortTable('receivables','customer_name')" style="cursor:pointer">اسم العميل ${sortIcon('receivables','customer_name')}</th>
@@ -3527,7 +3528,7 @@ async function renderExpenses(filterType='',filterPaidBy=''){
   </div>
   <div class="table-card">
     <div class="table-header"><div class="table-title">💸 سجل المصروفات — كل الحقول</div><div class="table-count">${count||0} مصروف</div></div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap large"><table>
       <thead><tr>
         <th onclick="sortTable('expenses','invoice_id')" style="cursor:pointer">رقم الفاتورة ${sortIcon('expenses','invoice_id')}</th>
         <th onclick="sortTable('expenses','expense_date')" style="cursor:pointer">التاريخ ${sortIcon('expenses','expense_date')}</th>
@@ -3605,7 +3606,7 @@ async function renderWithdrawals(filterPartner=''){
   </div>
   <div class="table-card">
     <div class="table-header"><div class="table-title">💼 سحوبات الشركاء</div><div class="table-count">${rows.length} سحبة</div></div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap large"><table>
       <thead><tr>
         <th onclick="sortTable('withdrawals','partner')" style="cursor:pointer">الشريك ${sortIcon('withdrawals','partner')}</th>
         <th onclick="sortTable('withdrawals','date')" style="cursor:pointer">التاريخ ${sortIcon('withdrawals','date')}</th>
@@ -3935,7 +3936,7 @@ async function renderClientsWithRisk(search=''){
   </div>
   <div class="table-card">
     <div class="table-header"><div class="table-title">👥 قاعدة العملاء</div><div class="table-count">${rows.length} عميل</div></div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap large"><table>
       <thead><tr>
         <th onclick="sortTable('clients','id')" style="cursor:pointer">رقم ${sortIcon('clients','id')}</th>
         <th onclick="sortTable('clients','name')" style="cursor:pointer">الاسم ${sortIcon('clients','name')}</th>
@@ -5785,7 +5786,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v45.4';
+const APP_VERSION = 'v45.5';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
