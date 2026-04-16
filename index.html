@@ -2370,6 +2370,8 @@ function showApp(){
   document.getElementById('user-name-d').textContent=name;
   document.getElementById('user-avatar').textContent=name[0]?.toUpperCase()||'U';
   showPage('dashboard');
+  // تحميل إعدادات المستخدم من Supabase (non-blocking)
+  loadSettingsFromSupabase();
   // badge + auto-refresh
   setTimeout(runSmartReminders,1500);
   // Smart Reminders Live — كل 60 ثانية (event-ready)
@@ -2464,6 +2466,7 @@ function showPage(page, arg){
   document.getElementById('topbar-actions').innerHTML=a+'<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ طباعة</button>';
   document.getElementById('page-content').innerHTML='<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
   document.getElementById('page-content').scrollTop=0;
+  _refreshAlertsReqId=Date.now(); // reset on page change — in-flight requests become stale safely
   const fn={dashboard:renderDashboard,invoices:renderInvoices,lines:renderLines,workflow:renderWorkflow,
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
@@ -3307,17 +3310,17 @@ async function loadPrint(){
           <td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;width:90px;border-right:1px solid #eee;border-bottom:1px solid #eee">Bank Name</td>
           <td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee;border-right:1px solid #ccc">BANK OF BAGHDAD</td>
           <td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;width:90px;border-right:1px solid #eee;border-bottom:1px solid #eee">Account Name</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee">Wadi Al-Taqaa for General Trade Company</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee">${APP_SETTINGS.companyNameEn}</td>
         </tr>
         <tr>
           <td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;border-right:1px solid #eee;border-bottom:1px solid #eee">Account No.</td>
           <td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee;border-right:1px solid #ccc">72344</td>
           <td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;border-right:1px solid #eee;border-bottom:1px solid #eee">IBAN</td>
-          <td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee">IQ37BABI716007234428054</td>
+          <td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee">${APP_SETTINGS.companyIBAN}</td>
         </tr>
         <tr>
           <td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;border-right:1px solid #eee">Swift Code</td>
-          <td style="padding:6px 10px;font-weight:700;border-right:1px solid #ccc">BABIIQBA</td>
+          <td style="padding:6px 10px;font-weight:700;border-right:1px solid #ccc">${APP_SETTINGS.companySWIFT}</td>
           <td style="padding:6px 10px;background:#f5f5f5;border-right:1px solid #eee"></td>
           <td style="padding:6px 10px"></td>
         </tr>
@@ -3328,7 +3331,7 @@ async function loadPrint(){
     <div style="display:grid;grid-template-columns:1fr 1fr;margin:0 28px 16px;border:1px solid #ccc">
       <div style="padding:14px 16px;border-right:1px solid #ccc">
         <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Issued By</div>
-        <div style="font-size:11px;font-weight:700;margin-bottom:18px">Wadi Al-Taqaa For General Trade Company</div>
+        <div style="font-size:11px;font-weight:700;margin-bottom:18px">${APP_SETTINGS.companyNameEn}</div>
         <div style="font-size:9.5px;color:#777;margin-bottom:14px">Signature: ___________________________</div>
         <div style="font-size:9.5px;color:#777">Date: _______________________________</div>
       </div>
@@ -3350,8 +3353,8 @@ async function loadPrint(){
             <span style="color:#fff;font-size:16px">📞</span>
           </div>
           <div style="color:#1a1a1a;line-height:1.7">
-            <div>+964 780 147 2330</div>
-            <div>+964 771 672 0051</div>
+            <div>${APP_SETTINGS.phoneHussain}</div>
+            <div>${APP_SETTINGS.phoneNwar}</div>
           </div>
         </div>
         <!-- Email -->
@@ -3360,8 +3363,8 @@ async function loadPrint(){
             <span style="color:#fff;font-size:14px">✉</span>
           </div>
           <div style="color:#1a1a1a;line-height:1.7">
-            <div>wadilataqaa2016@gmail.com</div>
-            <div>nwaroil81@gmail.com</div>
+            <div>${APP_SETTINGS.emailHussain}</div>
+            <div>${APP_SETTINGS.emailNwar}</div>
           </div>
         </div>
         <!-- QR Code -->
@@ -3374,7 +3377,7 @@ async function loadPrint(){
         <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <span style="color:#fff;font-size:14px">📍</span>
         </div>
-        <span style="color:#fff;font-size:11px">Apartment No. 2 Plot Io. 118, Al-Tuwaisa, Basra, Iraq</span>
+        <span style="color:#fff;font-size:11px">${APP_SETTINGS.companyAddress}</span>
         <!-- Decorative wave -->
         <div style="position:absolute;right:0;top:0;bottom:0;width:80px;background:rgba(255,255,255,0.12);clip-path:ellipse(60px 40px at 100% 50%)"></div>
       </div>
@@ -3444,7 +3447,7 @@ async function renderReceivables(filterStatus='',filterCustomer=''){
           const od=r.rem>0&&r.due_date&&new Date(r.due_date)<new Date();
           const daysLeft=r.due_date?Math.ceil((new Date(r.due_date)-new Date())/86400000):null;
           return`
-          <tr style="background:${od?'#fff5f5':'#fff'}">
+          <tr data-inv="${r.invoice_id}" style="background:${od?'#fff5f5':'#fff'}">
             <td class="td-mono" style="color:var(--accent);font-weight:700">${r.invoice_id||'—'}</td>
             <td style="font-weight:600">${r.customer_name||'—'}</td>
             <td style="color:var(--text3)">${fmtD(r.invoice_date)}</td>
@@ -4169,15 +4172,19 @@ async function renderSettings(){
   document.getElementById('page-content').innerHTML=`
   <div class="section-grid">
     <div class="table-card">
-      <div class="table-header"><div class="table-title">🏢 معلومات الشركة</div></div>
-      <div style="padding:20px">
-        ${[['الاسم عربي','شركة وادي الطاقة للتجارة العامة'],['الاسم إنجليزي','Wadi Al-Taqaa For General Trade'],['العنوان','Apt 2, Plot 118, Al-Tuwaisa, Basra, Iraq'],['هاتف حسين','+964 780 147 2330'],['هاتف نوار','+964 771 672 0051'],['بريد حسين','wadilataqaa2016@gmail.com'],['بريد نوار','nwaroil81@gmail.com']].map(([l,v])=>`<div class="info-row"><span class="info-label">${l}</span><span style="font-size:13px;color:var(--text)">${v}</span></div>`).join('')}
+      <div class="table-header"><div class="table-title">🏢 معلومات الشركة</div><button class="btn btn-primary btn-sm" onclick="saveAppSettingsUI()">💾 حفظ</button></div>
+      <div style="padding:20px;display:grid;gap:12px">
+        ${[['companyNameAr','الاسم عربي','text'],['companyNameEn','الاسم إنجليزي','text'],['companyAddress','العنوان','text'],['phoneHussain','هاتف '+APP_SETTINGS.namePartner1,'text'],['phoneNwar','هاتف '+APP_SETTINGS.namePartner2,'text'],['emailHussain','بريد '+APP_SETTINGS.namePartner1,'email'],['emailNwar','بريد '+APP_SETTINGS.namePartner2,'email'],['companyIBAN','IBAN','text'],['companySWIFT','SWIFT','text'],['namePartner1','اسم الشريك الأول','text'],['namePartner2','اسم الشريك الثاني','text'],['nameAgentOmar','اسم الوكيل (عمر)','text'],['nameAgentKapt','اسم الوكيل (كابتن)','text'],['nameAgentSini','اسم الوكيل (الصيني)','text']].map(([key,label,type])=>`
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-size:11px">${label}</label>
+            <input class="form-input" type="${type}" id="as-${key}" value="${APP_SETTINGS[key]||''}" style="font-size:13px">
+          </div>`).join('')}
       </div>
     </div>
     <div class="table-card">
       <div class="table-header"><div class="table-title">⚙️ إعدادات مالية</div></div>
       <div style="padding:20px">
-        ${[['أيام الائتمان — Prime Support','60 يوم'],['أيام الائتمان — ALMCO','60 يوم'],['توزيع الأرباح','50% حسين · 50% نوار'],['عمولة سيد عمر','3%'],['عمولة كابتن حسين','3%'],['عمولة الصيني','3%'],['البنك','BANK OF BAGHDAD'],['IBAN','IQ37BABI716007234428054'],['SWIFT','BABIIQBA'],['الإصدار',APP_VERSION+' · Supabase Auth + RLS ✅']].map(([l,v])=>`<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join('')}
+        ${[['توزيع الأرباح','50% '+APP_SETTINGS.namePartner1+' · 50% '+APP_SETTINGS.namePartner2],['عمولة '+APP_SETTINGS.nameAgentOmar,'3%'],['عمولة '+APP_SETTINGS.nameAgentKapt,'3%'],['عمولة '+APP_SETTINGS.nameAgentSini,'3%'],['البنك',APP_SETTINGS.companyBank],['IBAN',APP_SETTINGS.companyIBAN],['SWIFT',APP_SETTINGS.companySWIFT],['الإصدار',APP_VERSION+' · Supabase Auth + RLS ✅']].map(([l,v])=>`<div class="info-row"><span class="info-label">${l}</span><span class="info-value">${v}</span></div>`).join('')}
       </div>
     </div>
   </div>
@@ -4866,13 +4873,44 @@ const _S31 = {
   reminderSensitivity: 3,
   cacheMaxAge: 120000,
 };
-// تحميل الإعدادات المحفوظة
+// الإعدادات تُحمَّل من Supabase بعد تسجيل الدخول (loadSettingsFromSupabase)
+// localStorage كـ fallback مؤقت فقط
 (function(){
   try{
     const saved=localStorage.getItem('wadi_s31');
     if(saved){const p=JSON.parse(saved);Object.assign(_S31,p);}
   }catch(e){}
 })();
+
+// ── Settings: Supabase load/save ──
+async function loadSettingsFromSupabase(){
+  try{
+    const{data,error}=await sb.from('settings')
+      .select('key,value')
+      .eq('key','wadi_s31')
+      .maybeSingle();
+    if(error||!data) return; // fallback to defaults
+    const p=data.value;
+    if(p&&typeof p==='object'){
+      Object.assign(_S31,p);
+      // Supabase هو المصدر الرئيسي — تحديث localStorage للمزامنة
+      localStorage.setItem('wadi_s31',JSON.stringify(p));
+    }
+  }catch(e){ /* silent — use defaults */ }
+}
+async function saveSettingsToSupabase(){
+  if(!currentUser) return;
+  const val={
+    profitWarnThreshold:_S31.profitWarnThreshold,
+    reminderSensitivity:_S31.reminderSensitivity
+  };
+  try{
+    await sb.from('settings').upsert(
+      {user_id:currentUser.id, key:'wadi_s31', value:val},
+      {onConflict:'user_id,key'}
+    );
+  }catch(e){ /* silent */ }
+}
 
 // Debounce utility
 function debounce(fn, ms){
@@ -5401,7 +5439,7 @@ async function savePayment(){
       const payInvId=document.getElementById('p-inv')?.value;
       if(payInvId){const{data:pInv}=await sb.from('invoices').select('customer_name').eq('id',payInvId).maybeSingle();if(pInv?.customer_name)_smartCache.clear('risk_'+pInv.customer_name);}
     }catch(e){}
-    addNotif('💳','تم تسجيل دفعة جديدة','success');renderReceivables();
+    addNotif('💳','تم تسجيل دفعة جديدة','success');renderReceivables();_refreshAlerts();
   }catch(e){showToast('خطأ غير متوقع: '+e.message,'error');restore();}
 }
 
@@ -5849,9 +5887,88 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v46.2';
+const APP_VERSION = 'v48.3';
+
+// ════════════════════════════════════════
+// ⚙️ APP_SETTINGS — Single Source of Truth
+// ════════════════════════════════════════
+const _APP_SETTINGS_DEFAULTS = {
+  // Company Info
+  companyNameAr: 'شركة وادي الطاقة للتجارة العامة',
+  companyNameEn: 'Wadi Al-Taqaa For General Trade',
+  companyAddress: 'Apt 2, Plot 118, Al-Tuwaisa, Basra, Iraq',
+  companyIBAN:    '${APP_SETTINGS.companyIBAN}',
+  companySWIFT:   'BABIIQBA',
+  companyBank:    'BANK OF BAGHDAD',
+  // Contacts
+  phoneHussain:   '+964 780 147 2330',
+  phoneNwar:      '+964 771 672 0051',
+  emailHussain:   'wadilataqaa2016@gmail.com',
+  emailNwar:      'nwaroil81@gmail.com',
+  // Partner display names (UI only — DB columns unchanged)
+  namePartner1:   'حسين',
+  namePartner2:   'نوار',
+  nameAgentOmar:  'سيد عمر',
+  nameAgentKapt:  'كابتن حسين',
+  nameAgentSini:  'الصيني',
+};
+const APP_SETTINGS = Object.assign({}, _APP_SETTINGS_DEFAULTS);
+// Load from localStorage with fallback per-key
+(function(){
+  try{
+    const saved = localStorage.getItem('wadi_settings');
+    if(saved){
+      const parsed = JSON.parse(saved);
+      // Fallback: only override if value is non-empty string
+      Object.keys(parsed).forEach(k=>{
+        if(typeof parsed[k]==='string' && parsed[k].trim())
+          APP_SETTINGS[k] = parsed[k].trim();
+      });
+    }
+  }catch(e){ /* silent — use defaults */ }
+})();
+function saveAppSettings(){
+  try{ localStorage.setItem('wadi_settings', JSON.stringify(APP_SETTINGS)); }catch(e){}
+}
+// Sync across tabs
+// Debounced dispatcher — prevents flooding + passes changedKeys
+let _appSettingsDispatchTimer=null;
+function dispatchAppSettingsUpdated(changedKeys=[]){
+  clearTimeout(_appSettingsDispatchTimer);
+  _appSettingsDispatchTimer=setTimeout(()=>{
+    window.dispatchEvent(new CustomEvent('appSettingsUpdated',{
+      detail:{settings:(typeof structuredClone==='function'?structuredClone(APP_SETTINGS):JSON.parse(JSON.stringify(APP_SETTINGS))), changedKeys:changedKeys||[]}
+    }));
+  },50);
+}
+
+// Central handler for appSettingsUpdated
+window.addEventListener('appSettingsUpdated', e=>{
+  const changed=(e?.detail?.changedKeys)||[];
+  // Update title if company name changed (or no specific keys = full update)
+  if(!changed.length||changed.includes('companyNameAr')){
+    document.title=`${APP_SETTINGS.companyNameAr} — ${APP_VERSION}`;
+  }
+  // Update sidebar brand
+  if(!changed.length||changed.includes('companyNameAr')){
+    const brand=document.querySelector('.sidebar-brand-name');
+    if(brand) brand.childNodes[brand.childNodes.length-1].textContent=APP_SETTINGS.companyNameAr;
+  }
+});
+
+// Cross-tab sync via storage event
+window.addEventListener('storage', e=>{
+  if(e.key!=='wadi_settings'||!e.newValue) return;
+  try{
+    const parsed=JSON.parse(e.newValue);
+    Object.keys(parsed).forEach(k=>{
+      if(typeof parsed[k]==='string'&&parsed[k].trim()) APP_SETTINGS[k]=parsed[k].trim();
+    });
+    dispatchAppSettingsUpdated(); // cross-tab: all keys considered changed
+  }catch(e2){}
+});
 const VERSION_KEY = 'wadi_app_version';
-document.title = `وادي الطاقة — ${APP_VERSION}`;
+document.title = `${APP_SETTINGS.companyNameAr} — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
 if(_metaVer) _metaVer.setAttribute('content', APP_VERSION);
 
@@ -7303,6 +7420,89 @@ function renderBISection(analytics, clients, products, forecast, decisions, cash
 // ══════════════════════════════════════════
 // 🚨 ALERT INTELLIGENCE ENGINE
 // ══════════════════════════════════════════
+// ── Standalone alert refresh (after payment/due change) ──
+let _refreshAlertsTimer=null;
+let _refreshAlertsPending=false;
+let _refreshAlertsReqId=0; // race condition guard — reset on page change
+let _refreshAlertsRetried=false;
+async function _refreshAlerts(){
+  if(!document.getElementById('alert-intel-container')) return; // مش على Dashboard — لا تعمل شيء
+  // Trailing debounce: أول call فوري — calls اللاحقة تُحفظ وتُنفَّذ بعد انتهاء الـ timer
+  if(_refreshAlertsTimer){ _refreshAlertsPending=true; return; }
+  _refreshAlertsPending=false;
+  _refreshAlertsTimer=setTimeout(()=>{
+    _refreshAlertsTimer=null;
+    if(_refreshAlertsPending) _refreshAlerts(); // trailing call
+  },2000);
+  // Race condition: فقط آخر response يُطبَّق
+  const reqId=++_refreshAlertsReqId;
+  try{
+    // جلب receivables + payments فقط (خفيف — بدون invoices كاملة)
+    const[recs,pays]=await Promise.all([
+      safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,due_date,total_amount')),
+      safeQuery(()=>sb.from('payments').select('invoice_id,payment_date')),
+    ]);
+    if(reqId!==_refreshAlertsReqId) return; // stale response — تجاهل
+    const container=document.getElementById('alert-intel-container'); // re-fetch بعد await
+    if(!container) return; // صفحة تغيّرت أثناء الـ fetch
+    container.innerHTML=''; // clear قبل الرندر — يمنع duplicate (flicker غير محتمل بسبب debounce 2s)
+    const paidSet=new Set(pays.map(p=>p.invoice_id));
+    const today=new Date(); today.setHours(0,0,0,0);
+    const alerts=[];
+    recs.forEach(r=>{
+      if(!r.due_date||paidSet.has(r.invoice_id)) return;
+      const due=new Date(r.due_date); due.setHours(0,0,0,0);
+      const days=Math.round((due-today)/86400000);
+      const _id=r.invoice_id;
+      if(days<0){
+        alerts.push({type:'red',icon:'🔴',
+          title:`${r.customer_name||'—'} — فاتورة متأخرة ${Math.abs(days)} يوم`,
+          sub:`${_id||''} · المبلغ: ${fmtM(r.total_amount)}`,
+          action:()=>openInvoiceDirect(_id)});
+      } else if(days<=7){
+        alerts.push({type:'yellow',icon:'⚠️',
+          title:`${r.customer_name||'—'} — تستحق خلال ${days===0?'اليوم':days+' أيام'}`,
+          sub:`${_id||''} · المبلغ: ${fmtM(r.total_amount)}`,
+          action:()=>openInvoiceDirect(_id)});
+      }
+    });
+    alerts.sort((a,b)=>a.type==='red'&&b.type!=='red'?-1:1);
+    if(!alerts.length){
+      container.innerHTML=`<div class="alert-intel blue"><span class="alert-intel-icon">✅</span><div class="alert-intel-body"><div class="alert-intel-title">كل المؤشرات طبيعية</div><div class="alert-intel-sub">لا توجد تنبيهات متأخرة</div></div></div>`;
+      return;
+    }
+    window._alertActions=alerts.map(a=>a.action||null);
+    container.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">🚨 تنبيهات (${alerts.length})</div>
+      <button onclick="document.getElementById('alert-intel-container').innerHTML=''" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer">إخفاء</button>
+    </div>
+    ${alerts.map((a,i)=>`<div class="alert-intel ${a.type}" onclick="if(window._alertActions[${i}])window._alertActions[${i}]()" style="cursor:pointer">
+      <span class="alert-intel-icon">${a.icon}</span>
+      <div class="alert-intel-body"><div class="alert-intel-title">${a.title}</div>
+      <div class="alert-intel-sub">${a.sub} <span style="opacity:.6;font-size:10px">← اضغط</span></div></div>
+    </div>`).join('')}`;
+  }catch(e){
+    console.warn('_refreshAlerts failed:',e?.message||e);
+    // Retry once only — direct fetch, no recursive call
+    if(!_refreshAlertsRetried){
+      _refreshAlertsRetried=true;
+      setTimeout(async()=>{
+        _refreshAlertsRetried=false;
+        if(!document.getElementById('alert-intel-container')) return; // check قبل الـ fetch
+        try{
+          const[recs,pays]=await Promise.all([
+            safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,due_date,total_amount')),
+            safeQuery(()=>sb.from('payments').select('invoice_id,payment_date')),
+          ]);
+          if(!document.getElementById('alert-intel-container')) return; // check بعد الـ fetch
+          console.warn('_refreshAlerts retry succeeded');
+        }catch(e2){ console.warn('_refreshAlerts retry also failed — giving up'); }
+      },3000);
+    }
+  }
+}
+
 async function runAlertIntelligence(invs, recs, monthly, nowKey, prevKey){
   const container=document.getElementById('alert-intel-container');
   if(!container) return;
@@ -7320,6 +7520,53 @@ async function runAlertIntelligence(invs, recs, monthly, nowKey, prevKey){
       if(!paidDates[p.invoice_id])paidDates[p.invoice_id]=[];
       paidDates[p.invoice_id].push(p.payment_date);
     });
+
+    // ── Alert 0: Overdue + Due Soon (Priority 1) ──
+    const today=new Date(); today.setHours(0,0,0,0);
+    const in7=new Date(today); in7.setDate(in7.getDate()+7);
+    const paidSet=new Set(pays.map(p=>p.invoice_id));
+    const overdueList=[];
+    const dueSoonList=[];
+    allRecs.forEach(r=>{
+      if(!r.due_date||paidSet.has(r.invoice_id)) return;
+      const due=new Date(r.due_date); due.setHours(0,0,0,0);
+      const days=Math.round((due-today)/86400000);
+      if(days<0) overdueList.push({...r,days:Math.abs(days)});
+      else if(days<=7) dueSoonList.push({...r,days});
+    });
+    // Overdue alerts (أولاً)
+    if(overdueList.length>0){
+      overdueList.sort((a,b)=>b.days-a.days).slice(0,3).forEach(r=>{
+        const _id=r.invoice_id;
+        alerts.push({
+          type:'red',icon:'🔴',
+          title:`${r.customer_name||'—'} — فاتورة متأخرة ${r.days} يوم`,
+          sub:`${_id||''} · المبلغ: ${fmtM(r.total_amount)}`,
+          action:()=>openInvoiceDirect(_id)
+        });
+      });
+      if(overdueList.length>3){
+        alerts.push({
+          type:'red',icon:'⏳',
+          title:`${overdueList.length} فاتورة متأخرة إجمالاً`,
+          sub:`اضغط لعرض كل الذمم المتأخرة`,
+          action:()=>showPage('receivables')
+        });
+      }
+    }
+    // Due Soon alerts
+    if(dueSoonList.length>0){
+      dueSoonList.sort((a,b)=>a.days-b.days).slice(0,2).forEach(r=>{
+        const _id=r.invoice_id;
+        alerts.push({
+          type:'yellow',icon:'⚠️',
+          title:`${r.customer_name||'—'} — تستحق خلال ${r.days===0?'اليوم':r.days+' أيام'}`,
+          sub:`${_id||''} · المبلغ: ${fmtM(r.total_amount)}`,
+          action:()=>openInvoiceDirect(_id)
+        });
+      });
+    }
+
     // حساب التأخير لكل عميل
     const clientDelays={};
     allRecs.forEach(r=>{
@@ -7422,17 +7669,19 @@ async function runAlertIntelligence(invs, recs, monthly, nowKey, prevKey){
     return;
   }
 
+  // تخزين الـ actions للاستخدام عند الضغط
+  window._alertActions=alerts.map(a=>a.action||null);
   container.innerHTML=`
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <div style="font-size:13px;font-weight:700;color:var(--text)">🚨 تنبيهات ذكية (${alerts.length})</div>
     <button onclick="document.getElementById('alert-intel-container').innerHTML=''" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer">إخفاء</button>
   </div>
-  ${alerts.map(a=>`
-  <div class="alert-intel ${a.type}">
+  ${alerts.map((a,i)=>`
+  <div class="alert-intel ${a.type}" ${a.action?`onclick="if(window._alertActions[${i}])window._alertActions[${i}]()" style="cursor:pointer"`:''}">
     <span class="alert-intel-icon">${a.icon}</span>
     <div class="alert-intel-body">
       <div class="alert-intel-title">${a.title}</div>
-      <div class="alert-intel-sub">${a.sub}</div>
+      <div class="alert-intel-sub">${a.sub}${a.action?' <span style="opacity:.6;font-size:10px">← اضغط</span>':''}</div>
     </div>
   </div>`).join('')}`;
 }
@@ -7578,12 +7827,41 @@ function getProfitRowStyle(margin){
 // ══════════════════════════════════════════
 // ⚙️ Phase 3.1 — Settings Save/Reset
 // ══════════════════════════════════════════
+function saveAppSettingsUI(){
+  // Validation
+  const emailH=document.getElementById('as-emailHussain')?.value.trim();
+  const emailN=document.getElementById('as-emailNwar')?.value.trim();
+  const iban=document.getElementById('as-companyIBAN')?.value.trim();
+  const emailRx=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if(emailH&&!emailRx.test(emailH)){showToast('بريد '+APP_SETTINGS.namePartner1+' غير صحيح','warning');return;}
+  if(emailN&&!emailRx.test(emailN)){showToast('بريد '+APP_SETTINGS.namePartner2+' غير صحيح','warning');return;}
+  if(iban&&iban.length<15){showToast('IBAN يبدو قصيراً — تأكد منه','warning');return;}
+  // Save
+  const keys=['companyNameAr','companyNameEn','companyAddress','phoneHussain','phoneNwar',
+    'emailHussain','emailNwar','companyIBAN','companySWIFT','companyBank',
+    'namePartner1','namePartner2','nameAgentOmar','nameAgentKapt','nameAgentSini'];
+  keys.forEach(k=>{
+    const el=document.getElementById('as-'+k);
+    if(el&&el.value.trim()) APP_SETTINGS[k]=el.value.trim();
+  });
+  const changedKeys=[];
+  keys.forEach(k=>{
+    const el=document.getElementById('as-'+k);
+    if(el&&el.value.trim()&&el.value.trim()!==APP_SETTINGS[k]) changedKeys.push(k);
+  });
+  saveAppSettings();
+  showToast('تم حفظ معلومات الشركة ✅','success');
+  dispatchAppSettingsUpdated(changedKeys);
+}
+
 function savePhase31Settings(){
   const w=+document.getElementById('set-profit-warn')?.value;
   const s=+document.getElementById('set-reminder-sens')?.value;
   if(w>=0&&w<=50) _S31.profitWarnThreshold=w;
   if(s>=1&&s<=20) _S31.reminderSensitivity=s;
+  // حفظ في localStorage (فوري) + Supabase (مشترك بين الأجهزة)
   localStorage.setItem('wadi_s31',JSON.stringify({profitWarnThreshold:_S31.profitWarnThreshold,reminderSensitivity:_S31.reminderSensitivity}));
+  saveSettingsToSupabase();
   showToast('تم حفظ الإعدادات ✅','success');
 }
 function resetPhase31Settings(){
@@ -8337,7 +8615,7 @@ function printClientStatement(clientName,totalInvoiced,totalPaid,totalRem){
     <div class="sum-card green"><div class="sum-label">إجمالي المدفوع</div><div class="sum-value" style="color:#065f46">${totalPaid.toLocaleString()} د.ع</div></div>
     <div class="sum-card ${totalRem>0?'red':'green'}"><div class="sum-label">المتبقي</div><div class="sum-value" style="color:${totalRem>0?'#dc2626':'#059669'}">${totalRem.toLocaleString()} د.ع</div></div>
   </div>
-  <div class="footer">وادي الطاقة للتجارة العامة · هاتف: +964 780 147 2330 · ${today}</div>
+  <div class="footer">${APP_SETTINGS.companyNameAr} · هاتف: ${APP_SETTINGS.phoneHussain} · ${today}</div>
   <script>window.print();window.close();<\/script>
   </body></html>`);
   w.document.close();
