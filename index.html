@@ -1028,7 +1028,8 @@ body.dark .nav-item.predictive{
 .table-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.2px}
 .table-count{font-size:11px;color:var(--text3);font-family:var(--mono);background:var(--bg4);padding:2px 8px;border-radius:20px}
 .table-wrap{overflow-x:auto}
-.table-wrap.large{overflow-x:auto;overflow-y:auto;max-height:70vh}
+.table-wrap.large{overflow:auto;max-height:70vh}
+.table-card:has(.table-wrap.large){overflow:visible}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead{position:sticky;top:0;z-index:5}
 /* TABLE — تحسينات المرحلة الثالثة */
@@ -5786,7 +5787,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v45.5';
+const APP_VERSION = 'v45.6';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
