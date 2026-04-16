@@ -39,7 +39,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v44.35
+   ✨ ULTRA PREMIUM UX — v44.67
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -465,7 +465,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v44.33
+   🔥 ULTRA PREMIUM SIDEBAR — v44.67
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1663,7 +1663,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v44.35 Polish
+   ✨ ULTRA PREMIUM UX — v44.67 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -5792,7 +5792,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v44.66';
+const APP_VERSION = 'v44.67';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -6612,9 +6612,7 @@ async function doBackup(btn){
 }
 
 async function doRestore(input){
-  console.log('🔧 doRestore: started');
   const file=input.files[0];
-  console.log('📄 doRestore: file =', file?.name, file?.size+'bytes');
   if(!file)return;
   input.value=''; // reset
 
@@ -6628,13 +6626,11 @@ async function doRestore(input){
         <div style="background:var(--red-light);padding:10px;border-radius:8px;font-size:12px;color:#991b1b;font-weight:600">📁 الملف: ${file.name}</div>
       </div>`,
       `<button class="btn btn-secondary" onclick="closeModal();window._restoreResolve(false)">إلغاء</button>
-       <button class="btn btn-danger" onclick="console.log('confirm clicked');closeModal();window._restoreResolve(true)">🔴 نعم، استعادة</button>`
+       <button class="btn btn-danger" onclick="closeModal();window._restoreResolve(true)">🔴 نعم، استعادة</button>`
     );
     window._restoreResolve=resolve;
   });
 
-  if(!confirmed){console.log('🚫 doRestore: cancelled');return;}
-  console.log('✅ doRestore: confirmed — starting execution');
 
   // جلب progress — fallback لو اختفى بعد closeModal
   let progress=document.getElementById('backup-progress');
@@ -6649,9 +6645,7 @@ async function doRestore(input){
   try{
     // قراءة الملف
     const text=await file.text();
-    console.log('📂 doRestore: file read OK, size=', text.length);
     const backup=JSON.parse(text);
-    console.log('📋 doRestore: parsed OK, version=', backup.version, 'tables=', Object.keys(backup.tables||{}).join(','));
 
     if(!backup.version?.startsWith('wadi-backup')){
       showToast('الملف غير صالح — ليس ملف Backup من وادي الطاقة','error');
@@ -6671,7 +6665,6 @@ async function doRestore(input){
     for(let ti=0;ti<BACKUP_TABLES.length;ti++){
       const table=BACKUP_TABLES[ti];
       const rows=tables[table]||[];
-      console.log(`⏳ doRestore: table=${table} rows=${rows.length}`);
       showProgress(ti, table, rows.length);
 
       // حذف البيانات الحالية
@@ -6693,7 +6686,6 @@ async function doRestore(input){
     showProgress(totalTables,'اكتمل',restored);
 
     clearCache();
-    console.log(`✅ doRestore: done — restored=${restored} errors=${errors}`);
     const msg=errors>0?`تم الاستعادة مع ${errors} خطأ`:'تمت الاستعادة بنجاح';
     if(progress)progress.innerHTML=`<div style="background:${errors?'#fffbeb':'var(--green-light)'};border:1px solid ${errors?'#fde68a':'#a7f3d0'};border-radius:8px;padding:10px 14px;font-size:12px;color:${errors?'#92400e':'#065f46'}"><b>${errors?'⚠️':'✅'} ${msg}</b><br>${restored} سجل تم استعادته من ${BACKUP_TABLES.length} جداول</div>`;
     showToast(msg, errors?'warning':'success');
