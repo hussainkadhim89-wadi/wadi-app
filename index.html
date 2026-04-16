@@ -5849,7 +5849,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v46.1';
+const APP_VERSION = 'v46.2';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -8166,8 +8166,8 @@ function _showQuickActions(){
   res.innerHTML=_gSection('إجراءات سريعة')+
     [['➕ إضافة فاتورة جديدة','openInvoiceModal()'],
      ['➕ إضافة عميل جديد','openClientModal()'],
-     ['📊 لوحة التحكم','showPage('dashboard')'],
-     ['📋 قائمة الفواتير','showPage('invoices')']]
+     ['📊 لوحة التحكم',"showPage('dashboard')"],
+     ['📋 قائمة الفواتير',"showPage('invoices')"]]
     .map(([label,action])=>`<div class="gsearch-item gsearch-action" onclick="${action};closeGSearch()">
         <span class="gsearch-item-id" style="color:var(--accent)">⚡</span>
         <span class="gsearch-item-name">${label}</span>
