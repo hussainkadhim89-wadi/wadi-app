@@ -1306,6 +1306,10 @@ thead th{box-shadow:0 1px 0 var(--border)}
 .reminder-dot{position:absolute;top:1px;right:1px;width:7px;height:7px;background:#ef4444;border-radius:50%;border:1.5px solid #fff;display:none}
 .reminder-dot.show{display:block}
 
+/* ===== Floating Horizontal Scrollbar ===== */
+#floating-scroll{position:fixed;bottom:0;left:0;right:0;height:10px;overflow-x:auto;overflow-y:hidden;z-index:9998;opacity:0;transition:opacity .2s ease;pointer-events:none;backdrop-filter:blur(6px);background:rgba(255,255,255,.6);border-top:1px solid rgba(0,0,0,.05)}
+#floating-scroll.visible{opacity:1;pointer-events:auto}
+#floating-scroll-inner{height:1px}
 /* ===== Premium Scrollbar ===== */
 /* Chrome, Edge, Safari */
 ::-webkit-scrollbar{width:8px;height:8px}
@@ -1354,7 +1358,7 @@ thead th{box-shadow:0 1px 0 var(--border)}
 #gsearch-input{width:100%;padding:18px 20px;font-size:16px;border:none;outline:none;font-family:var(--font);color:var(--text);background:#fff;border-bottom:2px solid var(--border)}
 #gsearch-results{max-height:400px;overflow-y:auto}
 .gsearch-item{padding:12px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f1f5f9;transition:background .1s}
-.gsearch-item:hover{background:#eff6ff}
+.gsearch-item:hover,.gsearch-item.gsearch-focused{background:#eff6ff}
 .gsearch-item-id{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);min-width:90px}
 .gsearch-item-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
 .gsearch-item-meta{font-size:11px;color:var(--text3);font-family:var(--mono)}
@@ -1459,6 +1463,8 @@ body.dark .sidebar-update-btn{background:#111827;border-color:var(--border);}
 body.dark .sidebar-update-btn:hover{background:#1f2937;}
 body.dark .topbar,body.dark .table-card,body.dark .kpi-card,body.dark .modal,body.dark .filter-bar input,body.dark .filter-bar select{background:var(--bg2);color:var(--text)}
 body.dark .topbar{border-bottom-color:#334155;}
+#topbar-search-btn:hover{background:var(--bg4)!important;border-color:var(--accent)!important;color:var(--text)!important}
+body.dark #topbar-search-btn{background:var(--bg3)!important;border-color:var(--border)!important}
 body.dark .content{background:var(--bg);}
 body.dark .login-box{background:#1e293b;border-color:#334155;}
 body.dark .login-box input{background:#0f172a;border-color:#334155;color:var(--text);}
@@ -1988,6 +1994,9 @@ input:focus,select:focus,textarea:focus{
             <div class="page-sub" id="page-sub">لوحة التحكم</div>
           </div>
         </div>
+        <button id="topbar-search-btn" onclick="openGSearch()" title="بحث سريع — Ctrl+K" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text3);font-size:13px;font-family:var(--font);cursor:pointer;transition:all .15s;min-width:180px">
+          <span>🔍</span><span style="flex:1;text-align:right">بحث سريع...</span><span style="font-size:11px;background:var(--bg4);padding:2px 6px;border-radius:4px;font-family:var(--mono)">Ctrl+K</span>
+        </button>
         <div class="topbar-actions" id="topbar-actions"></div>
         <button class="notif-btn" onclick="toggleNotifPanel()" id="notif-btn" title="الإشعارات">
           🔔<span class="notif-count" id="notif-count">0</span>
@@ -2005,7 +2014,7 @@ input:focus,select:focus,textarea:focus{
 <!-- GLOBAL SEARCH (Ctrl+K) -->
 <div id="gsearch-overlay" onclick="closeGSearch()">
   <div id="gsearch-box" onclick="event.stopPropagation()">
-    <input id="gsearch-input" placeholder="🔍 ابحث عن فاتورة أو عميل..." oninput="doGSearch(this.value)" autocomplete="off">
+    <input id="gsearch-input" placeholder="🔍 ابحث عن فاتورة أو عميل أو إجراء..." oninput="doGSearch(this.value)" onkeydown="_gsearchKeyNav(event)" autocomplete="off">
     <div id="gsearch-results"><div id="gsearch-hint">اكتب للبحث في الفواتير والعملاء...</div></div>
   </div>
 </div>
@@ -2419,7 +2428,29 @@ function _restoreScroll(page){
     if(pc && _scrollMemory[page]){
       pc.scrollTop=_scrollMemory[page];
     }
+    _initFloatingScroll();
   },80);
+}
+
+function _initFloatingScroll(){
+  const floating=document.getElementById('floating-scroll');
+  const inner=document.getElementById('floating-scroll-inner');
+  if(!floating||!inner) return;
+  // Find the first visible .table-wrap.large
+  const table=document.querySelector('.table-wrap.large');
+  if(!table||table.scrollWidth<=table.clientWidth){
+    floating.classList.remove('visible');
+    return;
+  }
+  inner.style.width=table.scrollWidth+'px';
+  floating.classList.add('visible');
+  // Sync scroll — remove old listeners by cloning
+  const newFloating=floating.cloneNode(true);
+  floating.parentNode.replaceChild(newFloating,floating);
+  const newInner=newFloating.querySelector('#floating-scroll-inner');
+  newInner.style.width=table.scrollWidth+'px';
+  newFloating.addEventListener('scroll',()=>{ table.scrollLeft=newFloating.scrollLeft; });
+  table.addEventListener('scroll',()=>{ newFloating.scrollLeft=table.scrollLeft; });
 }
 
 function showPage(page, arg){
@@ -4370,7 +4401,38 @@ function closePanelLevel2(restoreFocusFlag=true){
 }
 
 // ── Escape: step-by-step إغلاق تدريجي ──
+function _gsearchKeyNav(e){
+  const res=document.getElementById('gsearch-results');
+  if(!res) return;
+  const items=res.querySelectorAll('.gsearch-item');
+  if(!items.length) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    _gsearchIndex=Math.min(_gsearchIndex+1,items.length-1);
+    items.forEach((el,i)=>el.classList.toggle('gsearch-focused',i===_gsearchIndex));
+    items[_gsearchIndex]?.scrollIntoView({block:'nearest'});
+  }else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    _gsearchIndex=Math.max(_gsearchIndex-1,0);
+    items.forEach((el,i)=>el.classList.toggle('gsearch-focused',i===_gsearchIndex));
+    items[_gsearchIndex]?.scrollIntoView({block:'nearest'});
+  }else if(e.key==='Enter'){
+    e.preventDefault();
+    if(_gsearchIndex>=0&&items[_gsearchIndex]){
+      items[_gsearchIndex].click();
+    }else if(items.length>0){
+      items[0].click();
+    }
+  }else if(e.key==='Escape'){
+    closeGSearch();
+  }
+}
 document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){
+    e.preventDefault();
+    openGSearch();
+    return;
+  }
   if(e.key==='Escape'){
     const overlay=document.getElementById('panel-overlay');
     if(!overlay?.classList.contains('open')) return;
@@ -5787,7 +5849,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v45.6';
+const APP_VERSION = 'v46.1';
 const VERSION_KEY = 'wadi_app_version';
 document.title = `وادي الطاقة — ${APP_VERSION}`;
 const _metaVer=document.querySelector('meta[name="app-version"]');
@@ -6422,7 +6484,38 @@ window.addEventListener('online',hideOfflineBanner);
 if(!navigator.onLine)showOfflineBanner();
 
 // ── KEYBOARD SHORTCUTS ──
+function _gsearchKeyNav(e){
+  const res=document.getElementById('gsearch-results');
+  if(!res) return;
+  const items=res.querySelectorAll('.gsearch-item');
+  if(!items.length) return;
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    _gsearchIndex=Math.min(_gsearchIndex+1,items.length-1);
+    items.forEach((el,i)=>el.classList.toggle('gsearch-focused',i===_gsearchIndex));
+    items[_gsearchIndex]?.scrollIntoView({block:'nearest'});
+  }else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    _gsearchIndex=Math.max(_gsearchIndex-1,0);
+    items.forEach((el,i)=>el.classList.toggle('gsearch-focused',i===_gsearchIndex));
+    items[_gsearchIndex]?.scrollIntoView({block:'nearest'});
+  }else if(e.key==='Enter'){
+    e.preventDefault();
+    if(_gsearchIndex>=0&&items[_gsearchIndex]){
+      items[_gsearchIndex].click();
+    }else if(items.length>0){
+      items[0].click();
+    }
+  }else if(e.key==='Escape'){
+    closeGSearch();
+  }
+}
 document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){
+    e.preventDefault();
+    openGSearch();
+    return;
+  }
   if(e.key==='Escape'){
     // لو modal البند مفتوح وفيه فاتورة محددة — Esc = إنهاء الإدخال
     const overlay=document.getElementById('modal-overlay');
@@ -8032,17 +8125,32 @@ function showRecentSearches(){
   </div>`;
 }
 
+// ── GSearch helpers ──
+function _ghl(text, q){
+  if(!q||!text) return text||'';
+  const idx=text.toLowerCase().indexOf(q.toLowerCase());
+  if(idx<0) return text;
+  return text.slice(0,idx)+'<mark style="background:#dbeafe;color:#1e40af;border-radius:2px;padding:0 1px">'+text.slice(idx,idx+q.length)+'</mark>'+text.slice(idx+q.length);
+}
+function _gSection(label){
+  return `<div style="padding:6px 20px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;background:#f8fafc;border-bottom:1px solid var(--border)">${label}</div>`;
+}
+let _gsearchIndex=-1;
+
 async function openGSearch(){
   document.getElementById('gsearch-overlay').classList.add('open');
   document.getElementById('gsearch-input').value='';
+  _gsearchIndex=-1;
   document.getElementById('gsearch-input').focus();
   showRecentSearches();
+  _showQuickActions();
   if(!_gsearchLoaded){
-    const[invs,clients]=await Promise.all([
+    const[invs,clients,pays]=await Promise.all([
       safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').order('date',{ascending:false})),
       safeQuery(()=>sb.from('clients').select('id,name,address')),
+      safeQuery(()=>sb.from('payments').select('invoice_id,customer_name,amount,payment_date').order('payment_date',{ascending:false}).limit(200)),
     ]);
-    _gsearchData={invs,clients};
+    _gsearchData={invs,clients,pays};
     _gsearchLoaded=true;
   }
 }
@@ -8050,30 +8158,63 @@ function closeGSearch(){
   const q=document.getElementById('gsearch-input')?.value?.trim();
   if(q&&q.length>=2)saveRecentSearch(q);
   document.getElementById('gsearch-overlay').classList.remove('open');
+  _gsearchIndex=-1;
+}
+function _showQuickActions(){
+  const res=document.getElementById('gsearch-results');
+  if(!res) return;
+  res.innerHTML=_gSection('إجراءات سريعة')+
+    [['➕ إضافة فاتورة جديدة','openInvoiceModal()'],
+     ['➕ إضافة عميل جديد','openClientModal()'],
+     ['📊 لوحة التحكم','showPage('dashboard')'],
+     ['📋 قائمة الفواتير','showPage('invoices')']]
+    .map(([label,action])=>`<div class="gsearch-item gsearch-action" onclick="${action};closeGSearch()">
+        <span class="gsearch-item-id" style="color:var(--accent)">⚡</span>
+        <span class="gsearch-item-name">${label}</span>
+      </div>`).join('');
 }
 function doGSearch(q){
-  if(!q||q.length<1){showRecentSearches();return;}
+  _gsearchIndex=-1;
+  if(!q||q.length<1){showRecentSearches();_showQuickActions();return;}
   const ql=q.toLowerCase();
-  const invMatches=_gsearchData.invs.filter(i=>(i.id||'').toLowerCase().includes(ql)||(i.customer_name||'').toLowerCase().includes(ql)).slice(0,6);
-  const clMatches=_gsearchData.clients.filter(c=>(c.name||'').toLowerCase().includes(ql)||(c.id||'').toLowerCase().includes(ql)).slice(0,4);
+  // Smart ranking: exact id match first, then startsWith, then includes
+  const _rank=(str,q)=>{
+    const s=(str||'').toLowerCase();
+    if(s===q) return 0;
+    if(s.startsWith(q)) return 1;
+    return 2;
+  };
+  const invMatches=[..._gsearchData.invs.filter(i=>(i.id||'').toLowerCase().includes(ql)||(i.customer_name||'').toLowerCase().includes(ql))]
+    .sort((a,b)=>Math.min(_rank(a.id,ql),_rank(a.customer_name,ql))-Math.min(_rank(b.id,ql),_rank(b.customer_name,ql))).slice(0,6);
+  const clMatches=[..._gsearchData.clients.filter(c=>(c.name||'').toLowerCase().includes(ql)||(c.id||'').toLowerCase().includes(ql))]
+    .sort((a,b)=>Math.min(_rank(a.name,ql),_rank(a.id,ql))-Math.min(_rank(b.name,ql),_rank(b.id,ql))).slice(0,4);
+  const payMatches=(_gsearchData.pays||[]).filter(p=>(p.customer_name||'').toLowerCase().includes(ql)||(p.invoice_id||'').toLowerCase().includes(ql)).slice(0,3);
   let html='';
   if(invMatches.length>0){
-    html+=`<div style="padding:8px 20px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;background:#f8fafc">فواتير</div>`;
-    html+=invMatches.map(i=>`<div class="gsearch-item" onclick="saveRecentSearch('${(i.id||'').replace(/'/g,'')}'||'${(i.customer_name||'').replace(/'/g,'')}');closeGSearch();showPage('invoices')">
-      <span class="gsearch-item-id">${i.id||'—'}</span>
-      <span class="gsearch-item-name">${i.customer_name||'—'}</span>
+    html+=_gSection('فواتير');
+    html+=invMatches.map(i=>`<div class="gsearch-item" onclick="saveRecentSearch('${(i.id||'').replace(/'/g,'')}');closeGSearch();showPage('invoices')">
+      <span class="gsearch-item-id">${_ghl(i.id||'—',q)}</span>
+      <span class="gsearch-item-name">${_ghl(i.customer_name||'—',q)}</span>
       <span class="gsearch-item-meta">${fmtM(i.sale_amount)} · ${fmtD(i.date)}</span>
     </div>`).join('');
   }
   if(clMatches.length>0){
-    html+=`<div style="padding:8px 20px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;background:#f8fafc">عملاء</div>`;
+    html+=_gSection('عملاء');
     html+=clMatches.map(c=>`<div class="gsearch-item" onclick="saveRecentSearch('${(c.name||'').replace(/'/g,'')}');closeGSearch();showPage('clients')">
-      <span class="gsearch-item-id">${c.id||'—'}</span>
-      <span class="gsearch-item-name">${c.name||'—'}</span>
+      <span class="gsearch-item-id">${_ghl(c.id||'—',q)}</span>
+      <span class="gsearch-item-name">${_ghl(c.name||'—',q)}</span>
       <span class="gsearch-item-meta">${c.address||''}</span>
     </div>`).join('');
   }
-  if(!html)html='<div id="gsearch-hint">لا توجد نتائج</div>';
+  if(payMatches.length>0){
+    html+=_gSection('دفعات');
+    html+=payMatches.map(p=>`<div class="gsearch-item" onclick="saveRecentSearch('${(p.customer_name||'').replace(/'/g,'')}');closeGSearch();showPage('receivables')">
+      <span class="gsearch-item-id">${_ghl(p.invoice_id||'—',q)}</span>
+      <span class="gsearch-item-name">${_ghl(p.customer_name||'—',q)}</span>
+      <span class="gsearch-item-meta">${fmtM(p.amount)} · ${fmtD(p.payment_date)}</span>
+    </div>`).join('');
+  }
+  if(!html) html='<div id="gsearch-hint">لا توجد نتائج لـ «'+q+'»</div>';
   document.getElementById('gsearch-results').innerHTML=html;
 }
 
@@ -8275,5 +8416,6 @@ function icFilter(){
   if(cnt) cnt.textContent=f.length+' فاتورة';
 }
 </script>
+<div id="floating-scroll"><div id="floating-scroll-inner"></div></div>
 </body>
 </html>
