@@ -2227,7 +2227,13 @@ let currentUser = null;
   // قراءة الـ param من URL
   // ── 1) Safe Parsing — sanitize + normalize ──
   const _p = new URLSearchParams(window.location.search);
-  const _rawId = _p.get('public') || '';
+  let _rawId = _p.get('public') || '';
+  // decode أولاً — لو ID مشفر (%22 وغيره)
+  try{ _rawId = decodeURIComponent(_rawId); }catch(_){}
+  // Safari fixes:
+  _rawId = _rawId.trim();                        // حذف مسافات
+  _rawId = _rawId.replace(/^"+|"+$/g, '');      // حذف quotes لو Safari أضافها
+  _rawId = _rawId.replace(/^'+|'+$/g, '');      // حذف single quotes
   // sanitize: حروف + أرقام + hyphen + underscore، max 60
   // normalize: uppercase لتجنب mismatch (WT-182 = wt-182)
   const _invId = _rawId.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 60).toUpperCase();
@@ -6559,7 +6565,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v53.5';
+const APP_VERSION = 'v53.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
