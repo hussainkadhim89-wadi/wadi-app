@@ -3323,15 +3323,21 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   }
 
   // ── Phase 2: جلب view counts (batch) ──
-  // Phase 2: COUNT بالـ SQL مباشرة — مو JS aggregation
+  // Phase 2: COUNT بالـ SQL — aggregated · scalable
   let viewMap={};
-  if(invIds.length>0){
+  // fallback: أي invoice مو موجود بالنتيجة → count=0 تلقائياً من viewMap
+  if(invIds && invIds.length > 0){
     const views=await safeQuery(()=>
       sb.from('invoice_views')
         .select('invoice_id, open_count:invoice_id.count()')
         .in('invoice_id',invIds)
     );
-    (views||[]).forEach(v=>{ viewMap[v.invoice_id]=+v.open_count||0; });
+    (views||[]).forEach(v=>{
+      if(!v.invoice_id) return;                        // guard: id غير صالح
+      viewMap[v.invoice_id] = Number(v.open_count) || 0;
+    });
+    // عبّي كل invoice ما رجع بـ 0 — no undefined
+    invIds.forEach(id=>{ if(!(id in viewMap)) viewMap[id] = 0; });
   }
 
   document.getElementById('page-content').innerHTML=`
@@ -3412,6 +3418,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
             <td class="td-wrap text-muted" style="font-size:11px">${r.next_action||'—'}</td>
             <td style="display:flex;gap:4px">
               <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvoiceModal('${r.id}')">✏️</button>
+              <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvTrackingPanel('${r.id}')" title="تفاصيل الـ Tracking">📊</button>
               <button class="btn btn-danger btn-sm btn-icon" onclick="delInvoice('${r.id}')">🗑️</button>
             </td>
           </tr>`;}).join('')}
@@ -6443,7 +6450,89 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v52.1';
+
+// ════════════════════════════════════════
+// 📡 REALTIME TRACKING — Phase 3 · v53.0
+// Supabase postgres_changes على invoice_views
+// Layer نظيف — لا يكسر أي flow موجود
+// ════════════════════════════════════════
+(function _realtimeTracking(){
+
+  let _channel = null; // الـ subscription الحالي
+
+  // ── تحديث badge في الجدول بدون re-render ──
+  function _updateBadge(invId){
+    if(!invId) return;
+    // نبحث عن كل الخلايا اللي تحتوي رقم الفاتورة
+    const cells = document.querySelectorAll('#inv-main-table tbody td:first-child');
+    cells.forEach(cell => {
+      if(!cell.textContent.includes(invId)) return;
+      // نجد الـ badge الحالي
+      const badge = cell.querySelector('.rt-view-badge');
+      if(badge){
+        // زود العداد
+        const cur = parseInt(badge.dataset.count||'0', 10) + 1;
+        badge.dataset.count = cur;
+        badge.title = `فُتحت ${cur} مرة`;
+        badge.style.background = '#dcfce7';
+        badge.style.color      = '#16a34a';
+        badge.textContent      = `✅ ${cur}`;
+      } else {
+        // أول فتح — حوّل ❌ إلى ✅
+        const redBadge = cell.querySelector('span[title="لم تُفتح بعد"]');
+        if(redBadge){
+          redBadge.setAttribute('title', 'فُتحت مرة');
+          redBadge.dataset.count = '1';
+          redBadge.classList.add('rt-view-badge');
+          redBadge.style.background = '#dcfce7';
+          redBadge.style.color      = '#16a34a';
+          redBadge.style.fontWeight = '700';
+          redBadge.textContent      = '✅ 1';
+        }
+      }
+    });
+  }
+
+  // ── subscribe: يبدأ عند دخول صفحة invoices ──
+  function _subscribe(){
+    if(_channel) return; // مو مزدوج
+    if(!sb || typeof sb.channel !== 'function') return;
+
+    _channel = sb
+      .channel('rt-invoice-views')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'invoice_views' },
+        function(payload){
+          const invId = payload?.new?.invoice_id;
+          if(!invId) return;
+          _updateBadge(invId);
+        }
+      )
+      .subscribe();
+  }
+
+  // ── unsubscribe: عند مغادرة صفحة invoices ──
+  function _unsubscribe(){
+    if(!_channel) return;
+    try{ sb.removeChannel(_channel); }catch(_){}
+    _channel = null;
+  }
+
+  // ── hook على showPage ──
+  const _origShowPage = window.showPage;
+  window.showPage = function(page, arg){
+    if(page === 'invoices'){
+      _subscribe();
+    } else {
+      _unsubscribe();
+    }
+    return _origShowPage.call(this, page, arg);
+  };
+
+})();
+
+const APP_VERSION = 'v53.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7559,6 +7648,79 @@ async function openClientInPanel(clientId, clientName, level=2){
     if(level===2) openPanelLevel2(clientName, errBody,'',{contextLabel:'تفاصيل العميل',panelId:'client-'+clientId});
     else openPanel(`👤 ${clientName}`, errBody, '');
   }
+}
+
+
+// ════════════════════════════════════════
+// 📊 INVOICE TRACKING PANEL — Phase 2 Step 2
+// read-only · no realtime · DB aggregation
+// ════════════════════════════════════════
+async function openInvTrackingPanel(invId){
+  if(!invId) return;
+
+  // ── Loading state قبل وصول البيانات ──
+  openPanel('📊 Tracking — ' + invId,
+    '<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>', '');
+
+  // ── helper: format تاريخ آمن ──
+  function _fmtDate(raw){
+    if(!raw) return '—';
+    try{
+      return new Date(raw).toLocaleDateString('en-GB',{
+        day:'2-digit', month:'short', year:'numeric', timeZone:'UTC'
+      });
+    }catch(_){ return '—'; }
+  }
+
+  // count = 0 افتراضياً — fallback لو فشل query
+  let count = 0, first = null, last = null;
+
+  try{
+    const{data,error}=await sb
+      .from('invoice_views')
+      .select('open_count:invoice_id.count(), first_open_at:viewed_at.min(), last_open_at:viewed_at.max()')
+      .eq('invoice_id', invId)
+      .single();
+
+    // null safety: كل قيمة تُتحقق منها بشكل مستقل
+    if(data && !error){
+      count = Number(data.open_count)  || 0;
+      first = data.first_open_at       || null;
+      last  = data.last_open_at        || null;
+    }
+    // لو error أو data فارغ → تبقى القيم الافتراضية (count=0)
+
+  }catch(_){
+    // silent fail — نعرض Not Opened بدل error UI
+  }
+
+  const body = count === 0
+    ? `<div style="text-align:center;padding:40px 20px">
+         <div style="font-size:36px;margin-bottom:12px">❌</div>
+         <div style="font-size:15px;font-weight:700;color:var(--text1)">Not Opened</div>
+         <div style="font-size:12px;color:var(--text3);margin-top:6px">الفاتورة لم تُفتح بعد</div>
+       </div>`
+    : `<div style="display:flex;flex-direction:column;gap:14px;padding:4px 0">
+         <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--green-light);border-radius:10px;border:1px solid rgba(22,163,74,.15)">
+           <span style="font-size:28px">✅</span>
+           <div>
+             <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Opened</div>
+             <div style="font-size:22px;font-weight:800;color:var(--green);font-family:var(--mono)">${count} مرة</div>
+           </div>
+         </div>
+         <div style="display:flex;flex-direction:column;gap:8px">
+           ${first ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+             <span style="font-size:12px;color:var(--text3);font-weight:600">🕐 First Open</span>
+             <span style="font-size:13px;font-weight:700;color:var(--text1);font-family:var(--mono)">${_fmtDate(first)}</span>
+           </div>` : ''}
+           ${last ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+             <span style="font-size:12px;color:var(--text3);font-weight:600">🕐 Last Open</span>
+             <span style="font-size:13px;font-weight:700;color:var(--text1);font-family:var(--mono)">${_fmtDate(last)}</span>
+           </div>` : ''}
+         </div>
+       </div>`;
+
+  openPanel('📊 Tracking — ' + invId, body, '');
 }
 
 // ── 1. Profit Analytics ──
