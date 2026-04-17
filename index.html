@@ -2339,6 +2339,32 @@ let currentUser = null;
 
       area.innerHTML = _buildA4(inv, lines, _invId);
 
+      // ════════════════════════════════════════
+      // 📊 INVOICE TRACKING — Phase 1
+      // async بعد render — silent fail — لا يؤخر التحميل
+      // ════════════════════════════════════════
+      // non-blocking: setTimeout(0) — لا يأثر على render نهائياً
+      setTimeout(async function _trackView(){
+        try{
+          if(!window._PUBLIC_MODE) return;           // Public Mode فقط
+          // 1) sanitize أولاً — قبل sb وأي flags
+          const _tid = (_invId||'').replace(/[^a-zA-Z0-9\-_]/g,'').slice(0,60);
+          if(!_tid) return;                          // id غير صالح — نوقف هنا
+          if(!sb || typeof sb.from !== 'function') return; // supabase غير جاهز
+          // 2) دعم فتح أكثر من فاتورة — reset إذا تغير الـ id
+          if(window._lastTrackedInv !== _tid){
+            window._trackedView    = false;
+            window._lastTrackedInv = _tid;
+          }
+          if(window._trackedView) return;            // نفس الفاتورة — لا تكرار
+          window._trackedView = true;                // سجّل قبل الإرسال
+          await sb.from('invoice_views').insert({
+            invoice_id: _tid,
+            viewed_at:  new Date().toISOString(),
+          });
+        }catch(_){} // silent fail
+      }, 0);
+
     }catch(err){
       // تجاهل من request قديم
       if(_thisReq !== _reqId) return;
@@ -3296,6 +3322,18 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
     recs.forEach(r=>{recMap[r.invoice_id]=calcPay(r).status;});
   }
 
+  // ── Phase 2: جلب view counts (batch) ──
+  // Phase 2: COUNT بالـ SQL مباشرة — مو JS aggregation
+  let viewMap={};
+  if(invIds.length>0){
+    const views=await safeQuery(()=>
+      sb.from('invoice_views')
+        .select('invoice_id, open_count:invoice_id.count()')
+        .in('invoice_id',invIds)
+    );
+    (views||[]).forEach(v=>{ viewMap[v.invoice_id]=+v.open_count||0; });
+  }
+
   document.getElementById('page-content').innerHTML=`
   <!-- Smart Filter Bar -->
   <div class="smart-filter-bar">
@@ -3343,7 +3381,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
           return`<tr>
-            <td class="td-mono" style="color:var(--accent);font-weight:700">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'}</td>
+            <td class="td-mono" style="color:var(--accent);font-weight:700">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;margin-right:2px" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600" title="لم تُفتح بعد">❌</span>`}</td>
             <td>${fmtD(r.date)}</td>
             <td class="td-mono text-muted">${r.customer_id||'—'}</td>
             <td style="font-weight:600">
@@ -6405,7 +6443,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v51.0';
+const APP_VERSION = 'v52.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
