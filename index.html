@@ -6463,41 +6463,49 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
   let _channel = null;
   window._invSub = false; // global guard — منع multi-subscription
 
-  // ── تحديث badge — بدون increment أعمى ──
-  // نقرأ count من الـ DOM (مصدر الحقيقة) مو نزيد فقط
-  function _updateBadge(invId){
+  // ── fetch count من DB عبر RPC ثم يحدث الـ badge ──
+  // المصدر: DB دايماً — مو DOM increment
+  async function _updateBadge(invId){
     if(!invId) return;
-    // filter: فقط لو على صفحة invoices
     if(window._currentPage !== 'invoices') return;
+    if(!sb || typeof sb.rpc !== 'function') return;
 
+    // جلب count الحقيقي من DB
+    let realCount = 0;
+    try{
+      const{data:rpcData,error:rpcErr} = await sb.rpc('get_invoice_view_counts',{
+        inv_ids: [invId]
+      });
+      if(!rpcErr && Array.isArray(rpcData) && rpcData.length > 0){
+        realCount = Number(rpcData[0].open_count) || 0;
+      }
+    }catch(_){ return; } // silent fail
+
+    if(realCount === 0) return; // مو منطقي — لا تحدث
+
+    // تحديث الـ badge بالقيمة الحقيقية من DB
     const cells = document.querySelectorAll('#inv-main-table tbody td:first-child');
     cells.forEach(cell => {
       if(!cell.textContent.includes(invId)) return;
 
       const badge = cell.querySelector('.rt-view-badge');
       if(badge){
-        if(!badge) return; // guard — defensive
-        // نقرأ العداد من data-count — مو increment أعمى
-        // ⚠️ ملاحظة: في حالات متزامنة ممكن يكون غير دقيق 100%
-        //    مستقبلاً: ربطه بالـ DB أو payload مباشرة
-        const cur = (parseInt(badge.dataset.count||'0', 10) || 0) + 1;
-        badge.dataset.count  = String(cur); // تحديث dataset بعد كل update
-        badge.title          = `فُتحت ${cur} مرة`;
+        badge.dataset.count    = String(realCount);
+        badge.title            = `فُتحت ${realCount} مرة`;
         badge.style.background = '#dcfce7';
         badge.style.color      = '#16a34a';
-        badge.textContent    = `✅ ${cur}`;
+        badge.textContent      = `✅ ${realCount}`;
       } else {
         // أول فتح — حوّل ❌ إلى ✅
         const redBadge = cell.querySelector('span[title="لم تُفتح بعد"]');
-        if(redBadge){
-          redBadge.setAttribute('title', 'فُتحت مرة');
-          redBadge.dataset.count  = '1';
-          redBadge.classList.add('rt-view-badge');
-          redBadge.style.background = '#dcfce7';
-          redBadge.style.color      = '#16a34a';
-          redBadge.style.fontWeight = '700';
-          redBadge.textContent    = '✅ 1';
-        }
+        if(!redBadge) return;
+        redBadge.setAttribute('title', `فُتحت ${realCount} مرة`);
+        redBadge.dataset.count  = String(realCount);
+        redBadge.classList.add('rt-view-badge');
+        redBadge.style.background = '#dcfce7';
+        redBadge.style.color      = '#16a34a';
+        redBadge.style.fontWeight = '700';
+        redBadge.textContent      = `✅ ${realCount}`;
       }
     });
   }
@@ -6547,7 +6555,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v53.3';
+const APP_VERSION = 'v53.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
