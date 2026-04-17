@@ -3327,15 +3327,16 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   let viewMap={};
   // fallback: أي invoice مو موجود بالنتيجة → count=0 تلقائياً من viewMap
   if(invIds && invIds.length > 0){
-    const views=await safeQuery(()=>
-      sb.from('invoice_views')
-        .select('invoice_id, open_count:invoice_id.count()')
-        .in('invoice_id',invIds)
-    );
-    (views||[]).forEach(v=>{
-      if(!v.invoice_id) return;                        // guard: id غير صالح
-      viewMap[v.invoice_id] = Number(v.open_count) || 0;
+    // RPC: COUNT حقيقي من DB — مو .count() syntax
+    const{data:rpcData,error:rpcErr}=await sb.rpc('get_invoice_view_counts',{
+      inv_ids: invIds
     });
+    if(!rpcErr && Array.isArray(rpcData)){
+      rpcData.forEach(v=>{
+        if(!v.invoice_id) return;
+        viewMap[v.invoice_id] = Number(v.open_count) || 0;
+      });
+    }
     // عبّي كل invoice ما رجع بـ 0 — no undefined
     invIds.forEach(id=>{ if(!(id in viewMap)) viewMap[id] = 0; });
   }
@@ -6458,45 +6459,56 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // ════════════════════════════════════════
 (function _realtimeTracking(){
 
-  let _channel = null; // الـ subscription الحالي
+  // ── state ──
+  let _channel = null;
+  window._invSub = false; // global guard — منع multi-subscription
 
-  // ── تحديث badge في الجدول بدون re-render ──
+  // ── تحديث badge — بدون increment أعمى ──
+  // نقرأ count من الـ DOM (مصدر الحقيقة) مو نزيد فقط
   function _updateBadge(invId){
     if(!invId) return;
-    // نبحث عن كل الخلايا اللي تحتوي رقم الفاتورة
+    // filter: فقط لو على صفحة invoices
+    if(window._currentPage !== 'invoices') return;
+
     const cells = document.querySelectorAll('#inv-main-table tbody td:first-child');
     cells.forEach(cell => {
       if(!cell.textContent.includes(invId)) return;
-      // نجد الـ badge الحالي
+
       const badge = cell.querySelector('.rt-view-badge');
       if(badge){
-        // زود العداد
-        const cur = parseInt(badge.dataset.count||'0', 10) + 1;
-        badge.dataset.count = cur;
-        badge.title = `فُتحت ${cur} مرة`;
+        if(!badge) return; // guard — defensive
+        // نقرأ العداد من data-count — مو increment أعمى
+        // ⚠️ ملاحظة: في حالات متزامنة ممكن يكون غير دقيق 100%
+        //    مستقبلاً: ربطه بالـ DB أو payload مباشرة
+        const cur = (parseInt(badge.dataset.count||'0', 10) || 0) + 1;
+        badge.dataset.count  = String(cur); // تحديث dataset بعد كل update
+        badge.title          = `فُتحت ${cur} مرة`;
         badge.style.background = '#dcfce7';
         badge.style.color      = '#16a34a';
-        badge.textContent      = `✅ ${cur}`;
+        badge.textContent    = `✅ ${cur}`;
       } else {
         // أول فتح — حوّل ❌ إلى ✅
         const redBadge = cell.querySelector('span[title="لم تُفتح بعد"]');
         if(redBadge){
           redBadge.setAttribute('title', 'فُتحت مرة');
-          redBadge.dataset.count = '1';
+          redBadge.dataset.count  = '1';
           redBadge.classList.add('rt-view-badge');
           redBadge.style.background = '#dcfce7';
           redBadge.style.color      = '#16a34a';
           redBadge.style.fontWeight = '700';
-          redBadge.textContent      = '✅ 1';
+          redBadge.textContent    = '✅ 1';
         }
       }
     });
   }
 
-  // ── subscribe: يبدأ عند دخول صفحة invoices ──
+  // ── subscribe ──
   function _subscribe(){
-    if(_channel) return; // مو مزدوج
+    if(window._invSub) return;          // guard: منع multi-subscription
+    if(_channel) return;                // channel موجود
     if(!sb || typeof sb.channel !== 'function') return;
+
+    window._invSub = true;
 
     _channel = sb
       .channel('rt-invoice-views')
@@ -6504,19 +6516,22 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'invoice_views' },
         function(payload){
-          const invId = payload?.new?.invoice_id;
-          if(!invId) return;
+          // guard على payload — بدون optional chaining فقط
+          if(!payload || !payload.new || !payload.new.invoice_id) return;
+          const invId = payload.new.invoice_id;
           _updateBadge(invId);
         }
       )
       .subscribe();
   }
 
-  // ── unsubscribe: عند مغادرة صفحة invoices ──
+  // ── unsubscribe كامل ──
   function _unsubscribe(){
-    if(!_channel) return;
-    try{ sb.removeChannel(_channel); }catch(_){}
-    _channel = null;
+    if(_channel){
+      try{ sb.removeChannel(_channel); }catch(_){}
+      _channel = null;
+    }
+    window._invSub = false; // reset flag — يسمح بـ subscribe جديد لو رجع
   }
 
   // ── hook على showPage ──
@@ -6532,7 +6547,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v53.0';
+const APP_VERSION = 'v53.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7676,17 +7691,17 @@ async function openInvTrackingPanel(invId){
   let count = 0, first = null, last = null;
 
   try{
-    const{data,error}=await sb
-      .from('invoice_views')
-      .select('open_count:invoice_id.count(), first_open_at:viewed_at.min(), last_open_at:viewed_at.max()')
-      .eq('invoice_id', invId)
-      .single();
+    // RPC: COUNT + MIN + MAX حقيقي من DB
+    const{data,error}=await sb.rpc('get_invoice_view_stats',{
+      inv_id: invId
+    });
 
-    // null safety: كل قيمة تُتحقق منها بشكل مستقل
-    if(data && !error){
-      count = Number(data.open_count)  || 0;
-      first = data.first_open_at       || null;
-      last  = data.last_open_at        || null;
+    // RPC يرجع array — نأخذ أول صف
+    const _row = Array.isArray(data) ? data[0] : data;
+    if(_row && !error){
+      count = Number(_row.open_count)  || 0;
+      first = _row.first_open_at       || null;
+      last  = _row.last_open_at        || null;
     }
     // لو error أو data فارغ → تبقى القيم الافتراضية (count=0)
 
