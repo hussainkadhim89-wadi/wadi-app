@@ -1885,6 +1885,55 @@ input:focus,select:focus,textarea:focus{
   @page{size:A4;margin:10mm 12mm;}
 }
 
+/* ══════════════════════════════════════
+   WHATSAPP SEND — v50.0
+   ══════════════════════════════════════ */
+#wa-modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:9000;align-items:center;justify-content:center;
+}
+#wa-modal-overlay.open{display:flex;}
+#wa-modal{
+  background:var(--bg1,#fff);border-radius:14px;padding:24px;
+  width:min(340px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.18);
+  animation:fadeInUp .18s ease;
+}
+#wa-modal .wa-title{
+  font-size:15px;font-weight:700;color:var(--text1,#0f172a);
+  margin-bottom:16px;display:flex;align-items:center;gap:8px;
+}
+#wa-modal .wa-btn{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 14px;border-radius:9px;border:1px solid var(--border,#e2e8f0);
+  background:var(--bg2,#f8fafc);cursor:pointer;font-size:13px;font-weight:600;
+  color:var(--text1,#0f172a);margin-bottom:10px;transition:background .12s;
+  text-align:right;
+}
+#wa-modal .wa-btn:hover{background:var(--bg3,#f1f5f9);}
+#wa-modal .wa-btn .wa-icon{font-size:20px;flex-shrink:0;}
+#wa-modal .wa-input-row{margin-top:4px;}
+#wa-modal .wa-input{
+  width:100%;padding:9px 12px;border-radius:8px;
+  border:1px solid var(--border,#e2e8f0);font-size:13px;
+  background:var(--bg1,#fff);color:var(--text1,#0f172a);
+  direction:ltr;font-family:monospace;box-sizing:border-box;
+  margin-top:6px;
+}
+#wa-modal .wa-input:focus{outline:none;border-color:#25D366;}
+#wa-modal .wa-send-btn{
+  width:100%;padding:10px;background:#25D366;color:#fff;
+  border:none;border-radius:8px;font-size:13px;font-weight:700;
+  cursor:pointer;margin-top:8px;transition:background .12s;
+}
+#wa-modal .wa-send-btn:hover{background:#1ebe5d;}
+#wa-modal .wa-cancel{
+  width:100%;padding:8px;background:transparent;color:var(--text3,#94a3b8);
+  border:none;font-size:12px;cursor:pointer;margin-top:6px;
+}
+#wa-modal .wa-err{
+  font-size:11px;color:#ef4444;margin-top:4px;min-height:16px;
+}
+
 </style>
 </head>
 <body>
@@ -2176,41 +2225,105 @@ let currentUser = null;
 // ════════════════════════════════════════
 (function _publicViewInit(){
   // قراءة الـ param من URL
+  // ── 1) Safe Parsing — sanitize + normalize ──
   const _p = new URLSearchParams(window.location.search);
-  const _invId = _p.get('public');
+  const _rawId = _p.get('public') || '';
+  // sanitize: حروف + أرقام + hyphen + underscore، max 60
+  // normalize: uppercase لتجنب mismatch (WT-182 = wt-182)
+  const _invId = _rawId.replace(/[^a-zA-Z0-9\-_]/g, '').slice(0, 60).toUpperCase();
   if(!_invId){ return; } // مو public link — تابع الـ app العادي
 
   // ── إعداد الـ UI ──
   document.getElementById('public-view').classList.add('active');
-  // إخفاء login بدون display flash
   const _ls = document.getElementById('login-screen');
   if(_ls) _ls.style.display = 'none';
+  // textContent آمن — لا XSS
   document.getElementById('pub-inv-badge').textContent = _invId;
 
   // ── Flag: يمنع initAuth من التشغيل ──
   window._PUBLIC_MODE = true;
 
-  // ── Fetch: invoice + invoice_lines فقط ──
+  // ── Loading State ──
+  function _showLoading(area){
+    area.innerHTML =
+      '<div style="text-align:center;padding:64px 20px;color:#64748b">'
+      +'<div style="font-size:36px;margin-bottom:10px;animation:spin .9s linear infinite;display:inline-block">⏳</div>'
+      +'<div style="font-size:14px;margin-top:8px;font-weight:500">Loading invoice…</div>'
+      +'<div style="font-size:12px;margin-top:4px;color:#94a3b8">'+_invId+'</div>'
+      +'</div>';
+  }
+
+  // ── Error State — مع retry + disable أثناء التحميل ──
+  function _showError(area, msg, retryable){
+    area.innerHTML =
+      '<div style="text-align:center;padding:64px 20px">'
+      +'<div style="font-size:36px;margin-bottom:12px">'+(retryable?'⚠️':'❌')+'</div>'
+      +'<div style="font-size:15px;font-weight:600;color:#1e293b;margin-bottom:6px">'+msg.title+'</div>'
+      +'<div style="font-size:12px;color:#94a3b8;margin-bottom:'+(retryable?'20px':'0px')+'">'+msg.detail+'</div>'
+      +(retryable
+        ?'<button id="_pub-retry-btn" onclick="_fetchInvoice()" '
+          +'style="background:#8B1A1A;color:#fff;border:none;padding:9px 22px;'
+          +'border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">'
+          +'↺ Try Again</button>'
+        :'')
+      +'</div>';
+  }
+
+  // ── Fetch — timeout 12s + retry disable + race safety ──
+  // ── Fetch state ──
+  let _reqId   = 0;    // race safety: ID فريد لكل request
+  let _curCtrl = null; // الـ AbortController للـ request الحالي
+
   async function _fetchInvoice(){
+    // ── 1) Abort request السابق لو شغال ──
+    if(_curCtrl){ _curCtrl.abort(); _curCtrl = null; }
+
+    // ── 2) Reset state كامل قبل البدء ──
     const area = document.getElementById('pub-area');
+    window._pubPDFName = null; // reset اسم الـ PDF
+
+    // disable retry button لو موجود
+    const _retryBtn = document.getElementById('_pub-retry-btn');
+    if(_retryBtn){
+      _retryBtn.disabled = true;
+      _retryBtn.textContent = 'Loading…';
+      _retryBtn.style.opacity = '0.6';
+      _retryBtn.style.cursor = 'not-allowed';
+    }
+
+    _showLoading(area);
+
+    // race ID + AbortController جديد
+    const _thisReq = ++_reqId;
+    const _ctrl = new AbortController();
+    _curCtrl = _ctrl;
+    let _timer = setTimeout(() => _ctrl.abort(), 12000);
+
     try{
       const [r1, r2] = await Promise.all([
-        sb.from('invoices').select('*').eq('id', _invId).single(),
-        sb.from('invoice_lines').select('*').eq('invoice_id', _invId).order('id'),
+        sb.from('invoices').select('*').eq('id', _invId).abortSignal(_ctrl.signal).single(),
+        sb.from('invoice_lines').select('*').eq('invoice_id', _invId).abortSignal(_ctrl.signal).order('id'),
       ]);
-      if(r1.error || !r1.data){
-        area.innerHTML = `<div style="text-align:center;padding:64px 20px;color:#64748b">
-          <div style="font-size:36px;margin-bottom:10px">❌</div>
-          <div style="font-size:15px;font-weight:600">Invoice not found</div>
-          <div style="font-size:12px;margin-top:6px;color:#94a3b8">
-            <b>${_invId}</b> does not exist or is not accessible.
-          </div></div>`;
+
+      // تجاهل response من request قديم
+      if(_thisReq !== _reqId) return;
+
+      // ── 3) Defensive check: inv موجود وصالح ──
+      const inv = (r1 && !r1.error && r1.data && typeof r1.data === 'object')
+        ? r1.data : null;
+
+      if(!inv){
+        _showError(area, {
+          title: 'Invoice not found',
+          detail: '"' + _invId + '" does not exist or is not publicly accessible.'
+        }, false);
         return;
       }
-      const inv   = r1.data;
-      const lines = r2.data || [];
 
-      // تحديث اسم الشركة في الـ bar (بعد تحميل APP_SETTINGS)
+      // حالة بدون lines: دايماً array
+      const lines = Array.isArray(r2 && r2.data) ? r2.data : [];
+
+      // تحديث bar
       const coName = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.companyNameEn)
         ? APP_SETTINGS.companyNameEn
         : 'Wadi Al-Taqaa For General Trade';
@@ -2221,19 +2334,42 @@ let currentUser = null;
       const _dateStr = inv.date
         ? new Date(inv.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'')
         : '';
-      const _custShort = (inv.customer_name||'').replace(/\s+/g,'').slice(0,12);
+      const _custShort = (inv.customer_name || '').replace(/\s+/g,'').slice(0,12);
       window._pubPDFName = _invId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + _custShort + '_' + _dateStr;
 
       area.innerHTML = _buildA4(inv, lines, _invId);
 
     }catch(err){
-      area.innerHTML = `<div style="text-align:center;padding:64px 20px;color:#ef4444">
-        <div style="font-size:36px;margin-bottom:10px">⚠️</div>
-        <div style="font-size:14px">Error loading invoice. Please try again.</div>
-      </div>`;
-      console.error('[Public View]', err);
+      // تجاهل من request قديم
+      if(_thisReq !== _reqId) return;
+      // cross-browser: name أو message
+      const _msg = (err?.message||'').toLowerCase();
+      const _isAbort = err?.name === 'AbortError'
+        || (err instanceof DOMException && _msg.includes('abort'))
+        || (err instanceof TypeError    && _msg.includes('abort'));
+      const isTimeout = _isAbort;
+      _showError(area, {
+        title: isTimeout ? 'Request timed out' : 'Connection error',
+        detail: isTimeout
+          ? 'The server took too long to respond. Try again.'
+          : 'Could not load the invoice. Check your connection and try again.'
+      }, true);
+      // abort طبيعي — لا نسجله (name أو message)
+      if(!_isAbort && err){
+        console.error('[Public View]', {
+          name:    err?.name,
+          message: err?.message,
+        });
+      }
+    } finally {
+      // clearTimeout دايماً — نجح أو فشل أو abort
+      clearTimeout(_timer);
+      // reset _curCtrl لو هذا الـ request هو الأخير
+      if(_thisReq === _reqId) _curCtrl = null;
     }
   }
+  // expose للـ retry button
+  window._fetchInvoice = _fetchInvoice;
 
   // ── بناء A4 ─ مستقل تماماً ──
   function _buildA4(inv, lines, id){
@@ -2247,7 +2383,9 @@ let currentUser = null;
     const em1   = S.emailHussain  || 'wadilataqaa2016@gmail.com';
     const em2   = S.emailNwar     || 'nwaroil81@gmail.com';
 
-    const isDetailed = inv.invoice_type === 'detailed' && lines.length > 0;
+    // حالة بدون lines: detailed بس ما فيه lines → يرجع لـ simple mode
+    const _hasLines = Array.isArray(lines) && lines.length > 0;
+    const isDetailed = inv.invoice_type === 'detailed' && _hasLines;
     const subtotal   = isDetailed
       ? lines.reduce((s,l) => s + (+l.qty||0) * (+l.unit_price||0), 0)
       : (+inv.sale_amount || 0);
@@ -3577,6 +3715,7 @@ async function loadPrint(){
   <div class="nopr" style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="window.document.title='${printName}';window.print()">🖨️ طباعة / حفظ PDF</button>
     <button class="btn btn-secondary" onclick="_copyPublicLink('${id}')" style="display:flex;align-items:center;gap:5px">🔗 مشاركة</button>
+    <button class="btn btn-secondary" id="wa-open-btn" data-invid="${inv.id||id}" data-custname="${(inv.customer_name||'').replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:5px;background:#e8fdf0;border-color:#25D366;color:#16a34a">📤 إرسال</button>
     <span style="font-size:11px;color:var(--text3)">اسم الملف: ${printName}.pdf</span>
   </div>
   <div id="iprint" dir="ltr" style="width:794px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:#1a1a1a;box-shadow:0 4px 20px rgba(0,0,0,.12)">
@@ -6266,7 +6405,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v48.5';
+const APP_VERSION = 'v50.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -9074,6 +9213,241 @@ function icFilter(){
   if(cnt) cnt.textContent=f.length+' فاتورة';
 }
 // ════════════════════════════════════════
+// 📤 WHATSAPP SEND — v50.6
+// Layer: لا API · لا backend · لا كسر الفلو
+// ════════════════════════════════════════
+(function(){
+  let _waInvId     = '';
+  let _waName      = '';
+  let _waTriggerEl = null; // العنصر اللي فتح الـ modal
+
+  // ── فتح الـ modal ──
+  window._waOpen = function(invId, custName){
+    _waInvId     = invId || '';
+    _waName      = custName || '';
+    // حفظ الـ element اللي فتح الـ modal (لـ focus بعد الإغلاق)
+    _waTriggerEl = document.activeElement || null;
+    // reset الـ steps
+    document.getElementById('wa-step1').style.display = '';
+    document.getElementById('wa-step2').style.display = 'none';
+    document.getElementById('wa-phone-input').value   = '';
+    document.getElementById('wa-err').textContent     = '';
+    document.getElementById('wa-modal-overlay').classList.add('open');
+  };
+
+  // ── إغلاق ──
+  window._waClose = function(){
+    document.getElementById('wa-modal-overlay').classList.remove('open');
+    // 3) return focus لزر إرسال في الـ print page
+    if(_waTriggerEl
+       && document.contains(_waTriggerEl)
+       && typeof _waTriggerEl.focus === 'function'){
+      setTimeout(()=> _waTriggerEl.focus(), 50);
+    }
+  };
+
+  // ── رجوع للـ step1 ──
+  window._waBack = function(){
+    document.getElementById('wa-step1').style.display = '';
+    document.getElementById('wa-step2').style.display = 'none';
+    document.getElementById('wa-err').textContent = '';
+  };
+
+  // ── إرسال للزبون ──
+  window._waPickCustomer = function(){
+    const lbl = document.getElementById('wa-step2-label');
+    lbl.textContent = _waName
+      ? 'رقم واتساب الزبون — ' + _waName
+      : 'رقم واتساب الزبون';
+    document.getElementById('wa-phone-input').value = '';
+    document.getElementById('wa-err').textContent   = '';
+    document.getElementById('wa-step1').style.display = 'none';
+    document.getElementById('wa-step2').style.display = '';
+    _waFillLast();
+    document.getElementById('wa-phone-input').focus();
+  };
+
+  // ── إرسال لرقم آخر ──
+  window._waPickOther = function(){
+    const lbl = document.getElementById('wa-step2-label');
+    lbl.textContent = 'أدخل رقم واتساب';
+    document.getElementById('wa-phone-input').value = '';
+    document.getElementById('wa-err').textContent   = '';
+    document.getElementById('wa-step1').style.display = 'none';
+    document.getElementById('wa-step2').style.display = '';
+    _waFillLast();
+    document.getElementById('wa-phone-input').focus();
+  };
+
+  // ── Validation: أرقام فقط، 8+ أرقام ──
+  function _cleanPhone(raw){
+    // حذف كل شيء عدا الأرقام
+    return (raw||'').replace(/\D/g, '');
+  }
+
+  function _validatePhone(digits){
+    if(!digits || digits.length === 0) return 'أدخل رقم الواتساب';
+    if(digits.length < 8)  return 'الرقم قصير جداً (8 أرقام على الأقل)';
+    if(digits.length > 15) return 'الرقم طويل جداً (15 رقم كحد أقصى)';
+    return '';
+  }
+
+  window._waValidate = function(){
+    const raw    = document.getElementById('wa-phone-input').value;
+    const digits = _cleanPhone(raw);
+    const err    = _validatePhone(digits);
+    document.getElementById('wa-err').textContent = err;
+    return !err;
+  };
+
+  // ── بناء الرسالة + الرابط ──
+  function _buildWaLink(digits){
+    const base = (window.location.origin + window.location.pathname).replace(/\/+$/, '');
+    // 1) decode أولاً لو كان encoded مسبقاً → تجنب double encoding
+    let cleanId;
+    try{ cleanId = decodeURIComponent((_waInvId||'').trim()); }
+    catch(_){ cleanId = (_waInvId||'').trim(); }
+    const pubLink = base + '?public=' + encodeURIComponent(cleanId);
+    // نص الرسالة — optional chaining + fallback
+    const _msgTpl = APP_SETTINGS?.waMessageTemplate
+      || 'فاتورتك جاهزة 👇\nيرجى مراجعتها من الرابط التالي:';
+    const msg = _msgTpl + '\n' + pubLink + '\n\nتحياتي';
+    return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(msg);
+  }
+
+  // ── آخر رقم مستخدم (session) ──
+  let _lastPhone = '';
+
+  function _waFillLast(){
+    if(_lastPhone){
+      document.getElementById('wa-phone-input').value = _lastPhone;
+      _waValidate();
+    }
+  }
+
+  // ── إرسال ──
+  window._waSend = function(){
+    const raw    = (document.getElementById('wa-phone-input').value||'').trim();
+    const digits = _cleanPhone(raw);
+    const err    = _validatePhone(digits);
+
+    if(err){
+      document.getElementById('wa-err').textContent = err;
+      document.getElementById('wa-phone-input').focus();
+      return;
+    }
+
+    const _btn = document.getElementById('wa-send-btn');
+    // 1) disable في try/finally — يُرجع الحالة حتى لو صار error
+    try{
+      if(_btn){ _btn.disabled = true; _btn.style.opacity = '0.6'; }
+
+      _lastPhone = digits;
+      const link = _buildWaLink(digits);
+
+      // 2) تحقق من window.open — إذا blocked اعرض رسالة
+      // Hook: tracking event
+      try{
+        document.dispatchEvent(new CustomEvent('invoice_sent_whatsapp',{
+          detail:{
+            invId:  _waInvId,
+            phone:  digits,
+            source: 'print',
+            ts:     Date.now(),
+          }
+        }));
+      }catch(_){}
+      const _win = window.open(link, '_blank', 'noopener,noreferrer');
+      // fallback أمني: null opener لو المتصفح ما طبّق noopener
+      try{ if(_win) _win.opener = null; }catch(_){}
+      if(!_win || _win.closed || typeof _win.closed === 'undefined'){
+        document.getElementById('wa-err').textContent =
+          'المتصفح حجب النافذة — فعّل السماح بالنوافذ المنبثقة وحاول مجدداً';
+        document.getElementById('wa-phone-input').focus();
+        return;
+      }
+
+      _waClose();
+      if(typeof showToast === 'function'){
+        showToast('📤 تم فتح واتساب', 'success');
+      }
+    } finally {
+      // 1) restore دايماً — نجح أو فشل
+      if(_btn){ _btn.disabled = false; _btn.style.opacity = ''; }
+    }
+  };
+
+  // ── ربط كل الأحداث بـ addEventListener (بدون onclick inline) ──
+  function _waBind(){
+    const _get = id => document.getElementById(id);
+
+    // backdrop click
+    _get('wa-modal-overlay')?.addEventListener('click', function(e){
+      if(e.target === this) _waClose();
+    });
+
+    // step1 buttons
+    _get('wa-btn-customer')?.addEventListener('click', _waPickCustomer);
+    _get('wa-btn-other')?.addEventListener('click', _waPickOther);
+    _get('wa-btn-cancel1')?.addEventListener('click', _waClose);
+
+    // step2 buttons
+    _get('wa-send-btn')?.addEventListener('click', _waSend);
+    _get('wa-btn-back')?.addEventListener('click', _waBack);
+
+    // input events
+    _get('wa-phone-input')?.addEventListener('input', _waValidate);
+    _get('wa-phone-input')?.addEventListener('keydown', function(e){
+      if(e.key === 'Enter') _waSend();
+    });
+
+    // زر الإرسال — event delegation على print-area فقط (مو document)
+    const _printArea = document.getElementById('print-area');
+    if(_printArea){
+      _printArea.addEventListener('click', function(e){
+        const btn = e.target.closest('#wa-open-btn');
+        if(btn){
+          const invId    = btn.dataset.invid    || '';
+          const custName = btn.dataset.custname || '';
+          _waOpen(invId, custName);
+        }
+      });
+    } else {
+      // fallback: MutationObserver ينتظر print-area — مع guard لمنع ربط أكثر من مرة
+      let _bound = false;
+      const _obs = new MutationObserver(function(){
+        if(_bound) return; // guard: لا يربط مرتين
+        const _pa = document.getElementById('print-area');
+        if(_pa){
+          _bound = true;   // سجّل قبل الربط
+          _pa.addEventListener('click', function(e){
+            const btn = e.target.closest('#wa-open-btn');
+            if(btn) _waOpen(btn.dataset.invid||'', btn.dataset.custname||'');
+          });
+          _obs.disconnect();
+        }
+      });
+      _obs.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  // ── ESC يغلق الـ modal ──
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){
+      const ov = document.getElementById('wa-modal-overlay');
+      if(ov && ov.classList.contains('open')) _waClose();
+    }
+  });
+
+  // ── Init ──
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _waBind);
+  } else {
+    _waBind();
+  }
+})();
+
+// ════════════════════════════════════════
 // 🔗 COPY PUBLIC LINK — GitHub Pages
 // ════════════════════════════════════════
 function _copyPublicLink(invId){
@@ -9097,5 +9471,40 @@ function _copyPublicLink(invId){
 
 </script>
 <div id="floating-scroll"><div id="floating-scroll-inner"></div></div>
+<!-- WhatsApp Send Modal — قبل </body> مباشرة · بدون onclick inline -->
+<div id="wa-modal-overlay">
+  <div id="wa-modal">
+    <div class="wa-title">📤 إرسال الفاتورة عبر واتساب</div>
+    <div id="wa-step1">
+      <button class="wa-btn" id="wa-btn-customer">
+        <span class="wa-icon">👤</span>
+        <span>إرسال للزبون</span>
+      </button>
+      <button class="wa-btn" id="wa-btn-other">
+        <span class="wa-icon">📱</span>
+        <span>إرسال لرقم آخر</span>
+      </button>
+      <button class="wa-cancel" id="wa-btn-cancel1">إلغاء</button>
+    </div>
+    <div id="wa-step2" style="display:none">
+      <div id="wa-step2-label" style="font-size:12px;color:var(--text3,#94a3b8);margin-bottom:4px"></div>
+      <div style="font-size:11px;color:#25D366;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+        🔒 الرابط آمن ومخصص لهذه الفاتورة فقط
+      </div>
+      <div style="font-size:11px;color:var(--text3,#94a3b8);margin-bottom:6px">
+        أدخل الرقم بأي شكل — النظام ينظفه تلقائياً
+      </div>
+      <div class="wa-input-row">
+        <input class="wa-input" id="wa-phone-input" type="tel"
+          placeholder="مثال: +964 780 147 2330">
+      </div>
+      <div class="wa-err" id="wa-err"></div>
+      <button class="wa-send-btn" id="wa-send-btn">
+        <span>📤 إرسال عبر واتساب</span>
+      </button>
+      <button class="wa-cancel" id="wa-btn-back">← رجوع</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
