@@ -6405,7 +6405,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v50.9';
+const APP_VERSION = 'v51.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -9312,7 +9312,9 @@ function icFilter(){
     const _msgTpl = APP_SETTINGS?.waMessageTemplate
       || 'فاتورتك جاهزة 👇\nيرجى مراجعتها من الرابط التالي:';
     const msg = _msgTpl + '\n' + pubLink + '\n\nتحياتي';
-    return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(msg);
+    // api.whatsapp.com/send يشتغل على iOS + Android + متصفح
+    // wa.me يفشل أحياناً من داخل واتساب على iOS
+    return 'https://api.whatsapp.com/send?phone=' + digits + '&text=' + encodeURIComponent(msg);
   }
 
   // ── آخر رقم مستخدم (session) ──
