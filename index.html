@@ -1833,9 +1833,85 @@ input:focus,select:focus,textarea:focus{
 .form-group label{cursor:pointer;}
 .table-wrap table tbody tr:hover td{background:var(--bg3);}
 
+/* ══════════════════════════════════════
+   PUBLIC INVOICE VIEW — v48.5
+   GitHub Pages only
+   ══════════════════════════════════════ */
+#public-view{
+  display:none;
+  min-height:100vh;
+  background:#f1f5f9;
+  font-family:Arial,sans-serif;
+}
+#public-view.active{display:block;}
+.pub-bar{
+  background:#fff;
+  border-bottom:1px solid #e2e8f0;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  position:sticky;
+  top:0;
+  z-index:100;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.pub-bar-left{display:flex;align-items:center;gap:10px;}
+.pub-bar-left .pub-logo{font-size:22px;}
+.pub-bar-left .pub-co{font-size:15px;font-weight:800;color:#8B1A1A;}
+.pub-bar-left .pub-id{font-size:11px;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:4px;font-family:monospace;}
+.pub-dl-btn{
+  background:#8B1A1A;color:#fff;border:none;
+  padding:9px 18px;border-radius:6px;font-size:13px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;gap:6px;
+  -webkit-tap-highlight-color:transparent;
+}
+.pub-dl-btn:active{background:#6d1515;}
+.pub-content{max-width:860px;margin:20px auto;padding:0 16px 48px;}
+.pub-notice{
+  background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;
+  padding:10px 14px;font-size:12px;color:#92400e;margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+@media(max-width:860px){
+  .pub-content{padding:0 6px 40px;}
+  #public-view #iprint{width:100%!important;font-size:9px!important;}
+}
+@media print{
+  .pub-bar,.pub-notice,.pub-dl-btn{display:none!important;}
+  #public-view{background:#fff!important;}
+  .pub-content{max-width:100%;margin:0;padding:0;}
+  #iprint{box-shadow:none!important;width:100%!important;}
+  @page{size:A4;margin:10mm 12mm;}
+}
+
 </style>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════
+     PUBLIC INVOICE VIEW — isolated · read-only
+     GitHub Pages · No login · No app state
+     ══════════════════════════════════════ -->
+<div id="public-view">
+  <div class="pub-bar">
+    <div class="pub-bar-left">
+      <span class="pub-logo">⚡</span>
+      <span class="pub-co" id="pub-co-name">Wadi Al-Taqaa</span>
+      <span class="pub-id" id="pub-inv-badge">—</span>
+    </div>
+    <button class="pub-dl-btn" onclick="_pubDownloadPDF()">⬇️ Download PDF</button>
+  </div>
+  <div class="pub-content">
+    <div class="pub-notice">🔒 Read-only invoice — shared securely by Wadi Al-Taqaa For General Trade</div>
+    <div id="pub-area">
+      <div style="text-align:center;padding:64px 20px;color:#64748b">
+        <div style="font-size:36px;margin-bottom:10px">⏳</div>
+        <div style="font-size:14px">Loading invoice…</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="login-screen">
   <div class="login-box">
@@ -2090,6 +2166,308 @@ const sb = supabase.createClient(
 );
 
 let currentUser = null;
+
+// ════════════════════════════════════════
+// 🌐 PUBLIC INVOICE VIEW — v48.5
+// ─ GitHub Pages only
+// ─ Isolated: no login, no localStorage,
+//   no app init, no internal listeners
+// ─ Fetches ONLY: invoices + invoice_lines
+// ════════════════════════════════════════
+(function _publicViewInit(){
+  // قراءة الـ param من URL
+  const _p = new URLSearchParams(window.location.search);
+  const _invId = _p.get('public');
+  if(!_invId){ return; } // مو public link — تابع الـ app العادي
+
+  // ── إعداد الـ UI ──
+  document.getElementById('public-view').classList.add('active');
+  // إخفاء login بدون display flash
+  const _ls = document.getElementById('login-screen');
+  if(_ls) _ls.style.display = 'none';
+  document.getElementById('pub-inv-badge').textContent = _invId;
+
+  // ── Flag: يمنع initAuth من التشغيل ──
+  window._PUBLIC_MODE = true;
+
+  // ── Fetch: invoice + invoice_lines فقط ──
+  async function _fetchInvoice(){
+    const area = document.getElementById('pub-area');
+    try{
+      const [r1, r2] = await Promise.all([
+        sb.from('invoices').select('*').eq('id', _invId).single(),
+        sb.from('invoice_lines').select('*').eq('invoice_id', _invId).order('id'),
+      ]);
+      if(r1.error || !r1.data){
+        area.innerHTML = `<div style="text-align:center;padding:64px 20px;color:#64748b">
+          <div style="font-size:36px;margin-bottom:10px">❌</div>
+          <div style="font-size:15px;font-weight:600">Invoice not found</div>
+          <div style="font-size:12px;margin-top:6px;color:#94a3b8">
+            <b>${_invId}</b> does not exist or is not accessible.
+          </div></div>`;
+        return;
+      }
+      const inv   = r1.data;
+      const lines = r2.data || [];
+
+      // تحديث اسم الشركة في الـ bar (بعد تحميل APP_SETTINGS)
+      const coName = (typeof APP_SETTINGS !== 'undefined' && APP_SETTINGS.companyNameEn)
+        ? APP_SETTINGS.companyNameEn
+        : 'Wadi Al-Taqaa For General Trade';
+      document.getElementById('pub-co-name').textContent = coName;
+      document.title = _invId + ' — ' + coName;
+
+      // اسم ملف PDF
+      const _dateStr = inv.date
+        ? new Date(inv.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'')
+        : '';
+      const _custShort = (inv.customer_name||'').replace(/\s+/g,'').slice(0,12);
+      window._pubPDFName = _invId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + _custShort + '_' + _dateStr;
+
+      area.innerHTML = _buildA4(inv, lines, _invId);
+
+    }catch(err){
+      area.innerHTML = `<div style="text-align:center;padding:64px 20px;color:#ef4444">
+        <div style="font-size:36px;margin-bottom:10px">⚠️</div>
+        <div style="font-size:14px">Error loading invoice. Please try again.</div>
+      </div>`;
+      console.error('[Public View]', err);
+    }
+  }
+
+  // ── بناء A4 ─ مستقل تماماً ──
+  function _buildA4(inv, lines, id){
+    const S = (typeof APP_SETTINGS !== 'undefined') ? APP_SETTINGS : {};
+    const co    = S.companyNameEn  || 'Wadi Al-Taqaa For General Trade';
+    const addr  = S.companyAddress || 'Apt 2, Plot 118, Al-Tuwaisa, Basra, Iraq';
+    const iban  = S.companyIBAN    || 'IQ37BABI716007234428054';
+    const swift = S.companySWIFT   || 'BABIIQBA';
+    const ph1   = S.phoneHussain  || '+964 780 147 2330';
+    const ph2   = S.phoneNwar     || '+964 771 672 0051';
+    const em1   = S.emailHussain  || 'wadilataqaa2016@gmail.com';
+    const em2   = S.emailNwar     || 'nwaroil81@gmail.com';
+
+    const isDetailed = inv.invoice_type === 'detailed' && lines.length > 0;
+    const subtotal   = isDetailed
+      ? lines.reduce((s,l) => s + (+l.qty||0) * (+l.unit_price||0), 0)
+      : (+inv.sale_amount || 0);
+
+    const fmtD = d => { try{ const [y,m,dd]=(d||'').split('-'); return dd+'/'+m+'/'+y; }catch{ return d||'—'; } };
+    const fmtN = n => n.toLocaleString('en-US',{minimumFractionDigits:2});
+
+    const lpoNum  = inv.lpo_number||'—'; const orderNo = inv.order_number||'—';
+    const bcRef   = inv.bc_reference||'—'; const intRef  = inv.internal_ref||'—';
+    const reqBy   = inv.requested_by||'—'; const lpoDate = inv.lpo_date?fmtD(inv.lpo_date):'—';
+    const credit  = inv.credit_terms||'60 Days';
+    const reqDel  = inv.required_delivery?fmtD(inv.required_delivery):'—';
+    const crBy    = inv.created_by||'—'; const delTo   = inv.delivery_to||'—';
+    const site    = inv.project_site||inv.reference||'—';
+    const cAddr   = inv.customer_address||'Al Majal Business Park – Zubair Street, Near Well 20, Basra, Iraq';
+
+    const rowsHTML = isDetailed
+      ? lines.map((l,i)=>{
+          const amt=(+l.qty||0)*(+l.unit_price||0);
+          return '<tr>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">'+(i+1)+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace;font-size:9.5px">'+(l.item_code||'—')+'</td>'
+            +'<td style="padding:6px 7px;text-align:left;border:1px solid #ddd;font-weight:500">'+(l.description||'—')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;color:#666">'+(l.origin||'NA')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;color:#666">'+(l.brand||'NA')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">'+(l.uom||'EA')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace">'+(l.qty||0)+'</td>'
+            +'<td style="padding:6px 7px;text-align:right;border:1px solid #ddd;font-family:monospace">'+fmtN(+l.unit_price||0)+'</td>'
+            +'<td style="padding:6px 7px;text-align:right;border:1px solid #ddd;font-family:monospace;font-weight:700">'+fmtN(amt)+'</td>'
+            +'</tr>';
+        }).join('')
+      : '<tr>'
+        +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">1</td>'
+        +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace;font-size:9.5px">—</td>'
+        +'<td style="padding:6px 7px;text-align:left;border:1px solid #ddd;font-weight:500">'+(inv.description||'—')+'</td>'
+        +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">NA</td>'
+        +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">NA</td>'
+        +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">EA</td>'
+        +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace">1</td>'
+        +'<td style="padding:6px 7px;text-align:right;border:1px solid #ddd;font-family:monospace">'+fmtN(subtotal)+'</td>'
+        +'<td style="padding:6px 7px;text-align:right;border:1px solid #ddd;font-family:monospace;font-weight:700">'+fmtN(subtotal)+'</td>'
+        +'</tr>';
+
+    const amtWords = (typeof numToWordsIQD !== 'undefined')
+      ? numToWordsIQD(subtotal)
+      : fmtN(subtotal) + ' Iraqi Dinars Only';
+
+    const logo = (typeof _WADI_LOGO !== 'undefined' && _WADI_LOGO)
+      ? '<img src="'+_WADI_LOGO+'" style="height:48px" alt="Wadi Al-Taqaa">'
+      : '<div style="font-size:16px;font-weight:800;color:#8B1A1A">⚡ WADI AL-TAQAA</div>';
+
+    const infoRow = (l,v) =>
+      '<div style="display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid #eee">'
+      +'<div style="background:#f5f5f5;padding:5px 8px;font-weight:700;font-size:9px;color:#555;text-transform:uppercase;border-right:1px solid #eee;letter-spacing:.2px">'+l+'</div>'
+      +'<div style="padding:5px 8px;font-size:10px">'+v+'</div></div>';
+
+    const infoRowR = (l,v) =>
+      '<div style="display:grid;grid-template-columns:90px 1fr;border-bottom:1px solid #eee">'
+      +'<div style="background:#f5f5f5;padding:5px 8px;font-weight:700;font-size:9px;color:#555;text-transform:uppercase;border-right:1px solid #eee">'+l+'</div>'
+      +'<div style="padding:5px 8px;font-size:10px;font-weight:700">'+v+'</div></div>';
+
+    const poRow = (l,v,last) =>
+      '<div style="display:grid;grid-template-columns:120px 1fr;border-bottom:'+(last?'none':'1px solid #eee')+'">'
+      +'<div style="background:#f5f5f5;padding:5px 8px;font-weight:700;font-size:9px;color:#555;text-transform:uppercase;border-right:1px solid #eee;letter-spacing:.2px">'+l+'</div>'
+      +'<div style="padding:5px 8px;font-size:10px">'+v+'</div></div>';
+
+    const RED = '#8B1A1A';
+    const secBar = t =>
+      '<div style="background:'+RED+';color:#fff;font-weight:700;font-size:9.5px;letter-spacing:1px;padding:5px 28px;text-transform:uppercase">'+t+'</div>';
+
+    return (
+      '<div id="iprint" dir="ltr" style="width:794px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:#1a1a1a;box-shadow:0 4px 20px rgba(0,0,0,.12);margin:0 auto">'
+      // Header
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 14px">'
+      +logo
+      +'<div style="font-size:22px;font-weight:900;letter-spacing:3px;color:#1a1a1a">INVOICE</div>'
+      +'</div>'
+      // Info Grid
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #ccc;margin:0 28px 12px;border-radius:2px">'
+        +'<div style="border-right:1px solid #ccc">'
+          +infoRow('INVOICE NO.','<b>'+id+'</b>')
+          +infoRow('INVOICE DATE', inv.date?inv.date.split('-').reverse().join('/'):'—')
+          +infoRow('PROJECT / SITE', site)
+          +infoRow('REFERENCE', inv.reference||id.split('-').slice(-1)[0]||'—')
+        +'</div>'
+        +'<div>'
+          +infoRowR('BILL TO', inv.customer_name||'—')
+          +'<div style="display:grid;grid-template-columns:90px 1fr;border-bottom:1px solid #eee">'
+            +'<div style="background:#f5f5f5;padding:5px 8px;font-weight:700;font-size:9px;color:#555;text-transform:uppercase;border-right:1px solid #eee">ADDRESS</div>'
+            +'<div style="padding:5px 8px;font-size:10px;line-height:1.4">'+cAddr+'</div>'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:90px 1fr;border-bottom:1px solid #eee"><div style="background:#f5f5f5;padding:5px 8px;border-right:1px solid #eee"></div><div style="padding:5px 8px"></div></div>'
+          +'<div style="display:grid;grid-template-columns:90px 1fr"><div style="background:#f5f5f5;padding:5px 8px;border-right:1px solid #eee"></div><div style="padding:5px 8px"></div></div>'
+        +'</div>'
+      +'</div>'
+      // PO
+      +secBar('Purchase Order References')
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #ccc;border-top:none;margin:0 28px 12px">'
+        +'<div style="border-right:1px solid #ccc">'
+          +poRow('LPO Number',lpoNum,false)+poRow('Order No.',orderNo,false)
+          +poRow('BC Reference',bcRef,false)+poRow('Internal Ref.',intRef,false)
+          +poRow('Requested By',reqBy,true)
+        +'</div>'
+        +'<div>'
+          +poRow('LPO Sent Date',lpoDate,false)+poRow('Credit Terms',credit,false)
+          +poRow('Required Delivery',reqDel,false)+poRow('Created By',crBy,false)
+          +poRow('Delivery To',delTo,true)
+        +'</div>'
+      +'</div>'
+      // Items
+      +secBar('Items &amp; Services')
+      +'<div style="margin:0 28px 10px;border:1px solid #ccc;border-top:none">'
+        +'<table style="width:100%;border-collapse:collapse;font-size:10px">'
+          +'<thead><tr style="background:'+RED+'">'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:28px">NO.</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:95px">ITEM CODE</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2)">DESCRIPTION</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:48px">ORIGIN</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:48px">BRAND</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:38px">UOM</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:35px">QTY</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;border-right:1px solid rgba(255,255,255,.2);width:95px">UNIT PRICE (IQD)</th>'
+            +'<th style="color:#fff;padding:6px;text-align:center;font-size:9px;width:95px">AMOUNT (IQD)</th>'
+          +'</tr></thead>'
+          +'<tbody>'
+            +rowsHTML
+            +'<tr style="background:#fafafa">'
+              +'<td style="padding:5px 8px;font-weight:700;font-size:9px;color:#555;border-top:1px solid #ddd;border-right:1px solid #ddd"><b>AMOUNT IN WORDS:</b></td>'
+              +'<td colspan="8" style="padding:5px 8px;font-style:italic;color:'+RED+';font-weight:700;border-top:1px solid #ddd">'+amtWords+'</td>'
+            +'</tr>'
+          +'</tbody>'
+        +'</table>'
+      +'</div>'
+      // Totals
+      +'<div style="display:flex;justify-content:flex-end;margin:0 28px 12px">'
+        +'<div style="border:1px solid #ccc;min-width:240px">'
+          +'<table style="width:100%;border-collapse:collapse;font-size:10.5px">'
+            +'<tr><td style="padding:5px 12px;color:#555;font-weight:600;border-bottom:1px solid #eee">Subtotal:</td><td style="padding:5px 12px;text-align:right;font-family:monospace;border-bottom:1px solid #eee">IQD &nbsp;'+fmtN(subtotal)+'</td></tr>'
+            +'<tr><td style="padding:5px 12px;color:#555;font-weight:600;border-bottom:1px solid #eee">Tax / VAT:</td><td style="padding:5px 12px;text-align:right;color:#999;border-bottom:1px solid #eee">—</td></tr>'
+            +'<tr><td style="padding:6px 12px;color:#fff;font-weight:700;background:'+RED+'">TOTAL DUE:</td><td style="padding:6px 12px;text-align:right;font-family:monospace;font-weight:700;color:#fff;background:'+RED+'">IQD &nbsp;'+fmtN(subtotal)+'</td></tr>'
+          +'</table>'
+        +'</div>'
+      +'</div>'
+      // Payment
+      +secBar('Payment Information')
+      +'<div style="margin:0 28px 14px;border:1px solid #ccc;border-top:none">'
+        +'<table style="width:100%;border-collapse:collapse;font-size:10px">'
+          +'<tr>'
+            +'<td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;width:90px;border-right:1px solid #eee;border-bottom:1px solid #eee">Bank Name</td>'
+            +'<td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee;border-right:1px solid #ccc">BANK OF BAGHDAD</td>'
+            +'<td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;width:90px;border-right:1px solid #eee;border-bottom:1px solid #eee">Account Name</td>'
+            +'<td style="padding:6px 10px;border-bottom:1px solid #eee">'+co+'</td>'
+          +'</tr>'
+          +'<tr>'
+            +'<td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;border-right:1px solid #eee;border-bottom:1px solid #eee">Account No.</td>'
+            +'<td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee;border-right:1px solid #ccc">72344</td>'
+            +'<td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;border-right:1px solid #eee;border-bottom:1px solid #eee">IBAN</td>'
+            +'<td style="padding:6px 10px;font-weight:700;border-bottom:1px solid #eee">'+iban+'</td>'
+          +'</tr>'
+          +'<tr>'
+            +'<td style="padding:6px 10px;background:#f5f5f5;font-weight:700;font-size:9px;color:#555;border-right:1px solid #eee">Swift Code</td>'
+            +'<td style="padding:6px 10px;font-weight:700;border-right:1px solid #ccc">'+swift+'</td>'
+            +'<td style="padding:6px 10px;background:#f5f5f5;border-right:1px solid #eee"></td><td style="padding:6px 10px"></td>'
+          +'</tr>'
+        +'</table>'
+      +'</div>'
+      // Signatures
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;margin:0 28px 16px;border:1px solid #ccc">'
+        +'<div style="padding:14px 16px;border-right:1px solid #ccc">'
+          +'<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Issued By</div>'
+          +'<div style="font-size:11px;font-weight:700;margin-bottom:18px">'+co+'</div>'
+          +'<div style="font-size:9.5px;color:#777;margin-bottom:14px">Signature: ___________________________</div>'
+          +'<div style="font-size:9.5px;color:#777">Date: _______________________________</div>'
+        +'</div>'
+        +'<div style="padding:14px 16px">'
+          +'<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Received &amp; Approved By</div>'
+          +'<div style="font-size:11px;font-weight:700;margin-bottom:18px">'+(inv.customer_name||'—')+'</div>'
+          +'<div style="font-size:9.5px;color:#777;margin-bottom:14px">Signature &amp; Stamp: ___________________</div>'
+          +'<div style="font-size:9.5px;color:#777">Date: _______________________________</div>'
+        +'</div>'
+      +'</div>'
+      // Footer
+      +'<div dir="ltr" style="font-family:Arial,sans-serif;font-size:11px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#fff">'
+          +'<div style="display:flex;align-items:center;gap:10px">'
+            +'<div style="width:36px;height:36px;border-radius:50%;background:'+RED+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:16px">📞</span></div>'
+            +'<div style="color:#1a1a1a;line-height:1.7"><div>'+ph1+'</div><div>'+ph2+'</div></div>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:10px">'
+            +'<div style="width:36px;height:36px;border-radius:50%;background:'+RED+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:14px">✉</span></div>'
+            +'<div style="color:#1a1a1a;line-height:1.7"><div>'+em1+'</div><div>'+em2+'</div></div>'
+          +'</div>'
+          +'<div style="width:70px;height:70px;background:#f5f5f5;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:8px;color:#888;text-align:center"><span>QR<br>Code</span></div>'
+        +'</div>'
+        +'<div style="background:'+RED+';padding:8px 20px;display:flex;align-items:center;gap:10px;position:relative;overflow:hidden">'
+          +'<div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:14px">📍</span></div>'
+          +'<span style="color:#fff;font-size:11px">'+addr+'</span>'
+          +'<div style="position:absolute;right:0;top:0;bottom:0;width:80px;background:rgba(255,255,255,0.12);clip-path:ellipse(60px 40px at 100% 50%)"></div>'
+        +'</div>'
+      +'</div>'
+      +'</div>' // end #iprint
+    );
+  }
+
+  // ── PDF Download ──
+  function _pubDownloadPDF(){
+    const fn = window._pubPDFName || _invId;
+    document.title = fn;
+    window.print();
+    setTimeout(()=>{
+      const co = document.getElementById('pub-co-name')?.textContent || 'Wadi Al-Taqaa';
+      document.title = _invId + ' — ' + co;
+    }, 2000);
+  }
+  window._pubDownloadPDF = _pubDownloadPDF;
+
+  // ── Start ──
+  _fetchInvoice();
+})();
+
 const PS = 25;
 
 // ════════════════════════════════════════
@@ -3196,8 +3574,9 @@ async function loadPrint(){
   </tr>`;
 
   document.getElementById('print-area').innerHTML=`
-  <div class="nopr" style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+  <div class="nopr" style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="window.document.title='${printName}';window.print()">🖨️ طباعة / حفظ PDF</button>
+    <button class="btn btn-secondary" onclick="_copyPublicLink('${id}')" style="display:flex;align-items:center;gap:5px">🔗 مشاركة</button>
     <span style="font-size:11px;color:var(--text3)">اسم الملف: ${printName}.pdf</span>
   </div>
   <div id="iprint" dir="ltr" style="width:794px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:#1a1a1a;box-shadow:0 4px 20px rgba(0,0,0,.12)">
@@ -5887,7 +6266,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 // (الدالة مُعرَّفة في قسم openModal أعلاه — هذا للتوثيق فقط)
 
 // ── UPDATE NOTIFICATION ──
-const APP_VERSION = 'v48.3';
+const APP_VERSION = 'v48.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -6666,7 +7045,8 @@ document.getElementById('login-password').addEventListener('keydown',e=>{if(e.ke
 
 checkForUpdates();
 _initNavGroups();
-initAuth();
+// Public Mode — لا تُشغّل Auth
+if(!window._PUBLIC_MODE) initAuth();
 
 // ── Report Type Filter Color ──
 function updateRepTypeColor(sel){
@@ -8693,6 +9073,28 @@ function icFilter(){
   if(e) e.style.display=f.length?'none':'block';
   if(cnt) cnt.textContent=f.length+' فاتورة';
 }
+// ════════════════════════════════════════
+// 🔗 COPY PUBLIC LINK — GitHub Pages
+// ════════════════════════════════════════
+function _copyPublicLink(invId){
+  if(!invId) return;
+  const base = window.location.origin + window.location.pathname;
+  const link = base + '?public=' + encodeURIComponent(invId);
+  const _done = () => showToast('🔗 تم نسخ الرابط: ' + invId, 'success');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(_done).catch(()=>_fallback(link,_done));
+  } else {
+    _fallback(link, _done);
+  }
+  function _fallback(txt, cb){
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    document.body.removeChild(ta); cb();
+  }
+}
+
 </script>
 <div id="floating-scroll"><div id="floating-scroll-inner"></div></div>
 </body>
