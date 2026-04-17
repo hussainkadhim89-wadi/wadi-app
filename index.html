@@ -6524,13 +6524,17 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'invoice_views' },
         function(payload){
-          // guard على payload — بدون optional chaining فقط
+          console.log('[RT] EVENT received:', payload); // 🔍 تشخيص
           if(!payload || !payload.new || !payload.new.invoice_id) return;
           const invId = payload.new.invoice_id;
           _updateBadge(invId);
         }
       )
-      .subscribe();
+      .subscribe(function(status, err){
+        console.log('[RT] Subscribe status:', status, err||''); // 🔍 تشخيص
+      });
+
+    console.log('[RT] SUBSCRIBED to rt-invoice-views'); // 🔍 تشخيص
   }
 
   // ── unsubscribe كامل ──
@@ -6555,7 +6559,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v53.4';
+const APP_VERSION = 'v53.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
