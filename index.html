@@ -3767,7 +3767,7 @@ async function loadPrint(){
   <div class="nopr" style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
     <button class="btn btn-primary" onclick="window.document.title='${printName}';window.print()">🖨️ طباعة / حفظ PDF</button>
     <button class="btn btn-secondary" onclick="_copyPublicLink('${id}')" style="display:flex;align-items:center;gap:5px">🔗 مشاركة</button>
-    <button class="btn btn-secondary" id="wa-open-btn" data-invid="${inv.id||id}" data-custname="${(inv.customer_name||'').replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:5px;background:#e8fdf0;border-color:#25D366;color:#16a34a">📤 إرسال</button>
+    <button class="btn btn-secondary" id="wa-open-btn" data-invid="${inv.id||id}" data-custname="${(inv.customer_name||'').replace(/"/g,'&quot;')}" data-custid="${inv.customer_id||''}" style="display:flex;align-items:center;gap:5px;background:#e8fdf0;border-color:#25D366;color:#16a34a">📤 إرسال</button>
     <span style="font-size:11px;color:var(--text3)">اسم الملف: ${printName}.pdf</span>
   </div>
   <div id="iprint" dir="ltr" style="width:794px;background:#fff;font-family:Arial,sans-serif;font-size:11px;color:#1a1a1a;box-shadow:0 4px 20px rgba(0,0,0,.12)">
@@ -6565,7 +6565,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v54.8';
+const APP_VERSION = 'v55.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -9452,13 +9452,15 @@ function icFilter(){
 (function(){
   let _waInvId     = '';
   let _waName      = '';
+  let _waCustId    = ''; // customer_id للجلب من DB
   let _waTriggerEl = null; // العنصر اللي فتح الـ modal
 
   // ── فتح الـ modal ──
-  window._waOpen = async function(invId, custName){
+  window._waOpen = async function(invId, custName, custId){
     if(!invId) return; // guard
     _waInvId     = invId;
     _waName      = custName || '';
+    _waCustId    = custId  || '';
     _waTriggerEl = document.activeElement || null;
 
     // ── await تفعيل public_link_enabled قبل فتح الـ modal ──
@@ -9517,7 +9519,7 @@ function icFilter(){
   };
 
   // ── إرسال للزبون ──
-  window._waPickCustomer = function(){
+  window._waPickCustomer = async function(){
     const lbl = document.getElementById('wa-step2-label');
     lbl.textContent = _waName
       ? 'رقم واتساب الزبون — ' + _waName
@@ -9526,6 +9528,24 @@ function icFilter(){
     document.getElementById('wa-err').textContent   = '';
     document.getElementById('wa-step1').style.display = 'none';
     document.getElementById('wa-step2').style.display = '';
+
+    // ── جلب phone من DB لو عندنا customer_id ──
+    if(_waCustId && sb && typeof sb.from === 'function'){
+      try{
+        const{data:cl} = await sb.from('clients')
+          .select('phone').eq('id', _waCustId).single();
+        const phone = cl?.phone ? cl.phone.replace(/\D/g,'') : '';
+        if(phone.length >= 8){
+          // one-click: فتح واتساب مباشرة بدون input
+          document.getElementById('wa-phone-input').value = phone;
+          _waValidate();
+          document.getElementById('wa-phone-input').focus();
+          return; // الرقم جاهز — المستخدم يضغط إرسال مباشرة
+        }
+      }catch(_){}
+    }
+
+    // fallback: ما في رقم → يدخله يدوياً
     _waFillLast();
     document.getElementById('wa-phone-input').focus();
   };
@@ -9674,7 +9694,8 @@ function icFilter(){
         if(btn){
           const invId    = btn.dataset.invid    || '';
           const custName = btn.dataset.custname || '';
-          _waOpen(invId, custName);
+          const custId   = btn.dataset.custid   || '';
+          _waOpen(invId, custName, custId);
         }
       });
     } else {
@@ -9687,7 +9708,7 @@ function icFilter(){
           _bound = true;   // سجّل قبل الربط
           _pa.addEventListener('click', function(e){
             const btn = e.target.closest('#wa-open-btn');
-            if(btn) _waOpen(btn.dataset.invid||'', btn.dataset.custname||'');
+            if(btn) _waOpen(btn.dataset.invid||'', btn.dataset.custname||'', btn.dataset.custid||'');
           });
           _obs.disconnect();
         }
