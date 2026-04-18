@@ -2376,16 +2376,19 @@ let currentUser = null;
       // TRACKING — يسجل عند كل فتح/refresh
       // non-blocking: setTimeout(0)
       setTimeout(async function _trackView(){
+        console.log('TRACK RUNNING', _invId);
         try{
           const _tid = (_invId||'').replace(/[^a-zA-Z0-9\-_]/g,'').slice(0,60);
-          if(!_tid) return;
-          if(!sb || typeof sb.from !== 'function') return;
-          await sb.from('invoice_views').insert({
+          if(!_tid){ console.log('TRACK: no id'); return; }
+          if(!sb || typeof sb.from !== 'function'){ console.log('TRACK: sb not ready'); return; }
+          const{error} = await sb.from('invoice_views').insert({
             invoice_id: _tid,
             viewed_at:  new Date().toISOString(),
           });
-        }catch(_){} // silent fail
-      }, 0);
+          if(error) console.error('TRACK ERROR', error);
+          else console.log('TRACK INSERTED', _tid);
+        }catch(e){ console.error('TRACK CATCH', e); }
+      }, 1000);
 
     }catch(err){
       // تجاهل من request قديم
@@ -6541,7 +6544,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v55.9';
+const APP_VERSION = 'v56.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
