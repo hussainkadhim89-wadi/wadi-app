@@ -2633,13 +2633,7 @@ const PS = 25;
 // ── CORE HELPERS & UTILS ────────────────
 // ════════════════════════════════════════
 
-// ── FORMATS ──
-const fmt = n => {
-  if(n==null||n===''||isNaN(+n))return'—';
-  const v=Math.round(+n);
-  return v.toLocaleString('en-US');
-};
-// fmtM, fmtD, fmtPct → js/utils.js
+// fmt, fmtM, fmtD, fmtPct → js/utils.js
 
 // ── SANITIZE INPUT ──
 // منع الأرقام السالبة أو الكبيرة جداً (أكثر من تريليون)
@@ -6570,7 +6564,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v58.9';
+const APP_VERSION = 'v59.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
