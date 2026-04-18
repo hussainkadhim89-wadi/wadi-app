@@ -2209,49 +2209,9 @@ input:focus,select:focus,textarea:focus{
   <button onclick="document.getElementById('pwa-banner').classList.remove('show')" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;padding:0 0 0 4px">✕</button>
 </div>
 
+<script src="js/config.js"></script>
 <script>
-const sb = supabase.createClient(
-  'https://lakokpqtksrpiillbuzb.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
-);
-
-// ── ROOT-LEVEL REALTIME — بعد createClient مباشرة ──
-const rt = sb
-  .channel('rt-invoice-views')
-  .on(
-    'postgres_changes',
-    {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'invoice_views'
-    },
-    (payload) => {
-      console.log('[RT] EVENT', payload);
-      if(window._currentPage === 'invoices'){
-        const invId = payload && payload.new && payload.new.invoice_id;
-        if(!invId) return;
-        // تحديث مباشر بدون fetch — data-invoice-id + views-badge
-        const row = document.querySelector(`[data-invoice-id="${invId}"]`);
-        if(!row) return;
-        const badge = row.querySelector('.views-badge');
-        if(!badge) return;
-        const cur = Number(badge.dataset.count || 0) + 1;
-        badge.dataset.count    = String(cur);
-        badge.title            = `فُتحت ${cur} مرة`;
-        badge.style.background = '#dcfce7';
-        badge.style.color      = '#16a34a';
-        badge.style.fontWeight = '700';
-        badge.textContent      = `✅ ${cur}`;
-      }
-    }
-  )
-  .subscribe((status) => {
-    console.log('[RT] Subscribe status:', status);
-  });
-
-console.log('[RT] SUBSCRIBED to rt-invoice-views');
-
-let currentUser = null;
+// ← config.js: sb, rt, currentUser
 
 // ════════════════════════════════════════
 // 🌐 PUBLIC INVOICE VIEW — v48.5
@@ -2768,6 +2728,20 @@ function emptyState(icon,title,sub='',action='',hint=''){
   </div>`;
 }
 
+// ── Error State — موحّد لكل الصفحات ──
+function setErrorState({message='خطأ غير متوقع', retry=null}={}){
+  // نخزن الـ retry على window حتى يشتغل الـ onclick بشكل موثوق
+  window._errorRetryFn = retry || null;
+  document.getElementById('page-content').innerHTML=`
+  <div class="empty-state">
+    <div class="empty-icon">⚠️</div>
+    <h3 style="color:var(--red)">فشل التحميل</h3>
+    <p style="font-size:13px;color:var(--text3);margin-top:6px">${message}</p>
+    ${retry ? `<button class="btn btn-primary btn-sm" style="margin-top:16px"
+      onclick="window._errorRetryFn&&window._errorRetryFn()">↺ إعادة المحاولة</button>` : ''}
+  </div>`;
+}
+
 // Smart empty state — context-aware messages
 function smartEmpty(type, filters={}){
   const hasFilter=Object.values(filters).some(v=>v&&v!=='all'&&v!=='');
@@ -2919,11 +2893,11 @@ async function safeQuery(fn, fallback=[], timeoutMs=12000){
 // ── AUTH ──
 async function initAuth(){
   const{data:{session}}=await sb.auth.getSession();
-  if(session){currentUser=session.user;showApp();}
+  if(session){window.currentUser=session.user;showApp();}
   else document.getElementById('login-screen').style.display='flex';
   sb.auth.onAuthStateChange((e,s)=>{
-    if(e==='SIGNED_IN'){currentUser=s.user;showApp();}
-    if(e==='SIGNED_OUT'){currentUser=null;showLoginScreen();}
+    if(e==='SIGNED_IN'){window.currentUser=s.user;showApp();}
+    if(e==='SIGNED_OUT'){window.currentUser=null;showLoginScreen();}
   });
 }
 async function doLogin(){
@@ -2941,7 +2915,7 @@ async function doLogout(){await sb.auth.signOut();}
 function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
-  const email=currentUser.email||'';
+  const email=window.currentUser.email||'';
   document.getElementById('user-email-d').textContent=email;
   const name=email.split('@')[0];
   document.getElementById('user-name-d').textContent=name;
@@ -3989,6 +3963,7 @@ async function loadPrint(){
 async function renderReceivables(filterStatus='',filterCustomer=''){
   _filterState.receivables={filterStatus,filterCustomer};
   setLoading();
+  try{
   const[recs,pays]=await Promise.all([
     safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,invoice_date,total_amount,due_date').order('due_date')),
     safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date')),
@@ -4124,6 +4099,14 @@ async function renderAging(){
       </tbody>
     </table></div>
   </div>`;
+  }catch(e){
+    console.error('[renderReceivables]', e);
+    showToast('خطأ في تحميل الذمم','error');
+    setErrorState({
+      message: e.message,
+      retry: () => renderReceivables(filterStatus, filterCustomer)
+    });
+  }
 }
 
 // ── EXPENSES — ALL COLUMNS ──
@@ -4210,15 +4193,19 @@ async function renderExpenses(filterType='',filterPaidBy=''){
     </table></div>
   </div>`;
   }catch(e){
-    console.error('renderExpenses error:',e);
-    showToast('خطأ في تحميل المصروفات — تحقق من الاتصال','error');
-    document.getElementById('page-content').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div style="font-size:15px;font-weight:700;color:var(--red)">خطأ في تحميل المصروفات</div><button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="renderExpenses()">إعادة المحاولة</button></div>`;
+    console.error('[renderExpenses]', e);
+    showToast('خطأ في تحميل المصروفات','error');
+    setErrorState({
+      message: e.message,
+      retry: () => renderExpenses(filterType, filterPaidBy)
+    });
   }
 }
 // ── WITHDRAWALS — ALL COLUMNS ──
 async function renderWithdrawals(filterPartner=''){
   _filterState.withdrawals={filterPartner};
   setLoading();
+  try{
   let rows=await safeQuery(()=>sb.from('withdrawals').select('id,partner,date,description,amount,payment_method,withdrawal_type,notes').order('date',{ascending:false}));
   if(filterPartner)rows=rows.filter(r=>r.partner===filterPartner);
   rows=sortRows(rows,'withdrawals','date');
@@ -4267,6 +4254,14 @@ async function renderWithdrawals(filterPartner=''){
       </tr></tfoot>`:''}
     </table></div>
   </div>`;
+  }catch(e){
+    console.error('[renderWithdrawals]', e);
+    showToast('خطأ في تحميل السحوبات','error');
+    setErrorState({
+      message: e.message,
+      retry: () => renderWithdrawals(filterPartner)
+    });
+  }
 }
 
 // ── CAPITAL — ALL COLUMNS ──
@@ -4555,6 +4550,7 @@ function clientBehaviorHtml(risk){
 async function renderClientsWithRisk(search=''){
   _filterState.clients={search};
   setLoading();
+  try{
   let rows=await safeQuery(()=>sb.from('clients').select('id,name,address,credit_days,notes').order('name'));
   if(search)rows=rows.filter(r=>(r.name||'').toLowerCase().includes(search.toLowerCase()));
   rows=sortRows(rows,'clients','name');
@@ -4625,6 +4621,14 @@ async function renderClientsWithRisk(search=''){
     showToast(`⚠️ ${highRisk.length} عميل عالي الخطورة — ${highRisk.map(r=>r.name).join('، ')}`, 'warning');
     highRisk.forEach(r=>{
       addNotif('🔴',`${r.name} — عميل عالي الخطورة بالدفع`,'warning');
+    });
+  }
+  }catch(e){
+    console.error('[renderClientsWithRisk]', e);
+    showToast('خطأ في تحميل العملاء — تحقق من الاتصال','error');
+    setErrorState({
+      message: e.message,
+      retry: () => renderClientsWithRisk(search)
     });
   }
 }
@@ -4790,7 +4794,7 @@ async function renderSettings(){
   <div class="table-card">
     <div class="table-header"><div class="table-title">🔒 الأمان والحساب</div></div>
     <div style="padding:20px">
-      <div class="info-row"><span class="info-label">المستخدم الحالي</span><span class="info-value">${currentUser?.email||'—'}</span></div>
+      <div class="info-row"><span class="info-label">المستخدم الحالي</span><span class="info-value">${window.currentUser?.email||'—'}</span></div>
       <div class="info-row"><span class="info-label">نوع المصادقة</span><span><span class="badge badge-green">✅ Supabase Auth</span></span></div>
       <div class="info-row"><span class="info-label">Row Level Security</span><span><span class="badge badge-green">✅ مفعّل</span></span></div>
       <div class="info-row"><span class="info-label">قاعدة البيانات</span><span><span class="badge badge-blue">PostgreSQL · Supabase</span></span></div>
@@ -5504,14 +5508,14 @@ async function loadSettingsFromSupabase(){
   }
 }
 async function saveSettingsToSupabase(){
-  if(!currentUser) return;
+  if(!window.currentUser) return;
   const val={
     profitWarnThreshold:_S31.profitWarnThreshold,
     reminderSensitivity:_S31.reminderSensitivity
   };
   try{
     await sb.from('settings').upsert(
-      {user_id:currentUser.id, key:'wadi_s31', value:val},
+      {user_id:window.currentUser.id, key:'wadi_s31', value:val},
       {onConflict:'user_id,key'}
     );
   }catch(e){ /* silent */ }
@@ -6575,7 +6579,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v57.6';
+const APP_VERSION = 'v58.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
