@@ -2214,6 +2214,30 @@ const sb = supabase.createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
 );
 
+// ── ROOT-LEVEL REALTIME — بعد createClient مباشرة ──
+const rt = sb
+  .channel('rt-invoice-views')
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'invoice_views'
+    },
+    (payload) => {
+      console.log('[RT] EVENT', payload);
+      if(typeof _updateBadge === 'function' && window._currentPage === 'invoices'){
+        const invId = payload && payload.new && payload.new.invoice_id;
+        if(invId) _updateBadge(invId);
+      }
+    }
+  )
+  .subscribe((status) => {
+    console.log('[RT] Subscribe status:', status);
+  });
+
+console.log('[RT] SUBSCRIBED to rt-invoice-views');
+
 let currentUser = null;
 
 // ════════════════════════════════════════
@@ -6525,7 +6549,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v55.7';
+const APP_VERSION = 'v55.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7307,33 +7331,7 @@ _initNavGroups();
 // Public Mode — لا تُشغّل Auth
 if(!window._PUBLIC_MODE) initAuth();
 
-// ════════════════════════════════════════
-// 📡 ROOT-LEVEL REALTIME
-// ينشأ مرة واحدة عند init — خارج أي condition
-// ════════════════════════════════════════
-const rt = sb
-  .channel('rt-invoice-views')
-  .on(
-    'postgres_changes',
-    {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'invoice_views'
-    },
-    (payload) => {
-      console.log('[RT] EVENT', payload);
-      // تحديث الـ badge لو على صفحة invoices
-      if(typeof _updateBadge === 'function' && window._currentPage === 'invoices'){
-        const invId = payload && payload.new && payload.new.invoice_id;
-        if(invId) _updateBadge(invId);
-      }
-    }
-  )
-  .subscribe((status) => {
-    console.log('[RT] Subscribe status:', status);
-  });
 
-console.log('[RT] SUBSCRIBED to rt-invoice-views');
 
 // ── Report Type Filter Color ──
 function updateRepTypeColor(sel){
