@@ -5390,7 +5390,11 @@ async function saveInvoice(existingId, goToLines=false){
       showToast(msg,'success');
       renderInvoices();
     }
-  }catch(e){showToast('خطأ غير متوقع: '+e.message,'error');restore();}
+  }catch(e){
+    console.error('[saveInvoice]', e);
+    showToast('خطأ غير متوقع: '+e.message,'error');
+    restore();
+  }
 }
 
 async function delInvoice(id){
@@ -5494,7 +5498,9 @@ async function loadSettingsFromSupabase(){
       // Supabase هو المصدر الرئيسي — تحديث localStorage للمزامنة
       localStorage.setItem('wadi_s31',JSON.stringify(p));
     }
-  }catch(e){ /* silent — use defaults */ }
+  }catch(e){
+    console.error('[loadSettingsFromSupabase]', e);
+  }
 }
 async function saveSettingsToSupabase(){
   if(!currentUser) return;
@@ -5899,7 +5905,11 @@ async function saveLine(existingId){
     showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
     // فتح بند جديد تلقائياً لنفس الفاتورة
     setTimeout(()=>openLineModal(null,invId),400);
-  }catch(e){showToast('خطأ غير متوقع: '+e.message,'error');restore();}
+  }catch(e){
+    console.error('[saveLine]', e);
+    showToast('خطأ غير متوقع: '+e.message,'error');
+    restore();
+  }
 }
 
 async function delLine(id,invId){
@@ -6553,7 +6563,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.8';
+const APP_VERSION = 'v57.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -9077,7 +9087,9 @@ async function updateOverdueBadge(){
       showToast(`⏰ ${overdue} فاتورة متأخرة بالتحصيل — تحقق من الذمم`,'warning');
       sessionStorage.setItem('wadi_overdue_notified','1');
     }
-  }catch(e){}
+  }catch(e){
+    console.error('[_refreshAlerts]', e);
+  }
 }
 
 // loadClientRiskBadge — تحميل Risk Badge في فورم الفاتورة
