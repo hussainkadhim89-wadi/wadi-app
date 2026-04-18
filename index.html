@@ -6564,7 +6564,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.5';
+const APP_VERSION = 'v56.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7353,7 +7353,7 @@ if(!window._PUBLIC_MODE){
       const f = window._filterState && window._filterState.invoices || {};
       renderInvoices(f.page||0, f.search||'', f.filterCustomer||'', f.filterStage||'');
     }
-  }, 30000); // كل 30 ثانية
+  }, 5000); // كل 5 ثواني
 }
 
 
