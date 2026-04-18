@@ -6186,7 +6186,11 @@ async function saveCapital(){
 async function openClientModal(clientId=null){
   let cl={};
   if(clientId){const{data}=await sb.from('clients').select('*').eq('id',clientId).single();cl=data||{};}
-  openModal(clientId?'تعديل عميل':'👥 عميل جديد',`
+  // لو panel مفتوح — افتح كـ L2 فوقه بدل ما يفتح خلفه
+  const _openFn = document.getElementById('panel-overlay')?.classList.contains('open')
+    ? (t,b,f) => openPanelLevel2(t,b,f,{contextLabel:'تعديل عميل',panelId:'edit-client-'+(clientId||'new')})
+    : openModal;
+  _openFn(clientId?'تعديل عميل':'👥 عميل جديد',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم العميل *</label><input class="form-input" id="cu-id" value="${cl.id||''}" placeholder="C001" ${clientId?'readonly':''}></div>
       <div class="form-group"><label class="form-label">اسم العميل *</label><input class="form-input" id="cu-name" value="${cl.name||''}"></div>
@@ -6256,12 +6260,19 @@ async function showClientStatement(clientId, clientName){
   });
 
   // مودال عريض خاص بكشف الحساب
-  const overlay=document.getElementById('modal-overlay');
-  const modalEl=overlay.querySelector('.modal');
-  modalEl.style.width='900px';
-  modalEl.style.maxWidth='98vw';
+  // لو panel مفتوح — افتح كـ L2 فوقه
+  const _isPanelOpen = document.getElementById('panel-overlay')?.classList.contains('open');
+  if(!_isPanelOpen){
+    const overlay=document.getElementById('modal-overlay');
+    const modalEl=overlay.querySelector('.modal');
+    modalEl.style.width='900px';
+    modalEl.style.maxWidth='98vw';
+  }
 
-  openModal(`📋 كشف حساب — ${clientName}`,`
+  const _stmtOpenFn = _isPanelOpen
+    ? (t,b,f) => openPanelLevel2(t,b,f,{contextLabel:'كشف حساب',panelId:'stmt-'+clientId})
+    : openModal;
+  _stmtOpenFn(`📋 كشف حساب — ${clientName}`,`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
       <div style="background:#eff6ff;padding:16px 20px;border-radius:12px;border:1.5px solid #bfdbfe">
         <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:6px;letter-spacing:.5px">إجمالي الفواتير</div>
@@ -6564,7 +6575,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v57.5';
+const APP_VERSION = 'v57.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
