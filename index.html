@@ -2228,13 +2228,30 @@ const rt = sb
       console.log('[RT] EVENT', payload);
       if(window._currentPage === 'invoices'){
         const invId = payload && payload.new && payload.new.invoice_id;
-        if(invId){
-          // reload كل الـ badges بدل تحديث واحد — أضمن
-          if(typeof renderInvoices === 'function'){
-            const f = window._filterState && window._filterState.invoices || {};
-            renderInvoices(f.page||0, f.search||'', f.filterCustomer||'', f.filterStage||'');
-          }
-        }
+        if(!invId) return;
+        // تحديث badge مباشرة بدون re-render
+        (async()=>{
+          try{
+            const{data} = await sb.rpc('get_invoice_view_counts',{inv_ids:[invId]});
+            const count = (Array.isArray(data) && data[0]) ? Number(data[0].open_count)||0 : 0;
+            if(count === 0) return;
+            // ابحث عن الـ badge بالـ data-invid
+            const btn = document.querySelector(`#wa-open-btn[data-invid='${invId}']`);
+            const row = btn ? btn.closest('tr') : null;
+            const cell = row ? row.querySelector('td:first-child') : null;
+            if(!cell) return;
+            const badge = cell.querySelector('.rt-view-badge') ||
+                          cell.querySelector('span[title="لم تُفتح بعد"]');
+            if(!badge) return;
+            badge.dataset.count    = String(count);
+            badge.title            = `فُتحت ${count} مرة`;
+            badge.style.background = '#dcfce7';
+            badge.style.color      = '#16a34a';
+            badge.style.fontWeight = '700';
+            badge.textContent      = `✅ ${count}`;
+            badge.classList.add('rt-view-badge');
+          }catch(_){}
+        })();
       }
     }
   )
@@ -6547,7 +6564,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.3';
+const APP_VERSION = 'v56.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
