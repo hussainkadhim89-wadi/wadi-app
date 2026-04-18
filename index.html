@@ -2373,21 +2373,13 @@ let currentUser = null;
       // 📊 INVOICE TRACKING — Phase 1
       // async بعد render — silent fail — لا يؤخر التحميل
       // ════════════════════════════════════════
-      // non-blocking: setTimeout(0) — لا يأثر على render نهائياً
+      // TRACKING — يسجل عند كل فتح/refresh
+      // non-blocking: setTimeout(0)
       setTimeout(async function _trackView(){
         try{
-          if(!window._PUBLIC_MODE) return;           // Public Mode فقط
-          // 1) sanitize أولاً — قبل sb وأي flags
           const _tid = (_invId||'').replace(/[^a-zA-Z0-9\-_]/g,'').slice(0,60);
-          if(!_tid) return;                          // id غير صالح — نوقف هنا
-          if(!sb || typeof sb.from !== 'function') return; // supabase غير جاهز
-          // 2) دعم فتح أكثر من فاتورة — reset إذا تغير الـ id
-          if(window._lastTrackedInv !== _tid){
-            window._trackedView    = false;
-            window._lastTrackedInv = _tid;
-          }
-          if(window._trackedView) return;            // نفس الفاتورة — لا تكرار
-          window._trackedView = true;                // سجّل قبل الإرسال
+          if(!_tid) return;
+          if(!sb || typeof sb.from !== 'function') return;
           await sb.from('invoice_views').insert({
             invoice_id: _tid,
             viewed_at:  new Date().toISOString(),
@@ -6549,7 +6541,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v55.8';
+const APP_VERSION = 'v55.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
