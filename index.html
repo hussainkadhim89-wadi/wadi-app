@@ -2226,9 +2226,15 @@ const rt = sb
     },
     (payload) => {
       console.log('[RT] EVENT', payload);
-      if(typeof window._updateBadge === 'function' && window._currentPage === 'invoices'){
+      if(window._currentPage === 'invoices'){
         const invId = payload && payload.new && payload.new.invoice_id;
-        if(invId) window._updateBadge(invId);
+        if(invId){
+          // reload كل الـ badges بدل تحديث واحد — أضمن
+          if(typeof renderInvoices === 'function'){
+            const f = window._filterState && window._filterState.invoices || {};
+            renderInvoices(f.page||0, f.search||'', f.filterCustomer||'', f.filterStage||'');
+          }
+        }
       }
     }
   )
@@ -6541,7 +6547,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.2';
+const APP_VERSION = 'v56.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
