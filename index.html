@@ -2226,9 +2226,9 @@ const rt = sb
     },
     (payload) => {
       console.log('[RT] EVENT', payload);
-      if(typeof _updateBadge === 'function' && window._currentPage === 'invoices'){
+      if(typeof window._updateBadge === 'function' && window._currentPage === 'invoices'){
         const invId = payload && payload.new && payload.new.invoice_id;
-        if(invId) _updateBadge(invId);
+        if(invId) window._updateBadge(invId);
       }
     }
   )
@@ -6487,7 +6487,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
   // ── fetch count من DB عبر RPC ثم يحدث الـ badge ──
   // المصدر: DB دايماً — مو DOM increment
-  async function _updateBadge(invId){
+  window._updateBadge = async function _updateBadge(invId){
     if(!invId) return;
     if(window._currentPage !== 'invoices') return;
     if(!sb || typeof sb.rpc !== 'function') return;
@@ -6541,7 +6541,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.1';
+const APP_VERSION = 'v56.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
