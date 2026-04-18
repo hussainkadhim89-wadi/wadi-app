@@ -2229,29 +2229,18 @@ const rt = sb
       if(window._currentPage === 'invoices'){
         const invId = payload && payload.new && payload.new.invoice_id;
         if(!invId) return;
-        // تحديث badge مباشرة بدون re-render
-        (async()=>{
-          try{
-            const{data} = await sb.rpc('get_invoice_view_counts',{inv_ids:[invId]});
-            const count = (Array.isArray(data) && data[0]) ? Number(data[0].open_count)||0 : 0;
-            if(count === 0) return;
-            // ابحث عن الـ badge بالـ data-invid
-            const btn = document.querySelector(`#wa-open-btn[data-invid='${invId}']`);
-            const row = btn ? btn.closest('tr') : null;
-            const cell = row ? row.querySelector('td:first-child') : null;
-            if(!cell) return;
-            const badge = cell.querySelector('.rt-view-badge') ||
-                          cell.querySelector('span[title="لم تُفتح بعد"]');
-            if(!badge) return;
-            badge.dataset.count    = String(count);
-            badge.title            = `فُتحت ${count} مرة`;
-            badge.style.background = '#dcfce7';
-            badge.style.color      = '#16a34a';
-            badge.style.fontWeight = '700';
-            badge.textContent      = `✅ ${count}`;
-            badge.classList.add('rt-view-badge');
-          }catch(_){}
-        })();
+        // تحديث مباشر بدون fetch — data-invoice-id + views-badge
+        const row = document.querySelector(`[data-invoice-id="${invId}"]`);
+        if(!row) return;
+        const badge = row.querySelector('.views-badge');
+        if(!badge) return;
+        const cur = Number(badge.dataset.count || 0) + 1;
+        badge.dataset.count    = String(cur);
+        badge.title            = `فُتحت ${cur} مرة`;
+        badge.style.background = '#dcfce7';
+        badge.style.color      = '#16a34a';
+        badge.style.fontWeight = '700';
+        badge.textContent      = `✅ ${cur}`;
       }
     }
   )
@@ -3432,8 +3421,8 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
       <tbody>
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
-          return`<tr>
-            <td class="td-mono" style="color:var(--accent);font-weight:700">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;margin-right:2px" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600" title="لم تُفتح بعد">❌</span>`}</td>
+          return`<tr data-invoice-id="${r.id||''}">
+            <td class="td-mono" style="color:var(--accent);font-weight:700">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;margin-right:2px" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600" title="لم تُفتح بعد">❌</span>`}</td>
             <td>${fmtD(r.date)}</td>
             <td class="td-mono text-muted">${r.customer_id||'—'}</td>
             <td style="font-weight:600">
@@ -6564,7 +6553,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.6';
+const APP_VERSION = 'v56.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7346,15 +7335,6 @@ _initNavGroups();
 // Public Mode — لا تُشغّل Auth
 if(!window._PUBLIC_MODE) initAuth();
 
-// ── POLLING: تحديث badges كل 30 ثانية لو على صفحة الفواتير ──
-if(!window._PUBLIC_MODE){
-  setInterval(function(){
-    if(window._currentPage === 'invoices' && typeof renderInvoices === 'function'){
-      const f = window._filterState && window._filterState.invoices || {};
-      renderInvoices(f.page||0, f.search||'', f.filterCustomer||'', f.filterStage||'');
-    }
-  }, 5000); // كل 5 ثواني
-}
 
 
 
