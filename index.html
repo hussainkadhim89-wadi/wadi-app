@@ -2209,42 +2209,10 @@ input:focus,select:focus,textarea:focus{
   <button onclick="document.getElementById('pwa-banner').classList.remove('show')" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;padding:0 0 0 4px">✕</button>
 </div>
 
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
 <script>
-const sb = supabase.createClient(
-  'https://lakokpqtksrpiillbuzb.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
-);
-window.currentUser = null;
-
-// ── ROOT-LEVEL REALTIME ──
-const rt = sb
-  .channel('rt-invoice-views')
-  .on(
-    'postgres_changes',
-    { event: 'INSERT', schema: 'public', table: 'invoice_views' },
-    (payload) => {
-      if(window._currentPage === 'invoices'){
-        const invId = payload && payload.new && payload.new.invoice_id;
-        if(!invId) return;
-        const row = document.querySelector(`[data-invoice-id="${invId}"]`);
-        if(!row) return;
-        const badge = row.querySelector('.views-badge');
-        if(!badge) return;
-        const cur = Number(badge.dataset.count || 0) + 1;
-        badge.dataset.count = String(cur);
-        badge.title = `فُتحت ${cur} مرة`;
-        badge.style.background = '#dcfce7';
-        badge.style.color = '#16a34a';
-        badge.style.fontWeight = '700';
-        badge.textContent = `✅ ${cur}`;
-      }
-    }
-  )
-  .subscribe((status) => {
-    console.log('[RT] Subscribe status:', status);
-  });
-console.log('[RT] SUBSCRIBED to rt-invoice-views');
-
+// ← sb, rt, currentUser → js/config.js
 // ════════════════════════════════════════
 // 🌐 PUBLIC INVOICE VIEW — v48.5
 // ─ GitHub Pages only
@@ -2671,16 +2639,7 @@ const fmt = n => {
   const v=Math.round(+n);
   return v.toLocaleString('en-US');
 };
-const fmtM = n => {
-  if(n==null||n===''||isNaN(+n))return'—';
-  return fmt(n)+' د.ع';
-};
-const fmtD = d => {
-  if(!d)return'—';
-  try{return new Date(d).toLocaleDateString('en-GB',{year:'numeric',month:'2-digit',day:'2-digit'});}
-  catch{return'—';}
-};
-const fmtPct = n => n==null?'—':(+n)+'%';
+// fmtM, fmtD, fmtPct → js/utils.js
 
 // ── SANITIZE INPUT ──
 // منع الأرقام السالبة أو الكبيرة جداً (أكثر من تريليون)
@@ -6611,7 +6570,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v58.7';
+const APP_VERSION = 'v58.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
