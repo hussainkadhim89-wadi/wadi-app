@@ -6565,7 +6565,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v53.7';
+const APP_VERSION = 'v53.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -9685,8 +9685,17 @@ function icFilter(){
 // ════════════════════════════════════════
 // 🔗 COPY PUBLIC LINK — GitHub Pages
 // ════════════════════════════════════════
-function _copyPublicLink(invId){
+async function _copyPublicLink(invId){
   if(!invId) return;
+
+  // ── تفعيل public_link_enabled = true في DB ──
+  // يسمح لـ anon بقراءة هذه الفاتورة عبر RLS policy
+  try{
+    await sb.from('invoices')
+      .update({ public_link_enabled: true })
+      .eq('id', invId);
+  }catch(_){} // silent fail — لا يوقف نسخ الرابط
+
   const base = window.location.origin + window.location.pathname;
   const link = base + '?public=' + encodeURIComponent(invId);
   const _done = () => showToast('🔗 تم نسخ الرابط: ' + invId, 'success');
