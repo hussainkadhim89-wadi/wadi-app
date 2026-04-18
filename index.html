@@ -2635,23 +2635,7 @@ const PS = 25;
 
 // fmt, fmtM, fmtD, fmtPct → js/utils.js
 
-// ── SANITIZE INPUT ──
-// منع الأرقام السالبة أو الكبيرة جداً (أكثر من تريليون)
-const MAX_AMOUNT = 1_000_000_000_000;
-function sanitizeAmount(val, fieldName='المبلغ'){
-  const n = +val;
-  if(isNaN(n)||val===''||val===null) return {ok:false, msg:`${fieldName}: قيمة غير صالحة`};
-  if(n < 0) return {ok:false, msg:`${fieldName}: لا يمكن أن يكون سالباً`};
-  if(n > MAX_AMOUNT) return {ok:false, msg:`${fieldName}: القيمة كبيرة جداً`};
-  return {ok:true, val:n};
-}
-
-// تحديد طول النص (للبيانات والملاحظات)
-function sanitizeText(val, max=500, fieldName='النص'){
-  if(!val||!val.trim()) return {ok:false, msg:`${fieldName}: لا يمكن أن يكون فارغاً`};
-  if(val.trim().length > max) return {ok:false, msg:`${fieldName}: يجب أن لا يتجاوز ${max} حرف`};
-  return {ok:true, val:val.trim()};
-}
+// sanitizeAmount, sanitizeText → js/utils.js
 
 // ── UX HELPERS ──
 function setLoading(msg='',delay=0){
@@ -6564,7 +6548,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v59.0';
+const APP_VERSION = 'v59.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
