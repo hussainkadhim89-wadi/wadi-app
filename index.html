@@ -6565,7 +6565,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v53.8';
+const APP_VERSION = 'v54.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -9455,12 +9455,42 @@ function icFilter(){
   let _waTriggerEl = null; // العنصر اللي فتح الـ modal
 
   // ── فتح الـ modal ──
-  window._waOpen = function(invId, custName){
-    _waInvId     = invId || '';
+  window._waOpen = async function(invId, custName){
+    if(!invId) return; // guard
+    _waInvId     = invId;
     _waName      = custName || '';
-    // حفظ الـ element اللي فتح الـ modal (لـ focus بعد الإغلاق)
     _waTriggerEl = document.activeElement || null;
-    // reset الـ steps
+
+    // ── await تفعيل public_link_enabled قبل فتح الـ modal ──
+    // retry خفيف (مرتين) للشبكات الضعيفة
+    if(sb && typeof sb.from === 'function'){
+      const _enablePublic = async () => {
+        await sb.from('invoices')
+          .update({ public_link_enabled: true })
+          .eq('id', invId)  // invId من الـ parameter — مو _waInvId
+          .eq('public_link_enabled', false);
+      };
+      try{
+        await _enablePublic();
+      }catch(err){
+        // retry فقط لو network error — مو DB/logic error
+        const msg = (err?.message||'').toLowerCase();
+        const _isNetwork = err instanceof TypeError
+          || msg.includes('fetch')
+          || msg.includes('network')
+          || msg.includes('timeout')
+          || msg.includes('abort');
+        if(_isNetwork){
+          await new Promise(r=>setTimeout(r,300)); // delay 300ms قبل retry
+          if(document.visibilityState === 'visible' && navigator.onLine){
+            try{ await _enablePublic(); }catch(_){}
+          }
+        }
+      }
+    }
+
+    // guard: تأكد الـ modal موجود قبل فتحه
+    if(!document.getElementById('wa-modal-overlay')) return;
     document.getElementById('wa-step1').style.display = '';
     document.getElementById('wa-step2').style.display = 'none';
     document.getElementById('wa-phone-input').value   = '';
@@ -9688,13 +9718,32 @@ function icFilter(){
 async function _copyPublicLink(invId){
   if(!invId) return;
 
-  // ── تفعيل public_link_enabled = true في DB ──
-  // يسمح لـ anon بقراءة هذه الفاتورة عبر RLS policy
-  try{
-    await sb.from('invoices')
-      .update({ public_link_enabled: true })
-      .eq('id', invId);
-  }catch(_){} // silent fail — لا يوقف نسخ الرابط
+  // ── await تفعيل public_link_enabled قبل نسخ الرابط ──
+  // نفس النمط كـ _waOpen: await → false condition → retry
+  if(sb && typeof sb.from === 'function'){
+    const _enablePublic = async () => {
+      await sb.from('invoices')
+        .update({ public_link_enabled: true })
+        .eq('id', invId)
+        .eq('public_link_enabled', false);
+    };
+    try{
+      await _enablePublic();
+    }catch(err){
+      const msg = (err?.message||'').toLowerCase();
+      const _isNetwork = err instanceof TypeError
+        || msg.includes('fetch')
+        || msg.includes('network')
+        || msg.includes('timeout')
+        || msg.includes('abort');
+      if(_isNetwork){
+        await new Promise(r=>setTimeout(r,300)); // delay 300ms قبل retry
+        if(document.visibilityState === 'visible' && navigator.onLine){
+          try{ await _enablePublic(); }catch(_){}
+        }
+      }
+    }
+  }
 
   const base = window.location.origin + window.location.pathname;
   const link = base + '?public=' + encodeURIComponent(invId);
