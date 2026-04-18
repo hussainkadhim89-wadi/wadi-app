@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+  <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="app-version" content="__APP_VERSION__">
 <title>وادي الطاقة</title>
@@ -6563,7 +6564,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v57.2';
+const APP_VERSION = 'v57.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7601,7 +7602,7 @@ async function openClientInPanel(clientId, clientName, level=2){
   try{
     const[{data:cl},{data:invs},{data:pays}]=await Promise.all([
       sb.from('clients').select('*').eq('id',clientId).maybeSingle(),
-      sb.from('invoices').select('id,date,sale_amount,stage,payment_status').eq('customer_id',clientId).order('date',{ascending:false}).limit(5),
+      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).order('date',{ascending:false}).limit(5),
       sb.from('payments').select('amount,payment_date').eq('customer_name',clientName).order('payment_date',{ascending:false}).limit(5),
     ]);
     const client=cl||{name:clientName,id:clientId};
