@@ -6467,8 +6467,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 (function _realtimeTracking(){
 
   // ── state ──
-  let _channel = null;
-  window._invSub = false; // global guard — منع multi-subscription
+  // subscription يصير root-level — لا نحتاج _channel هنا
 
   // ── fetch count من DB عبر RPC ثم يحدث الـ badge ──
   // المصدر: DB دايماً — مو DOM increment
@@ -6517,56 +6516,16 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
     });
   }
 
-  // ── subscribe ──
-  function _subscribe(){
-    if(window._invSub) return;          // guard: منع multi-subscription
-    if(_channel) return;                // channel موجود
-    if(!sb || typeof sb.channel !== 'function') return;
-
-    window._invSub = true;
-
-    _channel = sb
-      .channel('rt-invoice-views')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'invoice_views' },
-        function(payload){
-          console.log('[RT] EVENT received:', payload); // 🔍 تشخيص
-          if(!payload || !payload.new || !payload.new.invoice_id) return;
-          const invId = payload.new.invoice_id;
-          _updateBadge(invId);
-        }
-      )
-      .subscribe(function(status, err){
-        console.log('[RT] Subscribe status:', status, err||''); // 🔍 تشخيص
-      });
-
-    console.log('[RT] SUBSCRIBED to rt-invoice-views'); // 🔍 تشخيص
-  }
-
-  // ── unsubscribe كامل ──
-  function _unsubscribe(){
-    if(_channel){
-      try{ sb.removeChannel(_channel); }catch(_){}
-      _channel = null;
-    }
-    window._invSub = false; // reset flag — يسمح بـ subscribe جديد لو رجع
-  }
-
-  // ── hook على showPage ──
+  // ── hook على showPage — بدون subscribe/unsubscribe ──
+  // الـ subscription يصير root-level عند الـ init
   const _origShowPage = window.showPage;
   window.showPage = function(page, arg){
-    if(page === 'invoices'){
-      _subscribe();
-    } else {
-      _unsubscribe();
-    }
     return _origShowPage.call(this, page, arg);
   };
 
 })();
 
-const APP_VERSION = 'v55.6';
+const APP_VERSION = 'v55.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7347,6 +7306,34 @@ checkForUpdates();
 _initNavGroups();
 // Public Mode — لا تُشغّل Auth
 if(!window._PUBLIC_MODE) initAuth();
+
+// ════════════════════════════════════════
+// 📡 ROOT-LEVEL REALTIME
+// ينشأ مرة واحدة عند init — خارج أي condition
+// ════════════════════════════════════════
+const rt = sb
+  .channel('rt-invoice-views')
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'invoice_views'
+    },
+    (payload) => {
+      console.log('[RT] EVENT', payload);
+      // تحديث الـ badge لو على صفحة invoices
+      if(typeof _updateBadge === 'function' && window._currentPage === 'invoices'){
+        const invId = payload && payload.new && payload.new.invoice_id;
+        if(invId) _updateBadge(invId);
+      }
+    }
+  )
+  .subscribe((status) => {
+    console.log('[RT] Subscribe status:', status);
+  });
+
+console.log('[RT] SUBSCRIBED to rt-invoice-views');
 
 // ── Report Type Filter Color ──
 function updateRepTypeColor(sel){
