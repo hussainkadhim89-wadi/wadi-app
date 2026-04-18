@@ -6564,7 +6564,7 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
 
 })();
 
-const APP_VERSION = 'v56.4';
+const APP_VERSION = 'v56.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7345,6 +7345,16 @@ checkForUpdates();
 _initNavGroups();
 // Public Mode — لا تُشغّل Auth
 if(!window._PUBLIC_MODE) initAuth();
+
+// ── POLLING: تحديث badges كل 30 ثانية لو على صفحة الفواتير ──
+if(!window._PUBLIC_MODE){
+  setInterval(function(){
+    if(window._currentPage === 'invoices' && typeof renderInvoices === 'function'){
+      const f = window._filterState && window._filterState.invoices || {};
+      renderInvoices(f.page||0, f.search||'', f.filterCustomer||'', f.filterStage||'');
+    }
+  }, 30000); // كل 30 ثانية
+}
 
 
 
