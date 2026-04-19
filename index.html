@@ -2903,9 +2903,9 @@ function showLoginScreen(){document.getElementById('app').style.display='none';d
 
 // ── MOBILE SIDEBAR ──
 function toggleSidebar(){
-  const sb=document.querySelector('.sidebar');
+  const sidebarEl=document.querySelector('.sidebar');
   const ov=document.getElementById('sidebar-overlay');
-  sb.classList.toggle('mobile-open');
+  sidebarEl.classList.toggle('mobile-open');
   ov.classList.toggle('open');
 }
 function closeSidebar(){
@@ -5950,22 +5950,32 @@ function toggleSelectAllInvoices(masterCb){
 
 async function bulkDeleteInvoices(){
   if(_selectedInvIds.size===0) return;
-  const ids=[..._selectedInvIds];
-  const ok=await confirmDelete(`حذف ${ids.length} فاتورة والبنود المرتبطة بها؟`);
+  const selectedIds=Array.from(_selectedInvIds);
+  // DEBUG — تحقق من القيم قبل الحذف
+  console.log('[bulkDelete] _selectedInvIds size:', _selectedInvIds.size);
+  console.log('[bulkDelete] selectedIds:', JSON.stringify(selectedIds));
+  const ok=await confirmDelete(`حذف ${selectedIds.length} فاتورة والبنود المرتبطة بها؟`);
   if(!ok) return;
+  // تحقق بعد confirmDelete — هل _selectedInvIds لا زال كامل؟
+  console.log('[bulkDelete] after confirm — selectedIds still:', JSON.stringify(selectedIds));
+  console.log('[bulkDelete] _selectedInvIds after confirm:', _selectedInvIds.size);
   const btn=document.getElementById('bulk-delete-btn');
   const restore=btnLoad(btn);
   try{
-    // 1. حذف invoice_lines أولاً
-    const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',ids);
+    // 1. حذف invoice_lines — bulk .in()
+    console.log('[bulkDelete] deleting lines for:', selectedIds);
+    const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',selectedIds);
     if(e1) throw e1;
-    // 2. حذف invoices
-    const{error:e2}=await sb.from('invoices').delete().in('id',ids);
+    // 2. حذف invoices — bulk .in()
+    console.log('[bulkDelete] deleting invoices:', selectedIds);
+    const{error:e2}=await sb.from('invoices').delete().in('id',selectedIds);
     if(e2) throw e2;
+    console.log('[bulkDelete] success — deleted:', selectedIds.length);
     _selectedInvIds.clear();
-    showToast(`تم حذف ${ids.length} فاتورة ✓`,'success');
+    showToast(`تم حذف ${selectedIds.length} فاتورة ✓`,'success');
     renderInvoices();
   }catch(e){
+    console.error('[bulkDelete] error:', e);
     handleError(e,'خطأ في الحذف الجماعي');
     restore();
   }
@@ -6574,7 +6584,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.7.1';
+const APP_VERSION = 'v59.7.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -6769,19 +6779,19 @@ function _colorSync(page){
 // ── #1 Mini Collapse Mode ──
 const _MINI_KEY='wadi_sidebar_mini';
 function toggleMiniSidebar(){
-  const sb=document.querySelector('.sidebar');
+  const sidebarEl=document.querySelector('.sidebar');
   const btn=document.getElementById('mini-toggle-btn');
-  if(!sb) return;
-  const isMini=sb.classList.toggle('mini');
+  if(!sidebarEl) return;
+  const isMini=sidebarEl.classList.toggle('mini');
   if(btn) btn.textContent=isMini?'▶':'◀';
   localStorage.setItem(_MINI_KEY, isMini?'1':'0');
 }
 function _initMiniSidebar(){
-  const sb=document.querySelector('.sidebar');
+  const sidebarEl=document.querySelector('.sidebar');
   const btn=document.getElementById('mini-toggle-btn');
-  if(!sb||!btn) return;
+  if(!sidebarEl||!btn) return;
   if(localStorage.getItem(_MINI_KEY)==='1'){
-    sb.classList.add('mini');
+    sidebarEl.classList.add('mini');
     btn.textContent='▶';
   }
 }
@@ -6974,8 +6984,8 @@ function _initTooltips(){
   // group headers في mini mode
   document.querySelectorAll('.nav-group-header').forEach(hdr=>{
     hdr.addEventListener('mouseenter',()=>{
-      const sb=document.querySelector('.sidebar');
-      if(!sb?.classList.contains('mini')) return;
+      const sidebarEl=document.querySelector('.sidebar');
+      if(!sidebarEl?.classList.contains('mini')) return;
       const label=hdr.querySelector('.nav-group-label')?.textContent?.trim()||'';
       if(label) _showNavTooltip(hdr, label);
     },{passive:true});
@@ -7717,26 +7727,17 @@ async function openInvTrackingPanel(invId){
     }catch(_){ return '—'; }
   }
 
-  // count = null = لم يُجلب بعد أو فشل الجلب
-  // count = 0   = جُلب بنجاح وفعلاً صفر مشاهدات
-  let count = null, first = null, last = null;
+  // نفس مصدر الجدول — single source of truth
+  let count = null;
 
   try{
-    const{data,error}=await sb.rpc('get_invoice_view_stats',{ inv_id: invId });
+    const{data,error}=await sb.rpc('get_invoice_view_counts',{ inv_ids: [invId] });
     if(error) throw error;
 
-    // RPC يرجع array — صف واحد دائماً
-    const _row = Array.isArray(data) ? data[0] : data;
-    if(_row){
-      // استخدم parseInt لتجنب || 0 يأكل الأصفار الحقيقية
-      const parsed = parseInt(_row.open_count, 10);
-      count = isNaN(parsed) ? 0 : parsed;
-      first = _row.first_open_at || null;
-      last  = _row.last_open_at  || null;
-    } else {
-      // RPC نجح لكن ما في صف = صفر مشاهدات فعلي
-      count = 0;
-    }
+    const _row = Array.isArray(data) ? data[0] : null;
+    if(window.DEBUG) console.log('[Tracking] raw:', JSON.stringify(data), '| open_count:', _row?.open_count);
+    const _parsed = parseInt(_row?.open_count, 10);
+    count = (_row && _row.invoice_id && !isNaN(_parsed)) ? _parsed : 0;
   }catch(e){
     // فشل الجلب — عرض error داخل البانل + toast
     handleError(e, 'خطأ في تحميل بيانات التتبع');
@@ -7765,16 +7766,7 @@ async function openInvTrackingPanel(invId){
              <div style="font-size:22px;font-weight:800;color:var(--green);font-family:var(--mono)">${count} مرة</div>
            </div>
          </div>
-         <div style="display:flex;flex-direction:column;gap:8px">
-           ${first ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
-             <span style="font-size:12px;color:var(--text3);font-weight:600">🕐 First Open</span>
-             <span style="font-size:13px;font-weight:700;color:var(--text1);font-family:var(--mono)">${_fmtDate(first)}</span>
-           </div>` : ''}
-           ${last ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
-             <span style="font-size:12px;color:var(--text3);font-weight:600">🕐 Last Open</span>
-             <span style="font-size:13px;font-weight:700;color:var(--text1);font-family:var(--mono)">${_fmtDate(last)}</span>
-           </div>` : ''}
-         </div>
+
        </div>`;
 
   openPanel('📊 Tracking — ' + invId, body, '');
