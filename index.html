@@ -3469,6 +3469,7 @@ const _debouncedLinesSearch = debounce(val => {
 
 async function renderLines(page=0,filterInv=''){
   _filterState.lines={page,filterInv};
+  await _loadPendingInvoices();
   setLoading();
   try{
   const from=page*PS,to=from+PS-1;
@@ -6650,7 +6651,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.4';
+const APP_VERSION = 'v60.5.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
