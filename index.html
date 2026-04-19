@@ -1939,22 +1939,27 @@ input:focus,select:focus,textarea:focus{
 #pending-banner{
   display:none;
   align-items:center;
-  gap:12px;
-  padding:10px 16px;
+  justify-content:space-between;
+  gap:10px;
+  padding:7px 14px;
   background:#fefce8;
   border-bottom:1px solid #fde68a;
-  font-size:13px;
+  border-radius:0;
+  font-size:12.5px;
   font-weight:600;
   color:#92400e;
   direction:rtl;
+  position:relative;
 }
-#pending-banner-msg{flex:1;}
+#pending-banner-left{display:flex;align-items:center;gap:8px;}
+#pending-banner-right{display:flex;align-items:center;gap:6px;position:relative;}
+#pending-banner-msg{font-size:12.5px;font-weight:600;color:#92400e;}
 #pending-banner-btn{
-  padding:5px 14px;
+  padding:4px 12px;
   background:#f59e0b;
   color:#fff;
   border:none;
-  border-radius:6px;
+  border-radius:5px;
   font-size:12px;
   font-weight:700;
   cursor:pointer;
@@ -1962,6 +1967,44 @@ input:focus,select:focus,textarea:focus{
   transition:background .15s;
 }
 #pending-banner-btn:hover{background:#d97706;}
+#pending-banner-list-btn{
+  padding:4px 10px;
+  background:transparent;
+  color:#92400e;
+  border:1px solid #fde68a;
+  border-radius:5px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  font-family:var(--font);
+  transition:background .15s;
+}
+#pending-banner-list-btn:hover{background:#fef9c3;}
+#pending-banner-dropdown{
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  right:0;
+  background:#fff;
+  border:1px solid #fde68a;
+  border-radius:7px;
+  box-shadow:0 4px 16px rgba(0,0,0,.10);
+  min-width:160px;
+  z-index:200;
+  overflow:hidden;
+}
+#pending-banner-dropdown.open{display:block;}
+.pending-inv-item{
+  padding:8px 14px;
+  font-size:12px;
+  font-weight:600;
+  color:#92400e;
+  cursor:pointer;
+  direction:rtl;
+  transition:background .12s;
+  font-family:var(--font);
+}
+.pending-inv-item:hover{background:#fef9c3;}
 
 </style>
 </head>
@@ -2157,8 +2200,14 @@ input:focus,select:focus,textarea:focus{
         </button>
       </div>
       <div id="pending-banner">
-        <span id="pending-banner-msg"></span>
-        <button id="pending-banner-btn" onclick="_onPendingBannerClick()">ابدأ</button>
+        <div id="pending-banner-left">
+          <span id="pending-banner-msg"></span>
+        </div>
+        <div id="pending-banner-right">
+          <button id="pending-banner-btn" onclick="_onPendingBannerClick()">ابدأ</button>
+          <button id="pending-banner-list-btn" onclick="_togglePendingDropdown()">عرض الفواتير ▾</button>
+          <div id="pending-banner-dropdown"></div>
+        </div>
       </div>
       <div class="content" id="page-content">
         <div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>
@@ -3489,7 +3538,7 @@ async function renderLines(page=0,filterInv=''){
       oninput="_debouncedLinesSearch(this.value)">
     <button class="btn btn-primary btn-sm" onclick="renderLines(0,document.getElementById('ln-inv').value)">🔍 بحث</button>
     <button class="btn btn-secondary btn-sm" onclick="renderLines(0,'')">↺ إعادة</button>
-    <button class="btn btn-secondary btn-sm" onclick="openLineModal()" style="margin-right:auto">＋ بند (Modal)</button>
+    <button class="btn btn-secondary btn-sm" onclick="openLineModal()" style="margin-right:auto">＋ إضافة بند</button>
   </div>
   <div class="table-card">
     <div class="table-header">
@@ -5466,6 +5515,41 @@ function _onPendingBannerClick() {
   openLineModal(null, ids[0]);
 }
 
+function _togglePendingDropdown() {
+  var dd = document.getElementById('pending-banner-dropdown');
+  if (!dd) return;
+  if (dd.classList.contains('open')) {
+    dd.classList.remove('open');
+    return;
+  }
+  _buildPendingDropdown(dd);
+  dd.classList.add('open');
+}
+
+function _buildPendingDropdown(dd) {
+  var ids = Array.isArray(_pendingInvIds) ? _pendingInvIds : [];
+  while (dd.firstChild) { dd.removeChild(dd.firstChild); }
+  if (ids.length === 0) {
+    var empty = document.createElement('div');
+    empty.className = 'pending-inv-item';
+    empty.textContent = 'لا توجد فواتير معلقة';
+    dd.appendChild(empty);
+    return;
+  }
+  for (var i = 0; i < ids.length; i++) {
+    var item = document.createElement('div');
+    item.className = 'pending-inv-item';
+    item.textContent = ids[i];
+    (function(invId) {
+      item.onclick = function() {
+        dd.classList.remove('open');
+        openLineModal(null, invId);
+      };
+    })(ids[i]);
+    dd.appendChild(item);
+  }
+}
+
 async function _autoFillLineDate(invId){
   if(!invId) return;
   const dateEl=document.getElementById('l-date');
@@ -6653,7 +6737,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.6.1';
+const APP_VERSION = 'v60.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -6774,6 +6858,16 @@ document.addEventListener('click', e=>{
   item.classList.add('rippling');
   setTimeout(()=>{ item.classList.add('rippling-out'); },150);
   setTimeout(()=>{ item.classList.remove('rippling','rippling-out'); },400);
+},{passive:true});
+
+// ── إغلاق dropdown الفواتير المعلقة عند الضغط خارجه ──
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('pending-banner-dropdown');
+  var listBtn = document.getElementById('pending-banner-list-btn');
+  if (!dd) return;
+  if (!dd.contains(e.target) && e.target !== listBtn) {
+    dd.classList.remove('open');
+  }
 },{passive:true});
 
 // ── Keyboard nav داخل sidebar ── #44
