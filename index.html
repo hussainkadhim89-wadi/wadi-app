@@ -1029,7 +1029,7 @@ body.dark .nav-item.predictive{
 .table-title{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.2px}
 .table-count{font-size:11px;color:var(--text3);font-family:var(--mono);background:var(--bg4);padding:2px 8px;border-radius:20px}
 .table-wrap{overflow-x:auto}
-.table-wrap.large{overflow:auto;max-height:70vh}
+.table-wrap.large{overflow:auto;max-height:70vh;direction:ltr}.table-wrap.large table{direction:rtl}
 .table-card:has(.table-wrap.large){overflow:visible}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead{position:sticky;top:0;z-index:5}
@@ -3293,6 +3293,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   const{data,count,error:qErr}=await q;
   if(qErr){showToast('خطأ في جلب الفواتير: '+qErr.message,'error');setLoading('فشل التحميل');return;}
   const rows=data||[];
+  _selectedInvIds.clear(); // reset عند كل render
   // جلب حالة السداد من الذمم
   const invIds=rows.map(r=>r.id).filter(Boolean);
   let recMap={};
@@ -3344,9 +3345,10 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
     <button class="btn btn-secondary btn-sm" onclick="renderInvoices(0,'','','')">↺ إعادة</button>
   </div>
   <div class="table-card">
-    <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px"><div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
+    <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px"><button id="bulk-delete-btn" class="btn btn-danger btn-sm" style="display:none" onclick="bulkDeleteInvoices()">🗑️ حذف المحدد</button><div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
     <div class="table-wrap large"><table id="inv-main-table" class="${localStorage.getItem('wadi_inv_expanded')==='1'?'':'table-compact'}">
       <thead><tr>
+        <th style="width:32px;text-align:center"><input type="checkbox" id="inv-select-all" onchange="toggleSelectAllInvoices(this)" title="تحديد الكل"></th>
         <th onclick="sortTable('invoices','id')" style="cursor:pointer">رقم الفاتورة ${sortIcon('invoices','id')}</th>
         <th onclick="sortTable('invoices','date')" style="cursor:pointer">التاريخ ${sortIcon('invoices','date')}</th>
         <th>رقم العميل</th>
@@ -3367,6 +3369,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
           return`<tr data-invoice-id="${r.id||''}">
+            <td style="text-align:center;width:32px"><input type="checkbox" class="inv-row-cb" data-id="${r.id}" ${_selectedInvIds.has(r.id)?'checked':''} onchange="onInvCheckbox('${r.id}',this.checked)"></td>
             <td class="td-mono" style="color:var(--accent);font-weight:700"><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;flex-shrink:0" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600;flex-shrink:0" title="لم تُفتح بعد">❌</span>`}</div></td>
             <td>${fmtD(r.date)}</td>
             <td class="td-mono text-muted">${r.customer_id||'—'}</td>
@@ -5383,6 +5386,17 @@ async function delInvoice(id){
 
 // Line Modal
 let _lastLineInvId=null; // يحفظ آخر فاتورة استخدمها
+let _selectedInvIds=new Set(); // multi-select state
+
+async function _autoFillLineDate(invId){
+  if(!invId) return;
+  const dateEl=document.getElementById('l-date');
+  if(!dateEl) return;
+  try{
+    const{data}=await sb.from('invoices').select('date').eq('id',invId).single();
+    if(data?.date) dateEl.value=data.date.slice(0,10);
+  }catch(_){}
+}
 
 async function openLineModal(lineId=null,preselectedInvId=null){
   const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
@@ -5405,8 +5419,8 @@ async function openLineModal(lineId=null,preselectedInvId=null){
     </div>`:''}
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم الفاتورة *</label>
-        <select class="form-select" id="l-inv">${(invs||[]).map(i=>`<option value="${i.id}" ${i.id===selInvId?'selected':''}>${i.id} · ${i.customer_name||''}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">التاريخ</label><input class="form-input" type="date" id="l-date" value="${line.date?.slice(0,10)||new Date().toISOString().slice(0,10)}"></div>
+        <select class="form-select" id="l-inv" onchange="_autoFillLineDate(this.value)">${(invs||[]).map(i=>`<option value="${i.id}" ${i.id===selInvId?'selected':''}>${i.id} · ${i.customer_name||''}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">التاريخ <span style="font-size:10px;color:var(--text3)">(من الفاتورة)</span></label><input class="form-input" type="date" id="l-date" readonly style="background:var(--bg3);color:var(--text3);cursor:default" value="${line.date?.slice(0,10)||new Date().toISOString().slice(0,10)}"></div>
       <div class="form-group" style="grid-column:span 2">
         <label class="form-label">وصف البند / الصنف *</label>
         <input class="form-input" id="l-desc" value="${line.description||''}" placeholder="اسم المادة أو الخدمة" oninput="suggestLinePrice(this.value)">
@@ -5428,10 +5442,12 @@ async function openLineModal(lineId=null,preselectedInvId=null){
     </div>`,
   `<button class="btn btn-secondary" onclick="saveLine(${lineId||'null'},true)">✓ إنهاء الإدخال</button>
    <button class="btn btn-primary" onclick="saveLine(${lineId||'null'})">💾 حفظ وإضافة آخر</button>`);
-  // auto-focus على وصف البند
+  // auto-focus على وصف البند + auto-fill تاريخ من الفاتورة
   setTimeout(()=>{
     const desc=document.getElementById('l-desc');
     if(desc){desc.focus();desc.select();}
+    // لو ما في بند موجود (إضافة جديدة) → جلب تاريخ الفاتورة
+    if(!lineId && selInvId) _autoFillLineDate(selInvId);
   },120);
 }
 
@@ -5896,6 +5912,62 @@ async function saveLine(existingId, finish=false){
     showToast('خطأ غير متوقع: '+e.message,'error');
     restore();
     finishBtns.forEach(b=>{b.disabled=false;});
+  }
+}
+
+function onInvCheckbox(id, checked){
+  if(checked) _selectedInvIds.add(id);
+  else _selectedInvIds.delete(id);
+  const btn=document.getElementById('bulk-delete-btn');
+  if(btn){
+    const n=_selectedInvIds.size;
+    btn.style.display=n>0?'inline-flex':'none';
+    btn.textContent=`🗑️ حذف المحدد (${n})`;
+  }
+  // sync select-all checkbox
+  const master=document.getElementById('inv-select-all');
+  if(master){
+    const allCbs=document.querySelectorAll('.inv-row-cb');
+    master.checked=allCbs.length>0&&[...allCbs].every(c=>c.checked);
+    master.indeterminate=_selectedInvIds.size>0&&!master.checked;
+  }
+}
+
+function toggleSelectAllInvoices(masterCb){
+  const allCbs=document.querySelectorAll('.inv-row-cb');
+  allCbs.forEach(cb=>{
+    cb.checked=masterCb.checked;
+    if(masterCb.checked) _selectedInvIds.add(cb.dataset.id);
+    else _selectedInvIds.delete(cb.dataset.id);
+  });
+  const btn=document.getElementById('bulk-delete-btn');
+  if(btn){
+    const n=_selectedInvIds.size;
+    btn.style.display=n>0?'inline-flex':'none';
+    btn.textContent=`🗑️ حذف المحدد (${n})`;
+  }
+}
+
+async function bulkDeleteInvoices(){
+  if(_selectedInvIds.size===0) return;
+  const ids=[..._selectedInvIds];
+  const ok=await confirmDelete(`حذف ${ids.length} فاتورة والبنود المرتبطة بها؟`);
+  if(!ok) return;
+  const btn=document.getElementById('bulk-delete-btn');
+  const restore=btnLoad(btn);
+  try{
+    // 1. حذف invoice_lines أولاً
+    const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',ids);
+    if(e1) throw e1;
+    // 2. حذف invoices
+    const{error:e2}=await sb.from('invoices').delete().in('id',ids);
+    if(e2) throw e2;
+    _selectedInvIds.clear();
+    showToast(`تم حذف ${ids.length} فاتورة ✓`,'success');
+    renderInvoices();
+  }catch(e){
+    handleError(e,'خطأ في الحذف الجماعي');
+    restore();
   }
 }
 
@@ -6502,7 +6574,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.6.1';
+const APP_VERSION = 'v59.7.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7645,18 +7717,26 @@ async function openInvTrackingPanel(invId){
     }catch(_){ return '—'; }
   }
 
-  // نفس مصدر البيانات المستخدم في الجدول — single source of truth
-  let count = null;
+  // count = null = لم يُجلب بعد أو فشل الجلب
+  // count = 0   = جُلب بنجاح وفعلاً صفر مشاهدات
+  let count = null, first = null, last = null;
 
   try{
-    const{data,error}=await sb.rpc('get_invoice_view_counts',{ inv_ids: [invId] });
+    const{data,error}=await sb.rpc('get_invoice_view_stats',{ inv_id: invId });
     if(error) throw error;
 
-    // نفس الـ RPC المثبت في الجدول — يرجع array بـ invoice_id + open_count
-    const _row = Array.isArray(data) ? data[0] : null;
-    if(window.DEBUG) console.log('[Tracking] raw RPC data:', JSON.stringify(data), '| _row:', _row, '| open_count:', _row?.open_count);
-    const _parsed = parseInt(_row?.open_count, 10);
-    count = (_row && _row.invoice_id && !isNaN(_parsed)) ? _parsed : 0;
+    // RPC يرجع array — صف واحد دائماً
+    const _row = Array.isArray(data) ? data[0] : data;
+    if(_row){
+      // استخدم parseInt لتجنب || 0 يأكل الأصفار الحقيقية
+      const parsed = parseInt(_row.open_count, 10);
+      count = isNaN(parsed) ? 0 : parsed;
+      first = _row.first_open_at || null;
+      last  = _row.last_open_at  || null;
+    } else {
+      // RPC نجح لكن ما في صف = صفر مشاهدات فعلي
+      count = 0;
+    }
   }catch(e){
     // فشل الجلب — عرض error داخل البانل + toast
     handleError(e, 'خطأ في تحميل بيانات التتبع');
@@ -7685,7 +7765,16 @@ async function openInvTrackingPanel(invId){
              <div style="font-size:22px;font-weight:800;color:var(--green);font-family:var(--mono)">${count} مرة</div>
            </div>
          </div>
-
+         <div style="display:flex;flex-direction:column;gap:8px">
+           ${first ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+             <span style="font-size:12px;color:var(--text3);font-weight:600">🕐 First Open</span>
+             <span style="font-size:13px;font-weight:700;color:var(--text1);font-family:var(--mono)">${_fmtDate(first)}</span>
+           </div>` : ''}
+           ${last ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+             <span style="font-size:12px;color:var(--text3);font-weight:600">🕐 Last Open</span>
+             <span style="font-size:13px;font-weight:700;color:var(--text1);font-family:var(--mono)">${_fmtDate(last)}</span>
+           </div>` : ''}
+         </div>
        </div>`;
 
   openPanel('📊 Tracking — ' + invId, body, '');
