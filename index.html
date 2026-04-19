@@ -5979,11 +5979,9 @@ async function saveLine(existingId, finish=false){
     closeModal();
     if(finish){
       _lastLineInvId=null;
-      _loadPendingInvoices();
       showToast(`تم الحفظ (${linesCount} بند) ✓`,'success');
       renderLines();
     } else {
-      _loadPendingInvoices();
       showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
       setTimeout(()=>openLineModal(null,invId),400);
     }
@@ -6655,7 +6653,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.6';
+const APP_VERSION = 'v60.6.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
