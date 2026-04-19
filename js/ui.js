@@ -64,7 +64,15 @@ function btnLoad(btn,loadingText='جاري الحفظ...'){
   return ()=>{btn.innerHTML=orig;btn.classList.remove('loading');btn.disabled=false;};
 }
 
+
+// ── Centralized Error Handler ──
+function handleError(e, msg='خطأ غير متوقع') {
+  console.error('[handleError]', msg, e);
+  if(typeof showToast === 'function') showToast(msg, 'error');
+}
+
 // ── Expose to global scope ──
 window.showToast = showToast;
 window.hideToast = hideToast;
-window.btnLoad   = btnLoad;
+window.btnLoad       = btnLoad;
+window.handleError   = handleError;
