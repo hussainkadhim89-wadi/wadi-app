@@ -3654,6 +3654,12 @@ async function renderLines(page=0,filterInv=''){
     if(sel){sel.value=_lastLineInvId;qaUpdateCustomer();}
     document.getElementById('qa-desc')?.focus();
   }
+  // Smart Assistant — بعد اكتمال الـ render
+  var _smartMsg = _getSmartMessage();
+  if (_smartMsg && _smartMsg !== _lastSmartMsg) {
+    showToast(_smartMsg, 'warning');
+    _lastSmartMsg = _smartMsg;
+  }
   }catch(e){
     console.error('renderLines error:',e);
     showToast('خطأ في تحميل البنود — تحقق من الاتصال','error');
@@ -5551,6 +5557,16 @@ async function _undoDelete() {
   }
 }
 
+// ── Smart Assistant ──
+var _lastSmartMsg = null;
+function _getSmartMessage() {
+  var ids = Array.isArray(_pendingInvIds) ? _pendingInvIds : [];
+  if (ids.length > 0) {
+    return '⚠️ عندك ' + ids.length + ' فواتير ناقصة… خل نكملهن؟';
+  }
+  return null;
+}
+
 // ── Pending Invoices Detection ──
 let _pendingInvIds = []; // IDs للفواتير التي ليس لديها بنود
 
@@ -6827,7 +6843,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.10.1';
+const APP_VERSION = 'v60.11.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
