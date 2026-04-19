@@ -1935,6 +1935,21 @@ input:focus,select:focus,textarea:focus{
   font-size:11px;color:#ef4444;margin-top:4px;min-height:16px;
 }
 
+.toast-action{
+  background:none;
+  border:1px solid currentColor;
+  border-radius:4px;
+  color:var(--green);
+  font-size:11px;
+  font-weight:700;
+  padding:3px 9px;
+  cursor:pointer;
+  font-family:var(--font);
+  flex-shrink:0;
+  transition:opacity .15s;
+}
+.toast-action:hover{opacity:.75;}
+
 /* ── Pending Invoices Banner ── */
 #pending-banner{
   display:none;
@@ -5468,6 +5483,73 @@ async function delInvoice(id){
 // Line Modal
 let _lastLineInvId=null; // يحفظ آخر فاتورة استخدمها
 let _selectedInvIds=new Set(); // multi-select state
+let _lastDeleted=null; // { invoices: [...], lines: [...] } — undo buffer
+
+// ── Undo Delete ──
+var _undoTimer = null; // timer مستقل عن _tt في ui.js
+
+function _clearToastAction() {
+  var inner = document.getElementById('toast')
+    ? document.getElementById('toast').querySelector('.toast-inner')
+    : null;
+  if (!inner) return;
+  var existing = inner.querySelector('.toast-action');
+  if (existing) inner.removeChild(existing);
+}
+
+function _showUndoToast(count) {
+  // 1. أزل أي زر قديم وأوقف timer القديم قبل showToast
+  clearTimeout(_undoTimer);
+  _clearToastAction();
+  // 2. عرض الـ toast — showToast يكتب textContent فقط، لا يمس DOM آخر
+  showToast('تم حذف ' + count + ' فاتورة', 'success');
+  // 3. أضف زر تراجع
+  var inner = document.getElementById('toast')
+    ? document.getElementById('toast').querySelector('.toast-inner')
+    : null;
+  if (!inner) return;
+  var closeBtn = inner.querySelector('.toast-close');
+  var btn = document.createElement('button');
+  btn.className = 'toast-action';
+  btn.textContent = 'تراجع';
+  btn.onclick = function() {
+    _undoDelete();
+    _clearToastAction();
+    if (typeof hideToast === 'function') hideToast();
+    clearTimeout(_undoTimer);
+  };
+  inner.insertBefore(btn, closeBtn);
+  // 4. auto-dismiss الزر بعد 3 ثوانٍ (يتزامن مع TOAST_DURATION.success)
+  _undoTimer = setTimeout(_clearToastAction, 3000);
+}
+
+async function _undoDelete() {
+  if (!_lastDeleted) return;
+  if (!Array.isArray(_lastDeleted.invoices) || _lastDeleted.invoices.length === 0) return;
+  var invoices = _lastDeleted.invoices;
+  var lines    = Array.isArray(_lastDeleted.lines) ? _lastDeleted.lines : [];
+  try {
+    // 1. استعادة الفواتير أولاً — fully awaited
+    var { error: e1 } = await sb.from('invoices').upsert(invoices, { onConflict: 'id' });
+    if (e1) throw e1;
+    // 2. استعادة البنود — فقط بعد نجاح الفواتير
+    if (lines.length > 0) {
+      var { error: e2 } = await sb.from('invoice_lines').upsert(lines, { onConflict: 'id' });
+      if (e2) throw e2;
+    }
+    // 3. نجح الاسترجاع — نظّف الـ buffer
+    _lastDeleted = null;
+    // 4. تحديث الواجهة
+    showToast('تم الاسترجاع ✓', 'success');
+    renderInvoices();
+    if (_currentPage === 'lines') {
+      renderLines(_filterState.lines.page || 0, _filterState.lines.filterInv || '');
+    }
+  } catch (e) {
+    // فشل — لا نُنظّف _lastDeleted
+    handleError(e, 'خطأ في الاسترجاع');
+  }
+}
 
 // ── Pending Invoices Detection ──
 let _pendingInvIds = []; // IDs للفواتير التي ليس لديها بنود
@@ -6118,6 +6200,14 @@ async function bulkDeleteInvoices(){
   const btn=document.getElementById('bulk-delete-btn');
   const restore=btnLoad(btn);
   try{
+    // 0. حفظ البيانات قبل الحذف — undo buffer
+    const{data:invSnap,error:snapErr1}=await sb.from('invoices').select('*').in('id',selectedIds);
+    const{data:linesSnap,error:snapErr2}=await sb.from('invoice_lines').select('*').in('invoice_id',selectedIds);
+    if(snapErr1||snapErr2) throw snapErr1||snapErr2;
+    _lastDeleted={
+      invoices:Array.isArray(invSnap)?invSnap:[],
+      lines:Array.isArray(linesSnap)?linesSnap:[]
+    };
     // 1. حذف invoice_lines — bulk .in()
     const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',selectedIds);
     if(e1) throw e1;
@@ -6125,7 +6215,7 @@ async function bulkDeleteInvoices(){
     const{error:e2}=await sb.from('invoices').delete().in('id',selectedIds);
     if(e2) throw e2;
     _selectedInvIds.clear();
-    showToast(`تم حذف ${selectedIds.length} فاتورة ✓`,'success');
+    _showUndoToast(selectedIds.length);
     renderInvoices();
   }catch(e){
     console.error('[bulkDelete] error:', e);
@@ -6737,7 +6827,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.7';
+const APP_VERSION = 'v60.10.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
