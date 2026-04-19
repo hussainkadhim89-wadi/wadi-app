@@ -3367,7 +3367,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
           return`<tr data-invoice-id="${r.id||''}">
-            <td class="td-mono" style="color:var(--accent);font-weight:700">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;margin-right:2px" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600" title="لم تُفتح بعد">❌</span>`}</td>
+            <td class="td-mono" style="color:var(--accent);font-weight:700"><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;flex-shrink:0" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600;flex-shrink:0" title="لم تُفتح بعد">❌</span>`}</div></td>
             <td>${fmtD(r.date)}</td>
             <td class="td-mono text-muted">${r.customer_id||'—'}</td>
             <td style="font-weight:600">
@@ -5853,17 +5853,23 @@ async function saveLine(existingId, finish=false){
   const price=+document.getElementById('l-price').value||0;
   const cost=+document.getElementById('l-cost').value||0;
   const descVal=document.getElementById('l-desc').value.trim();
+  // validation — لا يغلق المودال عند الفشل
   if(!invId){showToast('اختر رقم الفاتورة','warning');return;}
   if(!descVal){showToast('أدخل وصف البند','warning');document.getElementById('l-desc').focus();return;}
   if(qty<=0){showToast('الكمية يجب أن تكون أكبر من صفر','warning');document.getElementById('l-qty').focus();return;}
   if(price<=0){showToast('أدخل سعر البيع','warning');document.getElementById('l-price').focus();return;}
+  // منع double submission — تعطيل الزر أثناء الحفظ
   const btn=getModalSaveBtn();const restore=btnLoad(btn);
+  // تعطيل زر إنهاء الإدخال أيضاً أثناء الحفظ
+  const finishBtns=document.querySelectorAll('[onclick*="saveLine"][onclick*="true"]');
+  finishBtns.forEach(b=>{b.disabled=true;});
   try{
     const{data:inv}=await sb.from('invoices').select('customer_name').eq('id',invId).single();
     const payload={invoice_id:invId,customer:inv?.customer_name||'',date:document.getElementById('l-date').value,
       description:descVal,qty,unit_price:price,cost_unit:cost,notes:document.getElementById('l-notes').value};
     const{error}=existingId&&existingId!=='null'?await sb.from('invoice_lines').update(payload).eq('id',existingId):await sb.from('invoice_lines').insert(payload);
-    if(error){showToast('خطأ: '+error.message,'error');restore();return;}
+    // فشل الحفظ — لا يغلق المودال
+    if(error){showToast('خطأ: '+error.message,'error');restore();finishBtns.forEach(b=>{b.disabled=false;});return;}
     const{data:allLines}=await sb.from('invoice_lines').select('qty,unit_price,cost_unit,description').eq('invoice_id',invId);
     const saleAmt=(allLines||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0);
     const costAmt=(allLines||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost_unit||0),0);
@@ -5873,7 +5879,7 @@ async function saveLine(existingId, finish=false){
     // تحديث cache السعر
     const{data:allLinesC}=await sb.from('invoice_lines').select('qty,unit_price,cost_unit').eq('invoice_id',invId);
     if(allLinesC)window._invPriceCache[invId]={sale:(allLinesC||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0),cost:(allLinesC||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost_unit||0),0)};
-    // حفظ آخر فاتورة
+    // نجح الحفظ — الآن يغلق
     _lastLineInvId=invId;
     const linesCount=(allLinesC||[]).length;
     closeModal();
@@ -5883,13 +5889,13 @@ async function saveLine(existingId, finish=false){
       renderLines();
     } else {
       showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
-      // فتح بند جديد تلقائياً لنفس الفاتورة
       setTimeout(()=>openLineModal(null,invId),400);
     }
   }catch(e){
     console.error('[saveLine]', e);
     showToast('خطأ غير متوقع: '+e.message,'error');
     restore();
+    finishBtns.forEach(b=>{b.disabled=false;});
   }
 }
 
@@ -6496,7 +6502,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.5';
+const APP_VERSION = 'v59.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7625,7 +7631,7 @@ async function openClientInPanel(clientId, clientName, level=2){
 async function openInvTrackingPanel(invId){
   if(!invId) return;
 
-  // ── Loading state قبل وصول البيانات ──
+  // ── Loading state ──
   openPanel('📊 Tracking — ' + invId,
     '<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>', '');
 
@@ -7639,34 +7645,41 @@ async function openInvTrackingPanel(invId){
     }catch(_){ return '—'; }
   }
 
-  // count = null افتراضياً — للتمييز بين خطأ الجلب (null) وصفر فتح حقيقي (0)
+  // count = null = لم يُجلب بعد أو فشل الجلب
+  // count = 0   = جُلب بنجاح وفعلاً صفر مشاهدات
   let count = null, first = null, last = null;
 
   try{
-    // RPC: COUNT + MIN + MAX حقيقي من DB
-    const{data,error}=await sb.rpc('get_invoice_view_stats',{
-      inv_id: invId
-    });
+    const{data,error}=await sb.rpc('get_invoice_view_stats',{ inv_id: invId });
+    if(error) throw error;
 
-    // RPC يرجع array — نأخذ أول صف
+    // RPC يرجع array — صف واحد دائماً
     const _row = Array.isArray(data) ? data[0] : data;
-    if(_row && !error){
-      count = Number(_row.open_count)  || 0;
-      first = _row.first_open_at       || null;
-      last  = _row.last_open_at        || null;
-    } else if(error){
-      throw error;
+    if(_row){
+      // استخدم parseInt لتجنب || 0 يأكل الأصفار الحقيقية
+      const parsed = parseInt(_row.open_count, 10);
+      count = isNaN(parsed) ? 0 : parsed;
+      first = _row.first_open_at || null;
+      last  = _row.last_open_at  || null;
     } else {
-      // data فارغ = صفر فتح حقيقي
+      // RPC نجح لكن ما في صف = صفر مشاهدات فعلي
       count = 0;
     }
-
   }catch(e){
+    // فشل الجلب — عرض error داخل البانل + toast
     handleError(e, 'خطأ في تحميل بيانات التتبع');
-    return; // يعرض error panel — مو "لم يتم الفتح"
+    openPanel('📊 Tracking — ' + invId,
+      `<div style="text-align:center;padding:40px 20px">
+         <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+         <div style="font-size:14px;font-weight:700;color:var(--red)">خطأ في تحميل البيانات</div>
+         <div style="font-size:12px;color:var(--text3);margin-top:6px">${e.message||'تعذر الاتصال بالخادم'}</div>
+         <button class="btn btn-secondary" style="margin-top:16px" onclick="openInvTrackingPanel('${invId}')">↻ إعادة المحاولة</button>
+       </div>`, '');
+    return;
   }
 
-  const body = count !== null && count === 0
+  // count الحقيقي جاهز — عرض النتيجة
+  const body = count === 0
     ? `<div style="text-align:center;padding:40px 20px">
          <div style="font-size:36px;margin-bottom:12px">❌</div>
          <div style="font-size:15px;font-weight:700;color:var(--text1)">Not Opened</div>
