@@ -3057,7 +3057,7 @@ async function renderDashboard(){
   }
   // تأكد كل شهر موجود في monthly (حتى لو صفر)
   months.forEach(m=>{if(!monthly[m])monthly[m]={s:0,p:0};});
-  console.log('📊 chart months:', months, 'vals:', months.map(m=>monthly[m].s));
+  if(window.DEBUG) console.log('📊 chart months:', months, 'vals:', months.map(m=>monthly[m].s));
   // ── Phase 4: حساب BI (مرة وحدة) ──
   const biAnalytics  = calcProfitAnalytics(invs, monthly);
   const biCustomers  = calcCustomerRanking(invs, biRecsBI, biPays);
@@ -6490,7 +6490,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.3';
+const APP_VERSION = 'v59.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
