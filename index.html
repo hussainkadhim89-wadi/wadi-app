@@ -1935,6 +1935,34 @@ input:focus,select:focus,textarea:focus{
   font-size:11px;color:#ef4444;margin-top:4px;min-height:16px;
 }
 
+/* ── Pending Invoices Banner ── */
+#pending-banner{
+  display:none;
+  align-items:center;
+  gap:12px;
+  padding:10px 16px;
+  background:#fefce8;
+  border-bottom:1px solid #fde68a;
+  font-size:13px;
+  font-weight:600;
+  color:#92400e;
+  direction:rtl;
+}
+#pending-banner-msg{flex:1;}
+#pending-banner-btn{
+  padding:5px 14px;
+  background:#f59e0b;
+  color:#fff;
+  border:none;
+  border-radius:6px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  font-family:var(--font);
+  transition:background .15s;
+}
+#pending-banner-btn:hover{background:#d97706;}
+
 </style>
 </head>
 <body>
@@ -2127,6 +2155,11 @@ input:focus,select:focus,textarea:focus{
         <button class="notif-btn" onclick="toggleNotifPanel()" id="notif-btn" title="الإشعارات">
           🔔<span class="notif-count" id="notif-count">0</span>
         </button>
+      </div>
+      <div id="pending-banner">
+        <span>⚠️</span>
+        <span id="pending-banner-msg"></span>
+        <button id="pending-banner-btn" onclick="_onPendingBannerClick()">ابدأ</button>
       </div>
       <div class="content" id="page-content">
         <div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>
@@ -3057,7 +3090,6 @@ async function renderDashboard(){
   }
   // تأكد كل شهر موجود في monthly (حتى لو صفر)
   months.forEach(m=>{if(!monthly[m])monthly[m]={s:0,p:0};});
-  if(window.DEBUG) console.log('📊 chart months:', months, 'vals:', months.map(m=>monthly[m].s));
   // ── Phase 4: حساب BI (مرة وحدة) ──
   const biAnalytics  = calcProfitAnalytics(invs, monthly);
   const biCustomers  = calcCustomerRanking(invs, biRecsBI, biPays);
@@ -5388,6 +5420,47 @@ async function delInvoice(id){
 let _lastLineInvId=null; // يحفظ آخر فاتورة استخدمها
 let _selectedInvIds=new Set(); // multi-select state
 
+// ── Pending Invoices Detection ──
+let _pendingInvIds = []; // IDs للفواتير التي ليس لديها بنود
+
+async function _loadPendingInvoices() {
+  try {
+    const { data: invData, error: invErr } = await sb
+      .from('invoices')
+      .select('id');
+    if (invErr) throw invErr;
+
+    const { data: lineData, error: lineErr } = await sb
+      .from('invoice_lines')
+      .select('invoice_id');
+    if (lineErr) throw lineErr;
+
+    const allIds = (invData || []).map(i => i.id);
+    const withLinesSet = new Set((lineData || []).map(l => l.invoice_id));
+    _pendingInvIds = allIds.filter(id => !withLinesSet.has(id));
+
+    console.log('[Pending] فواتير بدون بنود:', _pendingInvIds.length, _pendingInvIds);
+  } catch (e) {
+    console.error('[Pending] خطأ في الكشف:', e);
+  }
+}
+
+function _renderPendingBanner() {
+  var banner = document.getElementById('pending-banner');
+  var msg = document.getElementById('pending-banner-msg');
+  if (!banner || !msg) return;
+  if (_pendingInvIds.length > 0) {
+    msg.textContent = 'عندك ' + _pendingInvIds.length + ' فواتير بدون بنود';
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function _onPendingBannerClick() {
+  // placeholder — الربط بالخطوة التالية
+}
+
 async function _autoFillLineDate(invId){
   if(!invId) return;
   const dateEl=document.getElementById('l-date');
@@ -5951,26 +6024,17 @@ function toggleSelectAllInvoices(masterCb){
 async function bulkDeleteInvoices(){
   if(_selectedInvIds.size===0) return;
   const selectedIds=Array.from(_selectedInvIds);
-  // DEBUG — تحقق من القيم قبل الحذف
-  console.log('[bulkDelete] _selectedInvIds size:', _selectedInvIds.size);
-  console.log('[bulkDelete] selectedIds:', JSON.stringify(selectedIds));
   const ok=await confirmDelete(`حذف ${selectedIds.length} فاتورة والبنود المرتبطة بها؟`);
   if(!ok) return;
-  // تحقق بعد confirmDelete — هل _selectedInvIds لا زال كامل؟
-  console.log('[bulkDelete] after confirm — selectedIds still:', JSON.stringify(selectedIds));
-  console.log('[bulkDelete] _selectedInvIds after confirm:', _selectedInvIds.size);
   const btn=document.getElementById('bulk-delete-btn');
   const restore=btnLoad(btn);
   try{
     // 1. حذف invoice_lines — bulk .in()
-    console.log('[bulkDelete] deleting lines for:', selectedIds);
     const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',selectedIds);
     if(e1) throw e1;
     // 2. حذف invoices — bulk .in()
-    console.log('[bulkDelete] deleting invoices:', selectedIds);
     const{error:e2}=await sb.from('invoices').delete().in('id',selectedIds);
     if(e2) throw e2;
-    console.log('[bulkDelete] success — deleted:', selectedIds.length);
     _selectedInvIds.clear();
     showToast(`تم حذف ${selectedIds.length} فاتورة ✓`,'success');
     renderInvoices();
@@ -6584,7 +6648,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.7.3';
+const APP_VERSION = 'v60.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7735,7 +7799,6 @@ async function openInvTrackingPanel(invId){
     if(error) throw error;
 
     const _row = Array.isArray(data) ? data[0] : null;
-    if(window.DEBUG) console.log('[Tracking] raw:', JSON.stringify(data), '| open_count:', _row?.open_count);
     const _parsed = parseInt(_row?.open_count, 10);
     count = (_row && _row.invoice_id && !isNaN(_parsed)) ? _parsed : 0;
   }catch(e){
