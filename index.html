@@ -2157,7 +2157,6 @@ input:focus,select:focus,textarea:focus{
         </button>
       </div>
       <div id="pending-banner">
-        <span>⚠️</span>
         <span id="pending-banner-msg"></span>
         <button id="pending-banner-btn" onclick="_onPendingBannerClick()">ابدأ</button>
       </div>
@@ -5440,6 +5439,7 @@ async function _loadPendingInvoices() {
     _pendingInvIds = allIds.filter(id => !withLinesSet.has(id));
 
     console.log('[Pending] فواتير بدون بنود:', _pendingInvIds.length, _pendingInvIds);
+    _renderPendingBanner();
   } catch (e) {
     console.error('[Pending] خطأ في الكشف:', e);
   }
@@ -5447,10 +5447,12 @@ async function _loadPendingInvoices() {
 
 function _renderPendingBanner() {
   var banner = document.getElementById('pending-banner');
-  var msg = document.getElementById('pending-banner-msg');
-  if (!banner || !msg) return;
-  if (_pendingInvIds.length > 0) {
-    msg.textContent = 'عندك ' + _pendingInvIds.length + ' فواتير بدون بنود';
+  var pendingMsgEl = document.getElementById('pending-banner-msg');
+  if (!banner || !pendingMsgEl) return;
+  var ids = Array.isArray(_pendingInvIds) ? _pendingInvIds : [];
+  var count = ids.length;
+  if (count > 0) {
+    pendingMsgEl.textContent = '⚠️ عندك ' + count + ' فواتير بدون بنود';
     banner.style.display = 'flex';
   } else {
     banner.style.display = 'none';
@@ -5458,7 +5460,7 @@ function _renderPendingBanner() {
 }
 
 function _onPendingBannerClick() {
-  // placeholder — الربط بالخطوة التالية
+  // placeholder — لا يستدعي أي منطق موجود
 }
 
 async function _autoFillLineDate(invId){
@@ -6648,7 +6650,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.3';
+const APP_VERSION = 'v60.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
