@@ -2209,189 +2209,11 @@ input:focus,select:focus,textarea:focus{
   <button onclick="document.getElementById('pwa-banner').classList.remove('show')" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;padding:0 0 0 4px">✕</button>
 </div>
 
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/ui.js"></script>
 <script>
-/* ── config.js ── */
-// ════════════════════════════════════════
-// js/config.js — Supabase Client & Realtime
-// Wadi Al-Taqaa ERP · Single source of truth
-// ════════════════════════════════════════
-
-const DEBUG = false; // true في بيئة التطوير فقط
-
-const sb = supabase.createClient(
-  'https://lakokpqtksrpiillbuzb.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
-);
-
-// ── ROOT-LEVEL REALTIME — بعد createClient مباشرة ──
-const rt = sb
-  .channel('rt-invoice-views')
-  .on(
-    'postgres_changes',
-    {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'invoice_views'
-    },
-    (payload) => {
-      if(DEBUG) console.log('[RT] EVENT', payload);
-      if(window._currentPage === 'invoices'){
-        const invId = payload && payload.new && payload.new.invoice_id;
-        if(!invId) return;
-        const row = document.querySelector(`[data-invoice-id="${invId}"]`);
-        if(!row) return;
-        const badge = row.querySelector('.views-badge');
-        if(!badge) return;
-        const cur = Number(badge.dataset.count || 0) + 1;
-        badge.dataset.count    = String(cur);
-        badge.title            = `فُتحت ${cur} مرة`;
-        badge.style.background = '#dcfce7';
-        badge.style.color      = '#16a34a';
-        badge.style.fontWeight = '700';
-        badge.textContent      = `✅ ${cur}`;
-      }
-    }
-  )
-  .subscribe((status) => {
-    if(DEBUG) console.log('[RT] Subscribe status:', status);
-  });
-
-if(DEBUG) console.log('[RT] SUBSCRIBED to rt-invoice-views');
-
-// ── Expose to global scope ──
-window.sb    = sb;
-window.DEBUG = DEBUG;
-window.rt = rt;
-window.currentUser = null; // Single source of truth
-
-/* ── utils.js ── */
-// ════════════════════════════════════════
-// js/utils.js — Format Utilities
-// Wadi Al-Taqaa ERP
-// ════════════════════════════════════════
-
-// ── fmt helper (internal) ──
-function fmt(n){
-  return (+n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-}
-
-// ── Currency format ──
-const fmtM = n => {
-  if(n==null||n===''||isNaN(+n))return'—';
-  return fmt(n)+' د.ع';
-};
-
-// ── Date format ──
-const fmtD = d => {
-  if(!d)return'—';
-  try{return new Date(d).toLocaleDateString('en-GB',{year:'numeric',month:'2-digit',day:'2-digit'});}
-  catch{return'—';}
-};
-
-// ── Percentage format ──
-const fmtPct = n => n==null?'—':(+n)+'%';
-// ── SANITIZE INPUT ──
-const MAX_AMOUNT = 1_000_000_000_000;
-
-function sanitizeAmount(val, fieldName='المبلغ'){
-  const n = +val;
-  if(isNaN(n)||val===''||val===null) return {ok:false, msg:`${fieldName}: قيمة غير صالحة`};
-  if(n < 0) return {ok:false, msg:`${fieldName}: لا يمكن أن يكون سالباً`};
-  if(n > MAX_AMOUNT) return {ok:false, msg:`${fieldName}: القيمة كبيرة جداً`};
-  return {ok:true, val:n};
-}
-
-function sanitizeText(val, max=500, fieldName='النص'){
-  if(!val||!val.trim()) return {ok:false, msg:`${fieldName}: لا يمكن أن يكون فارغاً`};
-  if(val.trim().length > max) return {ok:false, msg:`${fieldName}: يجب أن لا يتجاوز ${max} حرف`};
-  return {ok:true, val:val.trim()};
-}
-
-// ── Expose to global scope ──
-window.MAX_AMOUNT     = MAX_AMOUNT;
-window.sanitizeAmount = sanitizeAmount;
-window.sanitizeText   = sanitizeText;
-
-/* ── ui.js ── */
-// ════════════════════════════════════════
-// js/ui.js — UI Helpers (Toast + Button)
-// Wadi Al-Taqaa ERP
-// ════════════════════════════════════════
-
-const TOAST_ICONS={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
-const TOAST_DURATION={success:3000,error:5000,warning:4000,info:3500};
-let _tt,_lastToastMsg='',_lastToastType='',_toastCount=1;
-
-function showToast(msg,type='success'){
-  try{
-    const t=document.getElementById('toast');
-    const icon=document.getElementById('toast-icon');
-    const msgEl=document.getElementById('toast-msg');
-    const bar=document.getElementById('toast-bar');
-    if(!t||!icon||!msgEl||!bar) return;
-
-    clearTimeout(_tt);
-
-    // Grouping: نفس النوع + نفس الرسالة → عرّض العدد
-    if(t.classList.contains('show') && msg===_lastToastMsg && type===_lastToastType){
-      _toastCount++;
-      msgEl.textContent=`${msg} (×${_toastCount})`;
-      // أعد الـ timer بدون animation
-      const dur=TOAST_DURATION[type]||3000;
-      bar.style.transition='none'; bar.style.width='100%';
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        bar.style.transition=`width ${dur}ms linear`;
-        bar.style.width='0%';
-      }));
-      _tt=setTimeout(()=>hideToast(),dur);
-      return;
-    }
-
-    // رسالة جديدة
-    _lastToastMsg=msg; _lastToastType=type; _toastCount=1;
-    bar.style.transition='none'; bar.style.width='100%';
-    icon.textContent=TOAST_ICONS[type]||'ℹ️';
-    msgEl.textContent=msg;
-    t.className=`show ${type}`;
-
-    const dur=TOAST_DURATION[type]||3000;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      bar.style.transition=`width ${dur}ms linear`;
-      bar.style.width='0%';
-    }));
-    _tt=setTimeout(()=>hideToast(),dur);
-  }catch(e){console.error('Toast error:',e);}
-}
-
-function hideToast(){
-  const t=document.getElementById('toast');
-  t.classList.remove('show');
-  clearTimeout(_tt);
-  _lastToastMsg=''; _lastToastType=''; _toastCount=1;
-}
-
-// ── BUTTON LOADING ──
-function btnLoad(btn,loadingText='جاري الحفظ...'){
-  const orig=btn.innerHTML;
-  btn.innerHTML=loadingText;
-  btn.classList.add('loading');
-  btn.disabled=true;
-  return ()=>{btn.innerHTML=orig;btn.classList.remove('loading');btn.disabled=false;};
-}
-
-
-// ── Centralized Error Handler ──
-function handleError(e, msg='خطأ غير متوقع') {
-  console.error('[handleError]', msg, e);
-  if(typeof showToast === 'function') showToast(msg, 'error');
-}
-
-// ── Expose to global scope ──
-window.showToast = showToast;
-window.hideToast = hideToast;
-window.btnLoad       = btnLoad;
-window.handleError   = handleError;
-
+// ← sb, rt, currentUser → js/config.js
 // ════════════════════════════════════════
 // 🌐 PUBLIC INVOICE VIEW — v48.5
 // ─ GitHub Pages only
@@ -3459,47 +3281,6 @@ const _debouncedClientSearch = debounce(val => {
   renderClientsWithRisk(val);
 }, 350);
 
-
-// ════════════════════════════════════════
-// 🗂️ MULTI-SELECT INVOICES — Bulk Delete
-// ════════════════════════════════════════
-function onInvCheckbox(){
-  const cbs = [...document.querySelectorAll('.inv-sel-cb:checked')];
-  const btn = document.getElementById('btn-bulk-del');
-  const cnt = document.getElementById('sel-count');
-  const all = document.getElementById('inv-sel-all');
-  const total = document.querySelectorAll('.inv-sel-cb').length;
-  if(btn){ btn.style.display = cbs.length > 0 ? '' : 'none'; }
-  if(cnt){ cnt.textContent = cbs.length; }
-  if(all){ all.indeterminate = cbs.length > 0 && cbs.length < total; all.checked = cbs.length === total && total > 0; }
-}
-
-function toggleSelectAllInvoices(masterCb){
-  document.querySelectorAll('.inv-sel-cb').forEach(cb=>{ cb.checked = masterCb.checked; });
-  onInvCheckbox();
-}
-
-async function bulkDeleteInvoices(){
-  const selected = [...document.querySelectorAll('.inv-sel-cb:checked')].map(cb=>cb.value).filter(Boolean);
-  if(selected.length === 0) return;
-  const ok = await confirmDelete(`حذف ${selected.length} فاتورة؟ هذا الإجراء لا يمكن التراجع عنه.`);
-  if(!ok) return;
-  showToast('جاري الحذف...','info');
-  try{
-    // حذف البنود أولاً ثم الفواتير
-    for(const id of selected){
-      await sb.from('invoice_lines').delete().eq('invoice_id', id);
-      await sb.from('invoices').delete().eq('id', id);
-    }
-    clearCache();
-    showToast(`تم حذف ${selected.length} فاتورة ✓`,'success');
-    renderInvoices(...Object.values(_filterState.invoices||{}));
-  }catch(e){
-    console.error('[bulkDeleteInvoices]', e);
-    showToast('خطأ في الحذف: '+e.message,'error');
-  }
-}
-
 async function renderInvoices(page=0,search='',filterCustomer='',filterStage=''){
   _filterState.invoices={page,search,filterCustomer,filterStage};
   setLoading();
@@ -3563,10 +3344,9 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
     <button class="btn btn-secondary btn-sm" onclick="renderInvoices(0,'','','')">↺ إعادة</button>
   </div>
   <div class="table-card">
-    <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px"><button id="btn-bulk-del" class="btn btn-danger btn-sm" style="display:none" onclick="bulkDeleteInvoices()">🗑️ حذف المحدد (<span id="sel-count">0</span>)</button><div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
+    <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px"><div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
     <div class="table-wrap large"><table id="inv-main-table" class="${localStorage.getItem('wadi_inv_expanded')==='1'?'':'table-compact'}">
       <thead><tr>
-        <th style="width:32px"><input type="checkbox" id="inv-sel-all" onclick="toggleSelectAllInvoices(this)" title="تحديد الكل"></th>
         <th onclick="sortTable('invoices','id')" style="cursor:pointer">رقم الفاتورة ${sortIcon('invoices','id')}</th>
         <th onclick="sortTable('invoices','date')" style="cursor:pointer">التاريخ ${sortIcon('invoices','date')}</th>
         <th>رقم العميل</th>
@@ -3587,7 +3367,6 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
           return`<tr data-invoice-id="${r.id||''}">
-            <td style="width:32px;text-align:center"><input type="checkbox" class="inv-sel-cb" value="${r.id||''}" onclick="onInvCheckbox()"></td>
             <td class="td-mono" style="color:var(--accent);font-weight:700">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;margin-right:2px" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600" title="لم تُفتح بعد">❌</span>`}</td>
             <td>${fmtD(r.date)}</td>
             <td class="td-mono text-muted">${r.customer_id||'—'}</td>
@@ -5647,7 +5426,7 @@ async function openLineModal(lineId=null,preselectedInvId=null){
       <div class="form-group"><label class="form-label">سعر الوحدة — شراء (د.ع)</label><input class="form-input" type="number" id="l-cost" value="${line.cost_unit||0}"></div>
       <div class="form-group"><label class="form-label">ملاحظات</label><input class="form-input" id="l-notes" value="${line.notes||''}"></div>
     </div>`,
-  `<button class="btn btn-secondary" onclick="saveLine(${lineId||'null'}, true)">✓ إنهاء الإدخال</button>
+  `<button class="btn btn-secondary" onclick="_lastLineInvId=null;closeModal();renderLines()">✓ إنهاء الإدخال</button>
    <button class="btn btn-primary" onclick="saveLine(${lineId||'null'})">💾 حفظ وإضافة آخر</button>`);
   // auto-focus على وصف البند
   setTimeout(()=>{
@@ -6068,7 +5847,7 @@ async function qaSubmit(){
   finally{if(btn){btn.textContent='＋ إضافة';btn.disabled=false;}}
 }
 
-async function saveLine(existingId, finish=false){
+async function saveLine(existingId){
   const invId=document.getElementById('l-inv').value;
   const qty=+document.getElementById('l-qty').value||0;
   const price=+document.getElementById('l-price').value||0;
@@ -6098,16 +5877,9 @@ async function saveLine(existingId, finish=false){
     _lastLineInvId=invId;
     const linesCount=(allLinesC||[]).length;
     closeModal();
-    if(finish){
-      _lastLineInvId=null;
-      closeModal();
-      showToast(`تم الحفظ (${linesCount} بند) ✓`,'success');
-      renderLines();
-    } else {
-      showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
-      // فتح بند جديد تلقائياً لنفس الفاتورة
-      setTimeout(()=>openLineModal(null,invId),400);
-    }
+    showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
+    // فتح بند جديد تلقائياً لنفس الفاتورة
+    setTimeout(()=>openLineModal(null,invId),400);
   }catch(e){
     console.error('[saveLine]', e);
     showToast('خطأ غير متوقع: '+e.message,'error');
@@ -6718,7 +6490,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.7';
+const APP_VERSION = 'v59.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7861,8 +7633,8 @@ async function openInvTrackingPanel(invId){
     }catch(_){ return '—'; }
   }
 
-  // count = null = لم يتم الـ fetch بعد، 0 = فُتحت 0 مرات فعلاً
-  let count = null, first = null, last = null;
+  // count = 0 افتراضياً — fallback لو فشل query
+  let count = 0, first = null, last = null;
 
   try{
     // RPC: COUNT + MIN + MAX حقيقي من DB
@@ -7870,31 +7642,20 @@ async function openInvTrackingPanel(invId){
       inv_id: invId
     });
 
-    if(error) throw error;
-
     // RPC يرجع array — نأخذ أول صف
     const _row = Array.isArray(data) ? data[0] : data;
-    // نعيّن count حتى لو 0 — هذا يدل على fetch ناجح
-    count = _row ? (Number(_row.open_count) || 0) : 0;
-    first = _row?.first_open_at || null;
-    last  = _row?.last_open_at  || null;
+    if(_row && !error){
+      count = Number(_row.open_count)  || 0;
+      first = _row.first_open_at       || null;
+      last  = _row.last_open_at        || null;
+    }
+    // لو error أو data فارغ → تبقى القيم الافتراضية (count=0)
 
-  }catch(e){
-    console.error('[openInvTrackingPanel]', e);
-    if(typeof handleError === 'function') handleError(e, 'Failed to load tracking data');
-    // نعرض رسالة خطأ واضحة بدل Not Opened
-    openPanel('📊 Tracking — ' + invId,
-      `<div style="text-align:center;padding:40px 20px">
-        <div style="font-size:36px;margin-bottom:12px">⚠️</div>
-        <div style="font-size:15px;font-weight:700;color:var(--red)">تعذّر جلب البيانات</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:6px">${e.message}</div>
-        <button class="btn btn-primary btn-sm" style="margin-top:16px"
-          onclick="openInvTrackingPanel('${invId}')">إعادة المحاولة</button>
-      </div>`, '');
-    return;
+  }catch(_){
+    // silent fail — نعرض Not Opened بدل error UI
   }
 
-  const body = count !== null && count === 0
+  const body = count === 0
     ? `<div style="text-align:center;padding:40px 20px">
          <div style="font-size:36px;margin-bottom:12px">❌</div>
          <div style="font-size:15px;font-weight:700;color:var(--text1)">Not Opened</div>
