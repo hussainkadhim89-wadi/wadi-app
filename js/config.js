@@ -3,6 +3,8 @@
 // Wadi Al-Taqaa ERP · Single source of truth
 // ════════════════════════════════════════
 
+const DEBUG = false; // true في بيئة التطوير فقط
+
 const sb = supabase.createClient(
   'https://lakokpqtksrpiillbuzb.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU'
@@ -19,7 +21,7 @@ const rt = sb
       table: 'invoice_views'
     },
     (payload) => {
-      console.log('[RT] EVENT', payload);
+      if(DEBUG) console.log('[RT] EVENT', payload);
       if(window._currentPage === 'invoices'){
         const invId = payload && payload.new && payload.new.invoice_id;
         if(!invId) return;
@@ -38,12 +40,13 @@ const rt = sb
     }
   )
   .subscribe((status) => {
-    console.log('[RT] Subscribe status:', status);
+    if(DEBUG) console.log('[RT] Subscribe status:', status);
   });
 
-console.log('[RT] SUBSCRIBED to rt-invoice-views');
+if(DEBUG) console.log('[RT] SUBSCRIBED to rt-invoice-views');
 
 // ── Expose to global scope ──
-window.sb = sb;
+window.sb    = sb;
+window.DEBUG = DEBUG;
 window.rt = rt;
 window.currentUser = null; // Single source of truth
