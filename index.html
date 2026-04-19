@@ -5401,7 +5401,7 @@ async function openLineModal(lineId=null,preselectedInvId=null){
           <div style="font-size:11px;color:var(--text3);margin-top:1px">${existingCount>0?existingCount+' بند مضاف حتى الآن':'أول بند في هذه الفاتورة'}</div>
         </div>
       </div>
-      <button onclick="_lastLineInvId=null;closeModal();renderLines()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:4px;hover:background:var(--bg4)">✓ إنهاء</button>
+      <button onclick="saveLine(null,true)" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:4px;hover:background:var(--bg4)">✓ إنهاء</button>
     </div>`:''}
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم الفاتورة *</label>
@@ -5426,7 +5426,7 @@ async function openLineModal(lineId=null,preselectedInvId=null){
       <div class="form-group"><label class="form-label">سعر الوحدة — شراء (د.ع)</label><input class="form-input" type="number" id="l-cost" value="${line.cost_unit||0}"></div>
       <div class="form-group"><label class="form-label">ملاحظات</label><input class="form-input" id="l-notes" value="${line.notes||''}"></div>
     </div>`,
-  `<button class="btn btn-secondary" onclick="_lastLineInvId=null;closeModal();renderLines()">✓ إنهاء الإدخال</button>
+  `<button class="btn btn-secondary" onclick="saveLine(${lineId||'null'},true)">✓ إنهاء الإدخال</button>
    <button class="btn btn-primary" onclick="saveLine(${lineId||'null'})">💾 حفظ وإضافة آخر</button>`);
   // auto-focus على وصف البند
   setTimeout(()=>{
@@ -5847,7 +5847,7 @@ async function qaSubmit(){
   finally{if(btn){btn.textContent='＋ إضافة';btn.disabled=false;}}
 }
 
-async function saveLine(existingId){
+async function saveLine(existingId, finish=false){
   const invId=document.getElementById('l-inv').value;
   const qty=+document.getElementById('l-qty').value||0;
   const price=+document.getElementById('l-price').value||0;
@@ -5877,9 +5877,15 @@ async function saveLine(existingId){
     _lastLineInvId=invId;
     const linesCount=(allLinesC||[]).length;
     closeModal();
-    showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
-    // فتح بند جديد تلقائياً لنفس الفاتورة
-    setTimeout(()=>openLineModal(null,invId),400);
+    if(finish){
+      _lastLineInvId=null;
+      showToast(`تم الحفظ (${linesCount} بند) ✓`,'success');
+      renderLines();
+    } else {
+      showToast(`تم حفظ البند (${linesCount} بند بالفاتورة) — إضافة بند جديد؟`,'success');
+      // فتح بند جديد تلقائياً لنفس الفاتورة
+      setTimeout(()=>openLineModal(null,invId),400);
+    }
   }catch(e){
     console.error('[saveLine]', e);
     showToast('خطأ غير متوقع: '+e.message,'error');
@@ -6490,7 +6496,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v59.4';
+const APP_VERSION = 'v59.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7633,8 +7639,8 @@ async function openInvTrackingPanel(invId){
     }catch(_){ return '—'; }
   }
 
-  // count = 0 افتراضياً — fallback لو فشل query
-  let count = 0, first = null, last = null;
+  // count = null افتراضياً — للتمييز بين خطأ الجلب (null) وصفر فتح حقيقي (0)
+  let count = null, first = null, last = null;
 
   try{
     // RPC: COUNT + MIN + MAX حقيقي من DB
@@ -7648,14 +7654,19 @@ async function openInvTrackingPanel(invId){
       count = Number(_row.open_count)  || 0;
       first = _row.first_open_at       || null;
       last  = _row.last_open_at        || null;
+    } else if(error){
+      throw error;
+    } else {
+      // data فارغ = صفر فتح حقيقي
+      count = 0;
     }
-    // لو error أو data فارغ → تبقى القيم الافتراضية (count=0)
 
-  }catch(_){
-    // silent fail — نعرض Not Opened بدل error UI
+  }catch(e){
+    handleError(e, 'خطأ في تحميل بيانات التتبع');
+    return; // يعرض error panel — مو "لم يتم الفتح"
   }
 
-  const body = count === 0
+  const body = count !== null && count === 0
     ? `<div style="text-align:center;padding:40px 20px">
          <div style="font-size:36px;margin-bottom:12px">❌</div>
          <div style="font-size:15px;font-weight:700;color:var(--text1)">Not Opened</div>
