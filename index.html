@@ -5014,20 +5014,29 @@ async function renderActivity() {
 
         right.appendChild(date);
 
-        // زر Undo — فقط لعمليات delete_invoices التي تحتوي snapshot
+        // زر Undo — فقط لعمليات delete_invoices التي تحتوي snapshot ولم تُسترجع بعد
         if (row.action_type === 'delete_invoices') {
           var rowDetails = {};
           try { rowDetails = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
           if (rowDetails.snapshot && Array.isArray(rowDetails.snapshot.invoices) && rowDetails.snapshot.invoices.length > 0) {
-            var undoBtn = document.createElement('button');
-            undoBtn.textContent = '↩️ استرجاع';
-            undoBtn.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:5px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
-            (function(capturedRow, capturedBtn) {
-              capturedBtn.addEventListener('click', function() {
-                _restoreFromAudit(capturedRow, capturedBtn);
-              });
-            })(row, undoBtn);
-            right.appendChild(undoBtn);
+            if (rowDetails.restored === true) {
+              // سبق استرجاعها — عرض نص ثابت
+              var doneLabel = document.createElement('span');
+              doneLabel.textContent = '\u2713 تم';
+              doneLabel.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:5px;';
+              right.appendChild(doneLabel);
+            } else {
+              // لم تُسترجع — عرض زر
+              var undoBtn = document.createElement('button');
+              undoBtn.textContent = '\u21a9\ufe0f استرجاع';
+              undoBtn.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:5px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
+              (function(capturedRow, capturedBtn) {
+                capturedBtn.addEventListener('click', function() {
+                  _restoreFromAudit(capturedRow, capturedBtn);
+                });
+              })(row, undoBtn);
+              right.appendChild(undoBtn);
+            }
           }
         }
 
@@ -5725,15 +5734,21 @@ async function _restoreFromAudit(log, btn) {
       var { error: e2 } = await sb.from('invoice_lines').upsert(lines, { onConflict: 'id' });
       if (e2) throw e2;
     }
-    // 5. نجح — غيّر الزر لـ "✓ تم" ولا تُعيد تفعيله
+    // 5. تحديث audit_logs — restored: true (يمنع الاسترجاع المكرر بعد refresh)
+    try {
+      await sb.from('audit_logs')
+        .update({ details: JSON.stringify(Object.assign({}, details, { restored: true })) })
+        .eq('id', log.id);
+    } catch(_) {}
+    // 6. نجح — غيّر الزر لـ "✓ تم" ولا تُعيد تفعيله
     if (btn) {
-      btn.textContent = '✓ تم';
+      btn.textContent = '\u2713 تم';
       btn.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:5px;cursor:default;opacity:1;';
       btn.disabled = true;
     }
-    // 6. log + toast + تحديث الصفحة
+    // 7. log + toast + تحديث الصفحة
     _logAction('undo_delete', { count: invoices.length, ids: invoices.map(function(i){ return i.id; }) });
-    showToast('تم الاسترجاع ✓ (' + invoices.length + ' فاتورة)', 'success');
+    showToast('تم الاسترجاع \u2713 (' + invoices.length + ' فاتورة)', 'success');
     if (_currentPage === 'invoices') renderInvoices();
     if (_currentPage === 'lines') renderLines(_filterState.lines.page || 0, _filterState.lines.filterInv || '');
   } catch(e) {
