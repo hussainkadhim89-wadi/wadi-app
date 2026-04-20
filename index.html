@@ -5019,13 +5019,19 @@ async function renderActivity() {
           var rowDetails = {};
           try { rowDetails = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
           if (rowDetails.snapshot) {
-            // تحقق من وجود log استرجاع لاحق لنفس الـ IDs
+            // تحقق من وجود log استرجاع لاحق لنفس الـ IDs — order-independent
             var ids = rowDetails.ids || [];
+            function sameIds(a, b) {
+              if (!Array.isArray(a) || !Array.isArray(b)) return false;
+              if (a.length !== b.length) return false;
+              var setA = new Set(a);
+              return b.every(function(id) { return setA.has(id); });
+            }
             var isAlreadyRestored = rows.some(function(l) {
               if (l.action_type !== 'undo_delete') return false;
               var ld = {};
               try { ld = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch(_) {}
-              return JSON.stringify(ld.ids) === JSON.stringify(ids) &&
+              return sameIds(ld.ids, ids) &&
                      new Date(l.created_at) > new Date(row.created_at);
             });
             if (rowDetails.restored === true || isAlreadyRestored) {
@@ -7077,7 +7083,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v62.0';
+const APP_VERSION = 'v62.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
