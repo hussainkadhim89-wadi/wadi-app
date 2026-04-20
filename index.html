@@ -2180,6 +2180,7 @@ input:focus,select:focus,textarea:focus{
         <div class="nav-group-items" id="grp-system">
           <div class="nav-item" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>الإعدادات</div>
           <div class="nav-item" id="nav-activity" onclick="showPage('activity')"><span class="nav-icon">📋</span>سجل النشاط</div>
+          <div class="nav-item" id="nav-admin" onclick="showPage('admin')"><span class="nav-icon">👑</span>لوحة الإدارة</div>
         </div>
       </div>
       <div class="sidebar-footer">
@@ -3014,6 +3015,7 @@ function _applyNavPermissions() {
     ['nav-clients',        'clients_view'],
     ['nav-reports',        'reports'],
     ['nav-activity',       'admin_panel'],
+    ['nav-admin',          'admin_panel'],
     ['nav-dashboard',      null],
     ['nav-settings',       null],
   ];
@@ -3114,6 +3116,7 @@ const pageInfo={
   reports:['📈 التقارير','التقارير المالية الشاملة','<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ PDF</button>'],
   settings:['⚙️ الإعدادات','إعدادات النظام',''],
   activity:['📋 سجل النشاط','تاريخ العمليات',''],
+  admin:['👑 لوحة الإدارة','إدارة المستخدمين والصلاحيات',''],
 };
 
 // ── Scroll Memory: حفظ + استرجاع scroll لكل صفحة ──
@@ -3176,6 +3179,7 @@ const _pagePermMap = {
   clients:        'clients_view',
   reports:        'reports',
   activity:       'admin_panel',
+  admin:          'admin_panel',
   settings:       null,   // always allowed
   dashboard:      null,
 };
@@ -3214,7 +3218,7 @@ function showPage(page, arg){
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
     clients:renderClientsWithRisk,credits:renderCredits,reports:renderReports,settings:renderSettings,
-    invoice_center:renderInvoiceCenter,activity:renderActivity};
+    invoice_center:renderInvoiceCenter,activity:renderActivity,admin:renderAdminPanel};
   if(fn[page]) fn[page](arg).then?.(()=>_restoreScroll(page)) || setTimeout(()=>_restoreScroll(page),200);
 }
 
@@ -7248,7 +7252,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v63.5';
+const APP_VERSION = 'v63.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10046,7 +10050,34 @@ function printClientStatement(clientName,totalInvoiced,totalPaid,totalRem){
     tr:nth-child(even) td{background:#f8fafc}
     tfoot td{background:#1e293b;color:#fff;font-weight:700;padding:10px 14px}
     .footer{margin-top:40px;text-align:center;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:16px}
-  </style></head><body>
+  
+/* ══════════════════════════════════════
+   ADMIN PANEL — v63.6
+   ══════════════════════════════════════ */
+.admin-wrap { display:flex; flex-direction:column; gap:20px; }
+.admin-search-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.admin-search-bar input { flex:1; min-width:200px; padding:9px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:var(--font); background:var(--bg2); color:var(--text); }
+.admin-search-bar select { padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; font-family:var(--font); background:var(--bg2); color:var(--text); }
+.admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+.admin-table th { text-align:right; padding:10px 14px; background:var(--bg3); border-bottom:2px solid var(--border); font-weight:600; color:var(--text2); font-size:12px; }
+.admin-table td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.admin-table tr:hover td { background:var(--bg3); }
+.admin-badge-admin { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a; }
+.admin-badge-user  { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe; }
+.perm-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px; }
+.perm-row { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; background:var(--bg3); border-radius:6px; border:1px solid var(--border); }
+.perm-label { font-size:12px; color:var(--text2); font-weight:500; }
+.perm-toggle { position:relative; width:36px; height:20px; flex-shrink:0; }
+.perm-toggle input { opacity:0; width:0; height:0; }
+.perm-slider { position:absolute; cursor:pointer; inset:0; background:#d1d5db; border-radius:20px; transition:.2s; }
+.perm-slider:before { content:''; position:absolute; width:14px; height:14px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+.perm-toggle input:checked + .perm-slider { background:var(--accent); }
+.perm-toggle input:checked + .perm-slider:before { transform:translateX(16px); }
+body.dark .admin-table th { background:var(--bg2); }
+body.dark .admin-badge-admin { background:#422006;color:#fcd34d;border-color:#78350f; }
+body.dark .admin-badge-user  { background:#1e3a5f;color:#93c5fd;border-color:#1d4ed8; }
+body.dark .perm-row { background:var(--bg2); }
+</style></head><body>
   <div class="header">
     <div class="logo">⚡ وادي الطاقة للتجارة العامة</div>
     <div class="sub">Wadi Al-Taqaa For General Trade · البصرة، العراق</div>
@@ -10453,6 +10484,400 @@ function icFilter(){
     _waBind();
   }
 })();
+
+
+// ════════════════════════════════════════
+// 👑 ADMIN PANEL — v63.6
+// ════════════════════════════════════════
+
+// Permission keys with Arabic labels
+const _PERM_KEYS = [
+  ['invoices_view',   '👁️ عرض الفواتير'],
+  ['invoices_create', '➕ إنشاء فاتورة'],
+  ['invoices_edit',   '✏️ تعديل فاتورة'],
+  ['invoices_delete', '🗑️ حذف فاتورة'],
+  ['payments',        '💳 الدفعات'],
+  ['expenses',        '💸 المصروفات'],
+  ['withdrawals',     '💼 السحوبات'],
+  ['capital',         '🏦 رأس المال'],
+  ['reports',         '📈 التقارير'],
+  ['clients_view',    '👥 عرض العملاء'],
+  ['clients_edit',    '✏️ تعديل العملاء'],
+  ['admin_panel',     '👑 لوحة الإدارة'],
+];
+
+var _adminUsers = []; // cache
+var _adminSearch = '';
+var _adminFilter = ''; // 'admin' | 'user' | ''
+
+// ── Edge Function caller ──
+async function _adminCall(action, targetId, payload) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('No session');
+  const res = await fetch(
+    'https://lakokpqtksrpiillbuzb.supabase.co/functions/v1/admin-panel',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ action, targetId: targetId || null, payload: payload || null })
+    }
+  );
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Edge Function error');
+  return json;
+}
+
+async function renderAdminPanel() {
+  if (!hasPermission('admin_panel')) {
+    document.getElementById('page-content').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">🔒</div><h3>غير مصرح</h3></div>';
+    return;
+  }
+  setLoading('جاري تحميل المستخدمين...');
+  try {
+    const result = await _adminCall('list_users');
+    _adminUsers = result.users || [];
+    _renderAdminTable();
+  } catch(e) {
+    handleError(e, 'خطأ في تحميل المستخدمين');
+  }
+}
+
+function _renderAdminTable() {
+  var pc = document.getElementById('page-content');
+  pc.innerHTML = '';
+
+  var wrap = document.createElement('div');
+  wrap.className = 'admin-wrap';
+
+  // ── Stats bar ──
+  var stats = document.createElement('div');
+  stats.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;';
+  var totalAdmins = _adminUsers.filter(u => u.role === 'admin').length;
+  var totalUsers  = _adminUsers.filter(u => u.role === 'user').length;
+  [
+    ['👑 Admins', totalAdmins, 'var(--yellow)'],
+    ['👤 Users',  totalUsers,  'var(--accent)'],
+    ['📊 المجموع', _adminUsers.length, 'var(--green)'],
+  ].forEach(function(item) {
+    var card = document.createElement('div');
+    card.style.cssText = 'padding:12px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);display:flex;align-items:center;gap:10px;min-width:130px;';
+    card.innerHTML = '<span style="font-size:20px">' + item[0].split(' ')[0] + '</span>' +
+      '<div><div style="font-size:20px;font-weight:700;color:' + item[2] + '">' + item[1] + '</div>' +
+      '<div style="font-size:11px;color:var(--text3)">' + item[0].split(' ').slice(1).join(' ') + '</div></div>';
+    stats.appendChild(card);
+  });
+  wrap.appendChild(stats);
+
+  // ── Search + filter bar ──
+  var bar = document.createElement('div');
+  bar.className = 'table-card';
+  bar.style.padding = '14px 16px';
+
+  var searchRow = document.createElement('div');
+  searchRow.className = 'admin-search-bar';
+
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = '🔍 بحث بالاسم أو البريد...';
+  inp.value = _adminSearch;
+  inp.addEventListener('input', function() {
+    _adminSearch = this.value.toLowerCase();
+    _renderAdminRows(tbody);
+  });
+
+  var sel = document.createElement('select');
+  sel.innerHTML = '<option value="">كل الأدوار</option>' +
+    '<option value="admin"' + (_adminFilter==='admin'?' selected':'') + '>👑 Admin</option>' +
+    '<option value="user"' + (_adminFilter==='user'?' selected':'') + '>👤 User</option>';
+  sel.addEventListener('change', function() {
+    _adminFilter = this.value;
+    _renderAdminRows(tbody);
+  });
+
+  searchRow.appendChild(inp);
+  searchRow.appendChild(sel);
+  bar.appendChild(searchRow);
+  wrap.appendChild(bar);
+
+  // ── Table ──
+  var tableCard = document.createElement('div');
+  tableCard.className = 'table-card';
+
+  var tableWrap = document.createElement('div');
+  tableWrap.className = 'table-wrap';
+
+  var table = document.createElement('table');
+  table.className = 'admin-table';
+
+  var thead = document.createElement('thead');
+  thead.innerHTML = '<tr>' +
+    '<th>المستخدم</th>' +
+    '<th>الدور</th>' +
+    '<th>الصلاحيات</th>' +
+    '<th>تاريخ الإنشاء</th>' +
+    '<th>الإجراءات</th>' +
+    '</tr>';
+  table.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  tableCard.appendChild(tableWrap);
+  wrap.appendChild(tableCard);
+
+  pc.appendChild(wrap);
+  _renderAdminRows(tbody);
+}
+
+function _renderAdminRows(tbody) {
+  tbody.innerHTML = '';
+  var filtered = _adminUsers.filter(function(u) {
+    var matchSearch = !_adminSearch ||
+      (u.email||'').toLowerCase().includes(_adminSearch) ||
+      (u.name||'').toLowerCase().includes(_adminSearch);
+    var matchRole = !_adminFilter || u.role === _adminFilter;
+    return matchSearch && matchRole;
+  });
+
+  if (filtered.length === 0) {
+    var tr = document.createElement('tr');
+    var td = document.createElement('td');
+    td.colSpan = 5;
+    td.style.cssText = 'text-align:center;padding:32px;color:var(--text3)';
+    td.textContent = 'لا توجد نتائج';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  var isSelf = window.currentUser ? window.currentUser.id : null;
+
+  filtered.forEach(function(user) {
+    var tr = document.createElement('tr');
+
+    // ── Email + name ──
+    var tdUser = document.createElement('td');
+    var avatar = document.createElement('div');
+    avatar.style.cssText = 'display:flex;align-items:center;gap:10px;';
+    var av = document.createElement('div');
+    av.style.cssText = 'width:34px;height:34px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--accent);flex-shrink:0;';
+    av.textContent = (user.name||user.email||'?')[0].toUpperCase();
+    var info = document.createElement('div');
+    info.innerHTML = '<div style="font-weight:600;font-size:13px">' + sanitizeText(user.name || user.email||'—') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + sanitizeText(user.email||'') + '</div>' +
+      (user.id === isSelf ? '<span style="font-size:10px;color:var(--green);font-weight:600">● أنت</span>' : '');
+    avatar.appendChild(av);
+    avatar.appendChild(info);
+    tdUser.appendChild(avatar);
+
+    // ── Role ──
+    var tdRole = document.createElement('td');
+    var badge = document.createElement('span');
+    badge.className = user.role === 'admin' ? 'admin-badge-admin' : 'admin-badge-user';
+    badge.textContent = user.role === 'admin' ? '👑 Admin' : '👤 User';
+    tdRole.appendChild(badge);
+
+    // ── Permissions summary ──
+    var tdPerms = document.createElement('td');
+    var perms = user.permissions || {};
+    var activeCount = Object.values(perms).filter(function(v){return v===true;}).length;
+    if (user.role === 'admin') {
+      tdPerms.innerHTML = '<span style="font-size:12px;color:var(--green);font-weight:600">✅ صلاحيات كاملة</span>';
+    } else if (activeCount === 0) {
+      tdPerms.innerHTML = '<span style="font-size:12px;color:var(--text4)">— لا صلاحيات</span>';
+    } else {
+      tdPerms.innerHTML = '<span style="font-size:12px;color:var(--accent);font-weight:600">' + activeCount + ' صلاحية</span>';
+    }
+
+    // ── Created at ──
+    var tdDate = document.createElement('td');
+    tdDate.style.cssText = 'font-size:12px;color:var(--text3);font-family:var(--mono)';
+    try {
+      tdDate.textContent = user.created_at
+        ? new Date(user.created_at).toLocaleDateString('ar-IQ')
+        : '—';
+    } catch(_) { tdDate.textContent = '—'; }
+
+    // ── Actions ──
+    var tdAct = document.createElement('td');
+    var actWrap = document.createElement('div');
+    actWrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+
+    // Edit permissions button
+    var btnPerm = document.createElement('button');
+    btnPerm.className = 'btn btn-secondary btn-sm';
+    btnPerm.textContent = '🔑 الصلاحيات';
+    btnPerm.title = 'تعديل الصلاحيات';
+    btnPerm.addEventListener('click', function() { _openPermModal(user); });
+
+    // Change role button (can't change own role)
+    var btnRole = document.createElement('button');
+    btnRole.className = 'btn btn-sm ' + (user.role === 'admin' ? 'btn-warning' : 'btn-primary');
+    btnRole.style.cssText = 'background:' + (user.role==='admin'?'var(--yellow-light,#fef9c3);color:#92400e;border-color:#fde68a':'') + ';';
+    btnRole.textContent = user.role === 'admin' ? '⬇️ جعله User' : '⬆️ جعله Admin';
+    if (user.id === isSelf) {
+      btnRole.disabled = true;
+      btnRole.title = 'لا يمكن تغيير دورك الخاص';
+      btnRole.style.opacity = '0.4';
+    } else {
+      btnRole.addEventListener('click', function() { _changeRole(user); });
+    }
+
+    // Reset password button
+    var btnPass = document.createElement('button');
+    btnPass.className = 'btn btn-sm';
+    btnPass.style.cssText = 'background:var(--bg3);border:1px solid var(--border);color:var(--text2);';
+    btnPass.textContent = '🔒 إعادة كلمة المرور';
+    btnPass.addEventListener('click', function() { _sendPasswordReset(user); });
+
+    actWrap.appendChild(btnPerm);
+    actWrap.appendChild(btnRole);
+    actWrap.appendChild(btnPass);
+    tdAct.appendChild(actWrap);
+
+    tr.appendChild(tdUser);
+    tr.appendChild(tdRole);
+    tr.appendChild(tdPerms);
+    tr.appendChild(tdDate);
+    tr.appendChild(tdAct);
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Change Role ──
+async function _changeRole(user) {
+  if (!hasPermission('admin_panel')) return;
+  var newRole = user.role === 'admin' ? 'user' : 'admin';
+  var label = newRole === 'admin' ? 'Admin' : 'User';
+  var ok = await confirmDelete('تغيير دور ' + (user.name||user.email) + ' إلى ' + label + '؟');
+  if (!ok) return;
+  try {
+    await _adminCall('update_role', user.id, { role: newRole });
+    showToast('تم تغيير الدور إلى ' + label, 'success');
+    _logAction('change_role', { target_id: user.id, target_email: user.email, new_role: newRole });
+    await renderAdminPanel();
+  } catch(e) {
+    handleError(e, 'خطأ في تغيير الدور');
+  }
+}
+
+// ── Send Password Reset ──
+async function _sendPasswordReset(user) {
+  if (!hasPermission('admin_panel')) return;
+  var ok = await confirmDelete('إرسال رابط إعادة تعيين كلمة المرور إلى ' + user.email + '؟');
+  if (!ok) return;
+  try {
+    await _adminCall('reset_password', null, { email: user.email });
+    showToast('✅ تم إرسال رابط إعادة التعيين إلى ' + user.email, 'success');
+    _logAction('password_reset', { target_email: user.email });
+  } catch(e) {
+    handleError(e, 'خطأ في إرسال رابط إعادة التعيين');
+  }
+}
+
+// ── Permissions Modal ──
+function _openPermModal(user) {
+  if (!hasPermission('admin_panel')) return;
+  var perms = Object.assign({}, user.permissions || {});
+
+  var body = document.createElement('div');
+
+  if (user.role === 'admin') {
+    var note = document.createElement('div');
+    note.style.cssText = 'padding:12px;background:var(--accent-light);border-radius:8px;font-size:13px;color:var(--accent);margin-bottom:12px;text-align:center;';
+    note.textContent = '👑 Admin — يملك صلاحيات كاملة تلقائياً';
+    body.appendChild(note);
+  }
+
+  var grid = document.createElement('div');
+  grid.className = 'perm-grid';
+
+  _PERM_KEYS.forEach(function(item) {
+    var key = item[0], label = item[1];
+    var row = document.createElement('div');
+    row.className = 'perm-row';
+
+    var lbl = document.createElement('span');
+    lbl.className = 'perm-label';
+    lbl.textContent = label;
+
+    var toggleWrap = document.createElement('label');
+    toggleWrap.className = 'perm-toggle';
+
+    var chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = perms[key] === true;
+    if (user.role === 'admin') chk.disabled = true;
+    chk.addEventListener('change', function() {
+      perms[key] = this.checked;
+    });
+
+    var slider = document.createElement('span');
+    slider.className = 'perm-slider';
+
+    toggleWrap.appendChild(chk);
+    toggleWrap.appendChild(slider);
+    row.appendChild(lbl);
+    row.appendChild(toggleWrap);
+    grid.appendChild(row);
+  });
+
+  body.appendChild(grid);
+
+  var footer = '<button class="btn btn-primary" onclick="_savePermissions('' + user.id + '')">💾 حفظ الصلاحيات</button>' +
+    '<button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>';
+
+  // Store perms ref globally for save
+  window._pendingPerms = { userId: user.id, perms: perms, userEmail: user.email };
+
+  openModal('🔑 صلاحيات: ' + sanitizeText(user.name||user.email), body.outerHTML, footer);
+
+  // Re-attach listeners after modal renders (innerHTML loses them)
+  setTimeout(function() {
+    var modal = document.querySelector('.modal');
+    if (!modal) return;
+    _PERM_KEYS.forEach(function(item) {
+      var key = item[0];
+      var chkEl = modal.querySelector('[data-perm="' + key + '"]');
+      // fallback: use index
+    });
+    // Re-bind via grid checkboxes in order
+    var checkboxes = modal.querySelectorAll('.perm-toggle input[type=checkbox]');
+    checkboxes.forEach(function(cb, i) {
+      var key = _PERM_KEYS[i] ? _PERM_KEYS[i][0] : null;
+      if (!key) return;
+      cb.checked = window._pendingPerms.perms[key] === true;
+      if (user.role === 'admin') cb.disabled = true;
+      cb.addEventListener('change', function() {
+        window._pendingPerms.perms[key] = this.checked;
+      });
+    });
+  }, 80);
+}
+
+async function _savePermissions(userId) {
+  if (!hasPermission('admin_panel')) return;
+  if (!window._pendingPerms || window._pendingPerms.userId !== userId) return;
+  var perms = window._pendingPerms.perms;
+  try {
+    await _adminCall('update_permissions', userId, { permissions: perms });
+    closeModal();
+    showToast('✅ تم حفظ الصلاحيات', 'success');
+    _logAction('update_permissions', { target_id: userId, target_email: window._pendingPerms.userEmail });
+    window._pendingPerms = null;
+    await renderAdminPanel();
+  } catch(e) {
+    handleError(e, 'خطأ في حفظ الصلاحيات');
+  }
+}
+
+// expose for modal footer onclick
+window._savePermissions = _savePermissions;
+
 
 // ════════════════════════════════════════
 // 🔗 COPY PUBLIC LINK — GitHub Pages
