@@ -2979,6 +2979,86 @@ async function doLogin(){
   if(error){err.textContent='بيانات الدخول غير صحيحة';err.style.display='block';btn.textContent='دخول ←';btn.disabled=false;}
 }
 async function doLogout(){await sb.auth.signOut();}
+
+// ════════════════════════════════════════
+// 👤 USER PROFILES — v63.0
+// ════════════════════════════════════════
+window.currentUserProfile = null;
+
+// ── Permission helper ──
+function hasPermission(key) {
+  var p = window.currentUserProfile;
+  if (!p) return false;                          // no profile → deny
+  if (p.role === 'admin') return true;           // admin → always allow
+  if (!p.permissions) return false;              // no permissions obj → deny
+  return p.permissions[key] === true;            // explicit true only
+}
+
+// ── Nav visibility — هides nav items user has no access to ──
+function _applyNavPermissions() {
+  var navRules = [
+    // [nav-item id,  permission key or null=always show]
+    ['nav-invoices',       'invoices_view'],
+    ['nav-lines',          'invoices_view'],
+    ['nav-workflow',       'invoices_view'],
+    ['nav-invoice_center', 'invoices_view'],
+    ['nav-print',          'invoices_view'],
+    ['nav-receivables',    'payments'],
+    ['nav-aging',          'payments'],
+    ['nav-credits',        'payments'],
+    ['nav-expenses',       'expenses'],
+    ['nav-withdrawals',    'withdrawals'],
+    ['nav-capital',        'capital'],
+    ['nav-profit',         'reports'],
+    ['nav-cashflow',       'reports'],
+    ['nav-clients',        'clients_view'],
+    ['nav-reports',        'reports'],
+    ['nav-activity',       'admin_panel'],
+    ['nav-dashboard',      null],
+    ['nav-settings',       null],
+  ];
+  navRules.forEach(function(rule) {
+    var id = rule[0], key = rule[1];
+    var el = document.getElementById(id);
+    if (!el) return;
+    var allowed = (key === null) ? true : hasPermission(key);
+    el.style.display = allowed ? '' : 'none';
+  });
+} // { id, email, role, permissions }
+
+async function _fetchProfile() {
+  if (!window.currentUser) return;
+  try {
+    const { data, error } = await sb
+      .from('profiles')
+      .select('id,email,role,permissions')
+      .eq('id', window.currentUser.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      // Profile exists — use it
+      window.currentUserProfile = data;
+    } else {
+      // First login — auto-create profile as 'user'
+      const newProfile = {
+        id:          window.currentUser.id,
+        email:       window.currentUser.email,
+        role:        'user',
+        permissions: {}
+      };
+      const { error: insErr } = await sb.from('profiles').insert(newProfile);
+      if (insErr) throw insErr;
+      window.currentUserProfile = newProfile;
+    }
+  } catch (e) {
+    // Non-fatal — app continues, profile defaults to null
+    console.error('[profiles] fetch error:', e);
+    window.currentUserProfile = null;
+  }
+}
+
 function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -2987,7 +3067,11 @@ function showApp(){
   const name=email.split('@')[0];
   document.getElementById('user-name-d').textContent=name;
   document.getElementById('user-avatar').textContent=name[0]?.toUpperCase()||'U';
-  showPage('dashboard');
+  // جلب profile قبل تحميل الـ app — non-blocking
+  _fetchProfile().then(function() {
+    _applyNavPermissions();
+    showPage('dashboard');
+  });
   // تحميل إعدادات المستخدم من Supabase (non-blocking)
   loadSettingsFromSupabase();
   // badge + auto-refresh
@@ -3074,24 +3158,82 @@ function _initFloatingScroll(){
   table.addEventListener('scroll',()=>{ newFloating.scrollLeft=table.scrollLeft; });
 }
 
+// page → permission key map (null = always allowed)
+const _pagePermMap = {
+  invoices:       'invoices_view',
+  lines:          'invoices_view',
+  workflow:       'invoices_view',
+  print:          'invoices_view',
+  invoice_center: 'invoices_view',
+  receivables:    'payments',
+  aging:          'payments',
+  credits:        'payments',
+  expenses:       'expenses',
+  withdrawals:    'withdrawals',
+  capital:        'capital',
+  profit:         'reports',
+  cashflow:       'reports',
+  clients:        'clients_view',
+  reports:        'reports',
+  activity:       'admin_panel',
+  settings:       null,   // always allowed
+  dashboard:      null,
+};
+
 function showPage(page, arg){
+  // Permission gate — block restricted pages for non-admins
+  var permKey = _pagePermMap[page];
+  if (permKey !== null && permKey !== undefined && !hasPermission(permKey)) {
+    document.getElementById('page-content').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">🔒</div>' +
+      '<h3>غير مصرح</h3><p>ليس لديك صلاحية للوصول إلى هذه الصفحة</p></div>';
+    document.getElementById('page-title').textContent = 'غير مصرح';
+    document.getElementById('page-sub').textContent = '';
+    document.getElementById('topbar-actions').innerHTML = '';
+    _currentPage = page;
+    _updateNavActive(page);
+    return;
+  }
+
   _saveScroll();
   _currentPage=page;
   closeSidebar();
   _updateNavActive(page);
-  const[t,s,a]=pageInfo[page]||['—','',''];
+  const[t,s,rawA]=pageInfo[page]||['—','',''];
   document.getElementById('page-title').textContent=t;
   document.getElementById('page-sub').textContent=s;
-  document.getElementById('topbar-actions').innerHTML=a+'<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ طباعة</button>';
+
+  // Filter action button based on permissions
+  var actionHtml = _filterPageAction(page, rawA);
+  document.getElementById('topbar-actions').innerHTML=actionHtml+'<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ طباعة</button>';
+
   document.getElementById('page-content').innerHTML='<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
   document.getElementById('page-content').scrollTop=0;
-  _refreshAlertsReqId=Date.now(); // reset on page change — in-flight requests become stale safely
+  _refreshAlertsReqId=Date.now();
   const fn={dashboard:renderDashboard,invoices:renderInvoices,lines:renderLines,workflow:renderWorkflow,
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
     clients:renderClientsWithRisk,credits:renderCredits,reports:renderReports,settings:renderSettings,
     invoice_center:renderInvoiceCenter,activity:renderActivity};
   if(fn[page]) fn[page](arg).then?.(()=>_restoreScroll(page)) || setTimeout(()=>_restoreScroll(page),200);
+}
+
+// Filter topbar action button based on write permission
+function _filterPageAction(page, rawA) {
+  if (!rawA) return '';
+  var writeMap = {
+    invoices:    'invoices_create',
+    lines:       'invoices_create',
+    receivables: 'payments',
+    expenses:    'expenses',
+    withdrawals: 'withdrawals',
+    capital:     'capital',
+    clients:     'clients_edit',
+    credits:     'payments',
+  };
+  var key = writeMap[page];
+  if (!key) return rawA; // no restriction needed
+  return hasPermission(key) ? rawA : '';
 }
 
 // ════════════════════════════════════════
@@ -3442,7 +3584,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
     <button class="btn btn-secondary btn-sm" onclick="renderInvoices(0,'','','')">↺ إعادة</button>
   </div>
   <div class="table-card">
-    <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px"><button id="bulk-delete-btn" class="btn btn-danger btn-sm" style="display:none" onclick="bulkDeleteInvoices()">🗑️ حذف المحدد</button><div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
+    <div class="table-header"><div class="table-title">🧾 قاعدة الفواتير — كل الحقول</div><div style="display:flex;align-items:center;gap:8px">${hasPermission('invoices_delete')?'<button id="bulk-delete-btn" class="btn btn-danger btn-sm" style="display:none" onclick="bulkDeleteInvoices()">🗑️ حذف المحدد</button>':'<span id="bulk-delete-btn-placeholder"></span>'}<div class="table-count">${count||0} فاتورة</div><button class="btn-toggle-cols ${localStorage.getItem('wadi_inv_expanded')==='1'?'expanded':''}" id="btn-expand-inv" onclick="toggleInvTable()">⊞ ${localStorage.getItem('wadi_inv_expanded')==='1'?'⊟ مختصر':'⊞ تفاصيل'}</button></div></div>
     <div class="table-wrap large"><table id="inv-main-table" class="${localStorage.getItem('wadi_inv_expanded')==='1'?'':'table-compact'}">
       <thead><tr>
         <th style="width:32px;text-align:center"><input type="checkbox" id="inv-select-all" onchange="toggleSelectAllInvoices(this)" title="تحديد الكل"></th>
@@ -3497,9 +3639,9 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
             <td>${stageBadge(r.stage)}</td>
             <td class="td-wrap text-muted" style="font-size:11px">${r.next_action||'—'}</td>
             <td style="display:flex;gap:4px">
-              <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvoiceModal('${r.id}')">✏️</button>
+              ${hasPermission('invoices_edit')?`<button class="btn btn-secondary btn-sm btn-icon" onclick="openInvoiceModal('${r.id}')">✏️</button>`:''}
               <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvTrackingPanel('${r.id}')" title="تفاصيل الـ Tracking">📊</button>
-              <button class="btn btn-danger btn-sm btn-icon" onclick="delInvoice('${r.id}')">🗑️</button>
+              ${hasPermission('invoices_delete')?`<button class="btn btn-danger btn-sm btn-icon" onclick="delInvoice('${r.id}')">🗑️</button>`:''}
             </td>
           </tr>`;}).join('')}
       </tbody>
@@ -4515,6 +4657,7 @@ async function renderCredits(){
 }
 
 async function openCreditModal(){
+  if(!hasPermission('payments')) return;
   const{data:clients}=await sb.from('clients').select('id,name');
   openModal('💰 دفعة على الحساب',`
     <div style="background:#eff6ff;padding:12px;border-radius:8px;margin-bottom:16px;font-size:12px;color:#1d4ed8">
@@ -5433,6 +5576,8 @@ function getModalSaveBtn(){
 
 // Invoice Modal
 async function openInvoiceModal(invId=null){
+  var _reqPerm = invId ? 'invoices_edit' : 'invoices_create';
+  if(!hasPermission(_reqPerm)) return;
   const{data:clients}=await sb.from('clients').select('id,name');
   const stages=['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل','🏁 مكتملة'];
   let inv={};
@@ -5615,6 +5760,7 @@ async function saveInvoice(existingId, goToLines=false){
 }
 
 async function delInvoice(id){
+  if(!hasPermission('invoices_delete')) return; // guard
   const ok=await confirmDelete(`حذف الفاتورة ${id}؟ سيتم حذف كل بنودها أيضاً`);
   if(!ok) return;
   // 0. snapshot قبل الحذف
@@ -5888,6 +6034,7 @@ async function _autoFillLineDate(invId){
 }
 
 async function openLineModal(lineId=null,preselectedInvId=null){
+  if(!hasPermission('invoices_edit')) return;
   const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
   let line={};
   if(lineId){const{data}=await sb.from('invoice_lines').select('*').eq('id',lineId).single();line=data||{};}
@@ -6438,6 +6585,7 @@ function toggleSelectAllInvoices(masterCb){
 }
 
 async function bulkDeleteInvoices(){
+  if(!hasPermission('invoices_delete')) return; // guard — لا تعمل بدون صلاحية
   if(_selectedInvIds.size===0) return;
   const selectedIds=Array.from(_selectedInvIds);
   const ok=await confirmDelete(`حذف ${selectedIds.length} فاتورة والبنود المرتبطة بها؟`);
@@ -6490,6 +6638,7 @@ async function delLine(id,invId){
 
 // Payment Modal
 async function openPaymentModal(invId=null){
+  if(!hasPermission('payments')) return;
   const[{data:recs},{data:allInvs},{data:pays}]=await Promise.all([
     sb.from('receivables').select('invoice_id,customer_name,total_amount').order('invoice_id'),
     sb.from('invoices').select('id,customer_name,sale_amount').order('date',{ascending:false}),
@@ -6641,6 +6790,7 @@ function useCredit(amount){
 
 // Expense Modal
 async function openExpenseModal(){
+  if(!hasPermission('expenses')) return;
   const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
   openModal('💸 مصروف جديد',`
     <div class="form-grid form-grid-2">
@@ -6687,6 +6837,7 @@ async function saveExpense(){
 
 // Withdrawal Modal
 async function openWithdrawalModal(){
+  if(!hasPermission('withdrawals')) return;
   openModal('💼 سحب جديد',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">الشريك</label>
@@ -6721,6 +6872,7 @@ async function saveWithdrawal(){
 
 // Capital Modal
 async function openCapitalModal(){
+  if(!hasPermission('capital')) return;
   openModal('🏦 حركة رأس مال',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">التاريخ</label><input class="form-input" type="date" id="c-date" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -6748,6 +6900,7 @@ async function saveCapital(){
 
 // Client Modal
 async function openClientModal(clientId=null){
+  if(!hasPermission('clients_edit')) return;
   let cl={};
   if(clientId){const{data}=await sb.from('clients').select('*').eq('id',clientId).single();cl=data||{};}
   // لو panel مفتوح — افتح كـ L2 فوقه بدل ما يفتح خلفه
@@ -6907,6 +7060,7 @@ async function showClientStatement(clientId, clientName){
 }
 
 async function openEditExpense(id){
+  if(!hasPermission('expenses')) return;
   const{data:r}=await sb.from('expenses').select('*').eq('id',id).single();
   if(!r) return;
   const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
@@ -7080,7 +7234,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v62.2';
+const APP_VERSION = 'v63.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
