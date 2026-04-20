@@ -5002,15 +5002,37 @@ async function renderActivity() {
         item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;';
 
         var label = document.createElement('span');
-        label.style.cssText = 'font-weight:500;color:var(--text)';
+        label.style.cssText = 'font-weight:500;color:var(--text);flex:1';
         label.textContent = _formatAction(row);
+
+        var right = document.createElement('span');
+        right.style.cssText = 'display:flex;align-items:center;gap:10px;flex-shrink:0';
 
         var date = document.createElement('span');
         date.style.cssText = 'color:var(--text3);font-size:12px;font-family:var(--mono)';
         date.textContent = _formatDate(row.created_at);
 
+        right.appendChild(date);
+
+        // زر Undo — فقط لعمليات delete_invoices التي تحتوي snapshot
+        if (row.action_type === 'delete_invoices') {
+          var rowDetails = {};
+          try { rowDetails = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
+          if (rowDetails.snapshot && Array.isArray(rowDetails.snapshot.invoices) && rowDetails.snapshot.invoices.length > 0) {
+            var undoBtn = document.createElement('button');
+            undoBtn.textContent = '↩️ استرجاع';
+            undoBtn.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:5px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
+            (function(capturedRow, capturedBtn) {
+              capturedBtn.addEventListener('click', function() {
+                _restoreFromAudit(capturedRow, capturedBtn);
+              });
+            })(row, undoBtn);
+            right.appendChild(undoBtn);
+          }
+        }
+
         item.appendChild(label);
-        item.appendChild(date);
+        item.appendChild(right);
         list.appendChild(item);
       });
 
@@ -5674,6 +5696,53 @@ async function _logAction(type, details) {
   } catch (_) {}
 }
 
+// ════════════════════════════════════════
+// ↩️ PERMANENT UNDO — v61.0
+// ════════════════════════════════════════
+async function _restoreFromAudit(log, btn) {
+  // 1. تعطيل الزر فوراً — منع الضغط المزدوج
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+
+  // 2. استخراج snapshot والتحقق منه
+  var details = {};
+  try { details = typeof log.details === 'string' ? JSON.parse(log.details) : (log.details || {}); } catch(_) {}
+  var snap = details.snapshot;
+  if (!snap || !Array.isArray(snap.invoices) || snap.invoices.length === 0) {
+    showToast('لا يوجد snapshot لهذه العملية', 'error');
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    return;
+  }
+
+  var invoices = snap.invoices;
+  var lines    = Array.isArray(snap.lines) ? snap.lines : [];
+
+  try {
+    // 3. upsert الفواتير أولاً
+    var { error: e1 } = await sb.from('invoices').upsert(invoices, { onConflict: 'id' });
+    if (e1) throw e1;
+    // 4. upsert البنود ثانياً
+    if (lines.length > 0) {
+      var { error: e2 } = await sb.from('invoice_lines').upsert(lines, { onConflict: 'id' });
+      if (e2) throw e2;
+    }
+    // 5. نجح — غيّر الزر لـ "✓ تم" ولا تُعيد تفعيله
+    if (btn) {
+      btn.textContent = '✓ تم';
+      btn.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:5px;cursor:default;opacity:1;';
+      btn.disabled = true;
+    }
+    // 6. log + toast + تحديث الصفحة
+    _logAction('undo_delete', { count: invoices.length, ids: invoices.map(function(i){ return i.id; }) });
+    showToast('تم الاسترجاع ✓ (' + invoices.length + ' فاتورة)', 'success');
+    if (_currentPage === 'invoices') renderInvoices();
+    if (_currentPage === 'lines') renderLines(_filterState.lines.page || 0, _filterState.lines.filterInv || '');
+  } catch(e) {
+    // فشل — أعد تفعيل الزر
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    handleError(e, 'خطأ في الاسترجاع الدائم');
+  }
+}
+
 // ── Pending Invoices Detection ──
 let _pendingInvIds = []; // IDs للفواتير التي ليس لديها بنود
 
@@ -6331,14 +6400,22 @@ async function bulkDeleteInvoices(){
       invoices:Array.isArray(invSnap)?invSnap:[],
       lines:Array.isArray(linesSnap)?linesSnap:[]
     };
-    // 1. حذف invoice_lines — bulk .in()
+    // 1. تسجيل العملية مع snapshot — قبل الحذف، fire-and-forget
+    _logAction('delete_invoices', {
+      count: selectedIds.length,
+      ids: selectedIds,
+      snapshot: {
+        invoices: Array.isArray(invSnap) ? invSnap : [],
+        lines: Array.isArray(linesSnap) ? linesSnap : []
+      }
+    });
+    // 2. حذف invoice_lines — bulk .in()
     const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',selectedIds);
     if(e1) throw e1;
-    // 2. حذف invoices — bulk .in()
+    // 3. حذف invoices — bulk .in()
     const{error:e2}=await sb.from('invoices').delete().in('id',selectedIds);
     if(e2) throw e2;
     _selectedInvIds.clear();
-    _logAction('delete_invoices', { count: selectedIds.length, ids: selectedIds });
     _showUndoToast(selectedIds.length);
     renderInvoices();
   }catch(e){
@@ -6950,7 +7027,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.13.3';
+const APP_VERSION = 'v61.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
