@@ -2179,6 +2179,7 @@ input:focus,select:focus,textarea:focus{
         </div>
         <div class="nav-group-items" id="grp-system">
           <div class="nav-item" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>الإعدادات</div>
+          <div class="nav-item" id="nav-activity" onclick="showPage('activity')"><span class="nav-icon">📋</span>سجل النشاط</div>
         </div>
       </div>
       <div class="sidebar-footer">
@@ -3028,6 +3029,7 @@ const pageInfo={
   credits:['💰 دفعات على الحساب','رصيد العملاء الدائن','<button class="btn btn-primary btn-sm" onclick="openCreditModal()">＋ دفعة جديدة</button>'],
   reports:['📈 التقارير','التقارير المالية الشاملة','<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ PDF</button>'],
   settings:['⚙️ الإعدادات','إعدادات النظام',''],
+  activity:['📋 سجل النشاط','تاريخ العمليات',''],
 };
 
 // ── Scroll Memory: حفظ + استرجاع scroll لكل صفحة ──
@@ -3088,7 +3090,7 @@ function showPage(page, arg){
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
     clients:renderClientsWithRisk,credits:renderCredits,reports:renderReports,settings:renderSettings,
-    invoice_center:renderInvoiceCenter};
+    invoice_center:renderInvoiceCenter,activity:renderActivity};
   if(fn[page]) fn[page](arg).then?.(()=>_restoreScroll(page)) || setTimeout(()=>_restoreScroll(page),200);
 }
 
@@ -4929,8 +4931,88 @@ async function renderSettings(){
 }
 
 // ════════════════════════════════════════
-// ── MODALS & FORMS ──────────────────────
+// 📋 ACTIVITY PAGE — v60.13
 // ════════════════════════════════════════
+async function renderActivity() {
+  setLoading('جاري تحميل سجل النشاط...');
+  try {
+    const { data, error } = await sb
+      .from('audit_logs')
+      .select('id,action_type,details,created_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+
+    const rows = (data || []);
+
+    function _formatAction(row) {
+      var type    = row.action_type || '';
+      var details = {};
+      try { details = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
+      var count = details.count ?? '—';
+      if (type === 'delete_invoices') return '🧾 حذف ' + count + ' فواتير';
+      if (type === 'undo_delete')     return '↩️ تم الاسترجاع (' + count + ')';
+      return type;
+    }
+
+    function _formatDate(ts) {
+      if (!ts) return '—';
+      try { return new Date(ts).toLocaleString('ar-IQ', { dateStyle: 'short', timeStyle: 'short' }); }
+      catch(_) { return ts; }
+    }
+
+    var pc = document.getElementById('page-content');
+    pc.innerHTML = '';
+
+    var card = document.createElement('div');
+    card.className = 'table-card';
+
+    var header = document.createElement('div');
+    header.className = 'table-header';
+    var title = document.createElement('div');
+    title.className = 'table-title';
+    title.textContent = '📋 سجل النشاط';
+    var countBadge = document.createElement('div');
+    countBadge.className = 'table-count';
+    countBadge.textContent = rows.length + ' عملية';
+    header.appendChild(title);
+    header.appendChild(countBadge);
+    card.appendChild(header);
+
+    if (rows.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'لا توجد عمليات مسجلة بعد';
+      card.appendChild(empty);
+    } else {
+      var list = document.createElement('div');
+      list.style.cssText = 'display:flex;flex-direction:column;gap:0';
+
+      rows.forEach(function(row) {
+        var item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;';
+
+        var label = document.createElement('span');
+        label.style.cssText = 'font-weight:500;color:var(--text)';
+        label.textContent = _formatAction(row);
+
+        var date = document.createElement('span');
+        date.style.cssText = 'color:var(--text3);font-size:12px;font-family:var(--mono)';
+        date.textContent = _formatDate(row.created_at);
+
+        item.appendChild(label);
+        item.appendChild(date);
+        list.appendChild(item);
+      });
+
+      card.appendChild(list);
+    }
+
+    pc.appendChild(card);
+  } catch(e) {
+    handleError(e, 'خطأ في تحميل سجل النشاط');
+  }
+}
 
 // ══════════════════════════════════════════
 // 🪟 SLIDE PANEL SYSTEM — Premium UX
@@ -6858,7 +6940,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.12';
+const APP_VERSION = 'v60.13';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
