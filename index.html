@@ -5777,6 +5777,7 @@ async function _restoreFromAudit(log, btn) {
     showToast('تم الاسترجاع \u2713 (' + invoices.length + ' فاتورة)', 'success');
     if (_currentPage === 'invoices') renderInvoices();
     if (_currentPage === 'lines') renderLines(_filterState.lines.page || 0, _filterState.lines.filterInv || '');
+    if (_currentPage === 'activity') renderActivity(); // إعادة تحميل Activity من DB
   } catch(e) {
     // فشل — أعد تفعيل الزر
     if (btn) { btn.disabled = false; btn.style.opacity = ''; }
@@ -7068,7 +7069,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v61.8';
+const APP_VERSION = 'v61.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
