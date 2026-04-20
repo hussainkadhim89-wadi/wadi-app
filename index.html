@@ -5724,7 +5724,7 @@ function _getSmartMessage() {
 // ════════════════════════════════════════
 async function _logAction(type, details) {
   try {
-    const res = await sb.from('audit_logs').insert({
+    await sb.from('audit_logs').insert({
       action_type: type,
       details: JSON.stringify(details),
       user_id: window.currentUser?.id ?? null
@@ -5774,11 +5774,9 @@ async function _restoreFromAudit(log, btn) {
         parsedDetails = {};
       }
       const updatedDetails = Object.assign({}, parsedDetails, { restored: true });
-      console.log('FINAL DETAILS TO SAVE:', updatedDetails);
-      const res = await sb.from('audit_logs')
+      await sb.from('audit_logs')
         .update({ details: updatedDetails })
         .eq('id', log.id);
-      console.log('UPDATE RESULT:', res);
     } catch(_) {}
     // 6. نجح — غيّر الزر لـ "✓ تم" ولا تُعيد تفعيله
     if (btn) {
@@ -5818,7 +5816,6 @@ async function _loadPendingInvoices() {
     const withLinesSet = new Set((lineData || []).map(l => l.invoice_id));
     _pendingInvIds = allIds.filter(id => !withLinesSet.has(id));
 
-    console.log('[Pending] فواتير بدون بنود:', _pendingInvIds.length, _pendingInvIds);
     _renderPendingBanner();
   } catch (e) {
     console.error('[Pending] خطأ في الكشف:', e);
@@ -7083,7 +7080,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v62.1';
+const APP_VERSION = 'v62.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
