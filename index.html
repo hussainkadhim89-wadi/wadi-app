@@ -5018,8 +5018,8 @@ async function renderActivity() {
         if (row.action_type === 'delete_invoices') {
           var rowDetails = {};
           try { rowDetails = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
-          console.log('ROW DETAILS:', JSON.stringify({ restored: rowDetails.restored, hasSnapshot: !!rowDetails.snapshot }));
-          if (rowDetails.snapshot && Array.isArray(rowDetails.snapshot.invoices) && rowDetails.snapshot.invoices.length > 0) {
+          console.log('RENDER DETAILS:', rowDetails);
+          if (rowDetails.snapshot) {
             if (rowDetails.restored === true) {
               // سبق استرجاعها — عرض نص ثابت
               var doneLabel = document.createElement('span');
@@ -5749,21 +5749,22 @@ async function _restoreFromAudit(log, btn) {
       var { error: e2 } = await sb.from('invoice_lines').upsert(lines, { onConflict: 'id' });
       if (e2) throw e2;
     }
-    // 5. تحديث audit_logs — restored: true (يمنع الاسترجاع المكرر بعد refresh)
-    // details هو object مُستخرج بالفعل من JSON.parse في السطر أعلاه
-    // نخزنه كـ object مباشرة في jsonb — بدون JSON.stringify
+    // 5. تحديث audit_logs — restored: true
     try {
-      var updatedDetails = {
-        count:    details.count    ?? null,
-        ids:      details.ids      ?? [],
-        snapshot: details.snapshot ?? {},
-        restored: true
-      };
-      console.log('UPDATING AUDIT LOG:', log.id, 'restored:true, snapshot keys:', Object.keys(updatedDetails.snapshot || {}));
-      const upRes = await sb.from('audit_logs')
+      let parsedDetails = {};
+      try {
+        parsedDetails = typeof log.details === 'string'
+          ? JSON.parse(log.details)
+          : (log.details || {});
+      } catch (_) {
+        parsedDetails = {};
+      }
+      const updatedDetails = Object.assign({}, parsedDetails, { restored: true });
+      console.log('FINAL DETAILS TO SAVE:', updatedDetails);
+      const res = await sb.from('audit_logs')
         .update({ details: updatedDetails })
         .eq('id', log.id);
-      console.log('UPDATE RESULT:', upRes);
+      console.log('UPDATE RESULT:', res);
     } catch(_) {}
     // 6. نجح — غيّر الزر لـ "✓ تم" ولا تُعيد تفعيله
     if (btn) {
@@ -7067,7 +7068,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v61.7';
+const APP_VERSION = 'v61.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
