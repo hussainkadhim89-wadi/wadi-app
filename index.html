@@ -5018,9 +5018,17 @@ async function renderActivity() {
         if (row.action_type === 'delete_invoices') {
           var rowDetails = {};
           try { rowDetails = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
-          console.log('RENDER DETAILS:', rowDetails);
           if (rowDetails.snapshot) {
-            if (rowDetails.restored === true) {
+            // تحقق من وجود log استرجاع لاحق لنفس الـ IDs
+            var ids = rowDetails.ids || [];
+            var isAlreadyRestored = rows.some(function(l) {
+              if (l.action_type !== 'undo_delete') return false;
+              var ld = {};
+              try { ld = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch(_) {}
+              return JSON.stringify(ld.ids) === JSON.stringify(ids) &&
+                     new Date(l.created_at) > new Date(row.created_at);
+            });
+            if (rowDetails.restored === true || isAlreadyRestored) {
               // سبق استرجاعها — عرض نص ثابت
               var doneLabel = document.createElement('span');
               doneLabel.textContent = '\u2713 تم';
@@ -7069,7 +7077,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v61.9';
+const APP_VERSION = 'v62.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
