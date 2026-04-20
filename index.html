@@ -5697,12 +5697,16 @@ function _getSmartMessage() {
 // ════════════════════════════════════════
 async function _logAction(type, details) {
   try {
-    await sb.from('audit_logs').insert({
+    console.log('LOGGING SNAPSHOT SIZE:', JSON.stringify(details).length);
+    const res = await sb.from('audit_logs').insert({
       action_type: type,
       details: JSON.stringify(details),
       user_id: window.currentUser?.id ?? null
     });
-  } catch (_) {}
+    console.log('LOG RESULT:', res);
+  } catch (e) {
+    console.error('Audit Log Failed:', e);
+  }
 }
 
 // ════════════════════════════════════════
@@ -7042,7 +7046,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v61.1';
+const APP_VERSION = 'v61.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
