@@ -4951,6 +4951,7 @@ async function renderActivity() {
       try { details = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
       var count = details.count ?? '—';
       if (type === 'delete_invoices') return '🧾 حذف ' + count + ' فواتير';
+      if (type === 'delete_invoice')  return '🧾 حذف فاتورة: ' + (details.id || '—');
       if (type === 'undo_delete')     return '↩️ تم الاسترجاع (' + count + ')';
       return type;
     }
@@ -5565,6 +5566,7 @@ async function delInvoice(id){
   await sb.from('invoice_lines').delete().eq('invoice_id',id);
   const{error}=await sb.from('invoices').delete().eq('id',id);
   if(error){showToast('خطأ في الحذف','error');return;}
+  _logAction('delete_invoice', { id: id });
   clearCache();showToast('تم الحذف','success');renderInvoices();
 }
 
@@ -6940,7 +6942,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v60.13.1';
+const APP_VERSION = 'v60.13.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
