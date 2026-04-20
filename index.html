@@ -5709,13 +5709,11 @@ function _getSmartMessage() {
 // ════════════════════════════════════════
 async function _logAction(type, details) {
   try {
-    console.log('LOGGING SNAPSHOT SIZE:', JSON.stringify(details).length);
     const res = await sb.from('audit_logs').insert({
       action_type: type,
       details: JSON.stringify(details),
       user_id: window.currentUser?.id ?? null
     });
-    console.log('LOG RESULT:', res);
   } catch (e) {
     console.error('Audit Log Failed:', e);
   }
@@ -5751,9 +5749,10 @@ async function _restoreFromAudit(log, btn) {
       if (e2) throw e2;
     }
     // 5. تحديث audit_logs — restored: true (يمنع الاسترجاع المكرر بعد refresh)
+    // jsonb column: store as object directly — no JSON.stringify
     try {
       await sb.from('audit_logs')
-        .update({ details: JSON.stringify(Object.assign({}, details, { restored: true })) })
+        .update({ details: Object.assign({}, details, { restored: true }) })
         .eq('id', log.id);
     } catch(_) {}
     // 6. نجح — غيّر الزر لـ "✓ تم" ولا تُعيد تفعيله
@@ -6431,10 +6430,6 @@ async function bulkDeleteInvoices(){
       invoices:Array.isArray(invSnap)?invSnap:[],
       lines:Array.isArray(linesSnap)?linesSnap:[]
     };
-    // DEBUG — v61.3
-    console.log('SELECTED IDS:', selectedIds);
-    console.log('INV SNAP:', invSnap);
-    console.log('LINES SNAP:', linesSnap);
     // 1. تسجيل العملية مع snapshot — قبل الحذف، fire-and-forget
     _logAction('delete_invoices', {
       count: selectedIds.length,
@@ -7062,7 +7057,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v61.4';
+const APP_VERSION = 'v61.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
