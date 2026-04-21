@@ -7370,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v65.7';
+const APP_VERSION = 'v65.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10196,106 +10196,6 @@ body.dark .admin-badge-admin { background:#422006;color:#fcd34d;border-color:#78
 body.dark .admin-badge-user  { background:#1e3a5f;color:#93c5fd;border-color:#1d4ed8; }
 body.dark .perm-row { background:var(--bg2); }
 
-/* ══════════════════════════════════════════
-   🤖 WADI ASSISTANT — v65.7
-   ══════════════════════════════════════════ */
-#wadi-fab {
-  position:fixed;bottom:28px;left:28px;z-index:2000;
-  width:52px;height:52px;border-radius:50%;
-  background:var(--accent);color:#fff;border:none;
-  font-size:22px;cursor:pointer;
-  box-shadow:0 4px 16px rgba(37,99,235,.35);
-  display:flex;align-items:center;justify-content:center;
-  transition:transform .2s,box-shadow .2s;
-  animation:fabPulse 2.5s ease-in-out infinite;
-}
-#wadi-fab:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(37,99,235,.45);}
-#wadi-fab.open{transform:rotate(45deg) scale(1.05);}
-@keyframes fabPulse{0%,100%{box-shadow:0 4px 16px rgba(37,99,235,.35)}50%{box-shadow:0 4px 24px rgba(37,99,235,.55),0 0 0 6px rgba(37,99,235,.08)}}
-
-#wadi-chat {
-  position:fixed;bottom:90px;left:28px;z-index:1999;
-  width:320px;max-height:460px;
-  background:#fff;border-radius:16px;
-  box-shadow:0 8px 32px rgba(0,0,0,.13);
-  border:1px solid var(--border);
-  display:flex;flex-direction:column;
-  transform:translateY(16px) scale(.97);opacity:0;
-  pointer-events:none;
-  transition:transform .25s cubic-bezier(.16,1,.3,1),opacity .2s ease;
-}
-#wadi-chat.open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto;}
-
-#wadi-chat-header{
-  padding:12px 16px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;
-  background:var(--accent);border-radius:16px 16px 0 0;flex-shrink:0;
-}
-#wadi-chat-header .wc-avatar{
-  width:32px;height:32px;border-radius:50%;
-  background:rgba(255,255,255,.25);
-  display:flex;align-items:center;justify-content:center;font-size:17px;
-}
-#wadi-chat-header .wc-title{color:#fff;font-weight:700;font-size:13px;}
-#wadi-chat-header .wc-status{color:rgba(255,255,255,.75);font-size:11px;}
-
-#wadi-messages{
-  flex:1;overflow-y:auto;padding:12px;
-  display:flex;flex-direction:column;gap:8px;
-  scroll-behavior:smooth;
-}
-.wm-bot,.wm-user{
-  max-width:85%;padding:9px 13px;border-radius:12px;
-  font-size:13px;line-height:1.5;word-break:break-word;
-  animation:wmIn .2s ease;
-}
-@keyframes wmIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.wm-bot{
-  background:var(--bg4);color:var(--text);
-  border-radius:4px 12px 12px 12px;align-self:flex-start;
-}
-.wm-user{
-  background:var(--accent);color:#fff;
-  border-radius:12px 4px 12px 12px;align-self:flex-end;
-}
-.wm-typing{background:var(--bg4);border-radius:4px 12px 12px 12px;align-self:flex-start;padding:10px 14px;}
-.wm-typing span{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3);margin:0 2px;animation:typingDot 1.2s infinite;}
-.wm-typing span:nth-child(2){animation-delay:.2s;}
-.wm-typing span:nth-child(3){animation-delay:.4s;}
-@keyframes typingDot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
-
-#wadi-chat-footer{
-  padding:10px 12px;border-top:1px solid var(--border);
-  display:flex;gap:8px;flex-shrink:0;
-}
-#wadi-input{
-  flex:1;padding:8px 12px;border:1px solid var(--border);
-  border-radius:20px;font-size:13px;font-family:var(--font);
-  outline:none;background:var(--bg3);color:var(--text);
-  transition:border-color .15s;
-}
-#wadi-input:focus{border-color:var(--accent);}
-#wadi-send{
-  width:36px;height:36px;border-radius:50%;
-  background:var(--accent);color:#fff;border:none;
-  font-size:15px;cursor:pointer;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  transition:opacity .15s;
-}
-#wadi-send:hover{opacity:.85;}
-
-.wc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-.wc-chip{
-  padding:4px 10px;border-radius:12px;font-size:11px;
-  background:var(--accent-light);color:var(--accent);
-  border:1px solid rgba(37,99,235,.2);cursor:pointer;
-  transition:background .15s;font-family:var(--font);
-}
-.wc-chip:hover{background:rgba(37,99,235,.15);}
-
-body.dark #wadi-chat{background:var(--bg2);}
-body.dark .wm-bot{background:#1e293b;color:var(--text);}
-body.dark #wadi-input{background:var(--bg3);color:var(--text);}
 </style></head><body>
   <div class="header">
     <div class="logo">⚡ وادي الطاقة للتجارة العامة</div>
@@ -11256,207 +11156,173 @@ async function _copyPublicLink(invId){
 }
 
 
-// ══════════════════════════════════════════
-// 🤖 WADI ASSISTANT — v65.7
-// ══════════════════════════════════════════
-(function() {
-  var _wadiOpen = false;
-  var _wadiGreeted = false;
-  var _wadiTyping = false;
 
-  // ── Fun random replies ──
-  var _wadiQuips = [
-    'يلا نكمل شغل بطل 💪',
-    'تعبت اليوم؟ 😄',
-    'الشغل ما يخلص بس نكمل 😎',
-    'وادي الطاقة ماشي زين 🚀',
-    'شنو تريد أساعدك فيه؟ 🤝',
-  ];
+// ══════════════════════════════════════════
+// 🤖 WADI ASSISTANT — v65.8
+// Built entirely via JS — no HTML dependency
+// ══════════════════════════════════════════
+(function initWadiAssistant() {
 
-  // ── Get user display name ──
-  function _wadiName() {
+  // ── CSS ──
+  var style = document.createElement('style');
+  style.textContent = [
+    '#wadi-fab{position:fixed;bottom:28px;left:28px;z-index:9999;width:52px;height:52px;',
+    'border-radius:50%;background:#2563eb;color:#fff;border:none;font-size:22px;',
+    'cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,.4);display:flex;',
+    'align-items:center;justify-content:center;transition:transform .2s;}',
+    '#wadi-fab:hover{transform:scale(1.1);}',
+    '#wadi-fab.wopen{transform:rotate(45deg);}',
+    '#wadi-chat{position:fixed;bottom:90px;left:28px;z-index:9998;width:300px;',
+    'max-height:440px;background:#fff;border-radius:16px;',
+    'box-shadow:0 8px 32px rgba(0,0,0,.15);border:1px solid #e9e9e7;',
+    'display:flex;flex-direction:column;transform:translateY(16px) scale(.97);',
+    'opacity:0;pointer-events:none;transition:transform .25s,opacity .2s;}',
+    '#wadi-chat.wopen{transform:translateY(0) scale(1);opacity:1;pointer-events:auto;}',
+    '#wadi-chat-hdr{padding:12px 14px;background:#2563eb;border-radius:16px 16px 0 0;',
+    'display:flex;align-items:center;gap:8px;flex-shrink:0;}',
+    '#wadi-chat-hdr .wt{color:#fff;font-weight:700;font-size:13px;}',
+    '#wadi-chat-hdr .ws{color:rgba(255,255,255,.75);font-size:10px;}',
+    '#wadi-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}',
+    '.wb,.wu{max-width:85%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;}',
+    '.wb{background:#f1f1ef;color:#111;border-radius:4px 12px 12px 12px;align-self:flex-start;}',
+    '.wu{background:#2563eb;color:#fff;border-radius:12px 4px 12px 12px;align-self:flex-end;}',
+    '.wchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}',
+    '.wchip{padding:4px 10px;border-radius:12px;font-size:11px;background:#eff6ff;',
+    'color:#2563eb;border:1px solid #bfdbfe;cursor:pointer;font-family:inherit;}',
+    '.wchip:hover{background:#dbeafe;}',
+    '#wadi-chat-ftr{padding:10px 12px;border-top:1px solid #e9e9e7;display:flex;gap:8px;flex-shrink:0;}',
+    '#wadi-inp{flex:1;padding:8px 12px;border:1px solid #e9e9e7;border-radius:20px;',
+    'font-size:13px;font-family:inherit;outline:none;background:#f9f9f8;color:#111;}',
+    '#wadi-inp:focus{border-color:#2563eb;}',
+    '#wadi-snd{width:36px;height:36px;border-radius:50%;background:#2563eb;color:#fff;',
+    'border:none;font-size:14px;cursor:pointer;flex-shrink:0;}'
+  ].join('');
+  document.head.appendChild(style);
+
+  // ── HTML ──
+  var fab = document.createElement('button');
+  fab.id = 'wadi-fab';
+  fab.title = 'مساعد وادي';
+  fab.textContent = '💬';
+  fab.onclick = toggle;
+  document.body.appendChild(fab);
+
+  var chat = document.createElement('div');
+  chat.id = 'wadi-chat';
+  chat.innerHTML = [
+    '<div id="wadi-chat-hdr">',
+      '<span style="font-size:20px">🤖</span>',
+      '<div><div class="wt">مساعد وادي</div><div class="ws">● متاح الحين</div></div>',
+    '</div>',
+    '<div id="wadi-msgs"></div>',
+    '<div id="wadi-chat-ftr">',
+      '<input id="wadi-inp" type="text" placeholder="اكتب سؤالك..." dir="rtl" autocomplete="off">',
+      '<button id="wadi-snd">➤</button>',
+    '</div>'
+  ].join('');
+  document.body.appendChild(chat);
+
+  // ── Events ──
+  document.getElementById('wadi-snd').onclick = send;
+  document.getElementById('wadi-inp').onkeydown = function(e){ if(e.key==='Enter') send(); };
+
+  // ── State ──
+  var open = false, greeted = false;
+  var quips = ['يلا نكمل شغل بطل 💪','تعبت اليوم؟ 😄','الشغل ماله نهاية بس نكمل 😎','وادي الطاقة ماشي زين 🚀'];
+
+  function getName() {
     var p = window.currentUserProfile;
     if (p && p.name) return p.name;
     var el = document.getElementById('user-name-d');
-    if (el && el.textContent && el.textContent !== '—') return el.textContent.trim();
+    if (el && el.textContent !== '—') return el.textContent.trim();
     return 'صديقي';
   }
 
-  // ── Add message bubble ──
-  function _wadiMsg(text, type, chips) {
-    var msgs = document.getElementById('wadi-messages');
-    if (!msgs) return;
-    var div = document.createElement('div');
-    div.className = type === 'user' ? 'wm-user' : 'wm-bot';
-    div.innerHTML = text;
-    msgs.appendChild(div);
-    // chips (quick reply buttons)
-    if (chips && chips.length) {
-      var chipWrap = document.createElement('div');
-      chipWrap.className = 'wc-chips';
+  function addMsg(html, type, chips) {
+    var msgs = document.getElementById('wadi-msgs');
+    var d = document.createElement('div');
+    d.className = type === 'u' ? 'wu' : 'wb';
+    d.innerHTML = html;
+    msgs.appendChild(d);
+    if (chips) {
+      var wrap = document.createElement('div');
+      wrap.className = 'wchips';
       chips.forEach(function(c) {
         var btn = document.createElement('button');
-        btn.className = 'wc-chip';
+        btn.className = 'wchip';
         btn.textContent = c;
-        btn.onclick = function() { wadiReply(c); };
-        chipWrap.appendChild(btn);
+        btn.onclick = function(){ reply(c); };
+        wrap.appendChild(btn);
       });
-      msgs.appendChild(chipWrap);
+      msgs.appendChild(wrap);
     }
     msgs.scrollTop = msgs.scrollHeight;
   }
 
-  // ── Typing indicator ──
-  function _wadiTypingShow() {
-    var msgs = document.getElementById('wadi-messages');
-    if (!msgs) return;
-    var dot = document.createElement('div');
-    dot.className = 'wm-typing'; dot.id = 'wadi-typing';
-    dot.innerHTML = '<span></span><span></span><span></span>';
-    msgs.appendChild(dot);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-  function _wadiTypingHide() {
-    var el = document.getElementById('wadi-typing');
-    if (el) el.remove();
+  function botReply(html, chips) {
+    setTimeout(function(){ addMsg(html, 'b', chips); }, 600);
   }
 
-  // ── Bot respond with delay ──
-  function _wadiBotReply(text, chips, delay) {
-    _wadiTypingShow();
-    setTimeout(function() {
-      _wadiTypingHide();
-      _wadiMsg(text, 'bot', chips);
-    }, delay || 700);
+  function respond(m) {
+    m = m.toLowerCase();
+    if (m.includes('فاتورة')||m.includes('فواتير')) {
+      botReply('📄 الفواتير موجودة بالنظام — تريد أروحلك عليها؟', ['اذهب للفواتير','لا شكراً']);
+    } else if (m.includes('ربح')||m.includes('أرباح')) {
+      botReply('📊 تقدر تشوف تفاصيل الأرباح من التقارير.', ['اذهب للتقارير']);
+    } else if (m.includes('متأخر')||m.includes('ذمم')) {
+      botReply('⏰ الذمم والمتأخرات في صفحة التحصيل.', ['اذهب للذمم']);
+    } else if (m.includes('مصروف')) {
+      botReply('💸 المصروفات مسجلة — تريد تشوفها؟', ['اذهب للمصروفات']);
+    } else if (m.includes('عميل')||m.includes('زبون')) {
+      botReply('👥 قاعدة العملاء جاهزة.', ['اذهب للعملاء']);
+    } else if (m.includes('اذهب')||m.includes('روح')) {
+      if (m.includes('فاتور')) { botReply('تفضل 👇'); setTimeout(function(){showPage('invoices');},400); }
+      else if (m.includes('تقرير')||m.includes('ربح')) { botReply('تفضل 👇'); setTimeout(function(){showPage('profit');},400); }
+      else if (m.includes('ذمم')||m.includes('تحصيل')) { botReply('تفضل 👇'); setTimeout(function(){showPage('receivables');},400); }
+      else if (m.includes('مصروف')) { botReply('تفضل 👇'); setTimeout(function(){showPage('expenses');},400); }
+      else if (m.includes('عميل')) { botReply('تفضل 👇'); setTimeout(function(){showPage('clients');},400); }
+    } else if (m.includes('هلا')||m.includes('سلام')||m.includes('مرحبا')) {
+      botReply('هلا ' + getName() + ' 👋 كيف أساعدك؟', ['فاتورة','ربح','متأخرات']);
+    } else if (m.includes('شكر')||m.includes('يسلم')) {
+      botReply('العفو ' + getName() + ' 😊');
+    } else {
+      botReply(quips[Math.floor(Math.random()*quips.length)] + '<br><small style="color:#9ca3af;font-size:11px">جرّب: فاتورة · ربح · متأخرات</small>');
+    }
   }
 
-  // ── Smart response logic ──
-  function _wadiRespond(msg) {
-    var m = msg.trim().toLowerCase();
-
-    // فاتورة
-    if (m.includes('فاتورة') || m.includes('فواتير') || m.includes('invoice')) {
-      var invCount = 0;
-      try {
-        var rows = document.querySelectorAll('[data-invoice-id]');
-        invCount = rows.length;
-      } catch(_) {}
-      if (invCount > 0) {
-        _wadiBotReply('📄 شايف <b>' + invCount + '</b> فاتورة بالقائمة الحالية.<br>تريد تروح لصفحة الفواتير؟', ['اذهب للفواتير', 'لا شكراً']);
-      } else {
-        _wadiBotReply('📄 الفواتير موجودة بالنظام — اضغط على "الفواتير" من القائمة الجانبية للاطلاع.', ['اذهب للفواتير']);
-      }
-      return;
-    }
-
-    // ربح
-    if (m.includes('ربح') || m.includes('profit') || m.includes('أرباح')) {
-      _wadiBotReply('📊 تقدر تشوف تفاصيل الأرباح من صفحة التقارير — تحليل كامل بالفترة والهامش.', ['اذهب للتقارير']);
-      return;
-    }
-
-    // متأخرات
-    if (m.includes('متأخر') || m.includes('ذمم') || m.includes('تأخير') || m.includes('receivable')) {
-      _wadiBotReply('⏰ الذمم والمتأخرات موجودة بصفحة "الذمم والتحصيل" — تقدر تشوف كل عميل ومبلغه.', ['اذهب للذمم']);
-      return;
-    }
-
-    // مصروفات
-    if (m.includes('مصروف') || m.includes('expense')) {
-      _wadiBotReply('💸 المصروفات مسجلة بالنظام — شوفها من "المصروفات والسحوبات".', ['اذهب للمصروفات']);
-      return;
-    }
-
-    // عملاء
-    if (m.includes('عميل') || m.includes('زبون') || m.includes('client')) {
-      _wadiBotReply('👥 قاعدة العملاء موجودة — اضغط على "العملاء" من القائمة.', ['اذهب للعملاء']);
-      return;
-    }
-
-    // تحية
-    if (m.includes('هلا') || m.includes('سلام') || m.includes('مرحبا') || m.includes('هاي') || m.includes('أهلا')) {
-      _wadiBotReply('هلا وغلا ' + _wadiName() + ' 👋 كيف أقدر أساعدك؟', ['فاتورة', 'ربح', 'متأخرات']);
-      return;
-    }
-
-    // شكر
-    if (m.includes('شكر') || m.includes('يسلم') || m.includes('مشكور')) {
-      _wadiBotReply('العفو ' + _wadiName() + ' 😊 أي شي ثاني؟');
-      return;
-    }
-
-    // ناوي
-    if (m.includes('اذهب') || m.includes('روح') || m.includes('افتح')) {
-      if (m.includes('فاتور')) { _wadiBotReply('تفضل! 👇'); setTimeout(function(){showPage('invoices');}, 400); return; }
-      if (m.includes('تقرير') || m.includes('ربح')) { _wadiBotReply('تفضل! 👇'); setTimeout(function(){showPage('profit');}, 400); return; }
-      if (m.includes('ذمم') || m.includes('تحصيل')) { _wadiBotReply('تفضل! 👇'); setTimeout(function(){showPage('receivables');}, 400); return; }
-      if (m.includes('مصروف')) { _wadiBotReply('تفضل! 👇'); setTimeout(function(){showPage('expenses');}, 400); return; }
-      if (m.includes('عميل') || m.includes('زبون')) { _wadiBotReply('تفضل! 👇'); setTimeout(function(){showPage('clients');}, 400); return; }
-    }
-
-    // random fun reply
-    var quip = _wadiQuips[Math.floor(Math.random() * _wadiQuips.length)];
-    _wadiBotReply(quip + '<br><small style="color:var(--text3);font-size:11px">جرّب: فاتورة · ربح · متأخرات</small>');
-  }
-
-  // ── Toggle chat ──
-  window.wadiToggle = function() {
-    _wadiOpen = !_wadiOpen;
-    var fab = document.getElementById('wadi-fab');
-    var chat = document.getElementById('wadi-chat');
-    if (!fab || !chat) return;
-    fab.classList.toggle('open', _wadiOpen);
-    chat.classList.toggle('open', _wadiOpen);
-    if (_wadiOpen && !_wadiGreeted) {
-      _wadiGreeted = true;
-      setTimeout(function() {
-        _wadiBotReply(
-          'هلا <b>' + _wadiName() + '</b> 👋 شلونك اليوم؟',
-          ['فاتورة', 'ربح', 'متأخرات'],
-          400
-        );
-      }, 200);
-    }
-    if (_wadiOpen) {
-      setTimeout(function() {
-        var inp = document.getElementById('wadi-input');
-        if (inp) inp.focus();
+  function toggle() {
+    open = !open;
+    fab.classList.toggle('wopen', open);
+    chat.classList.toggle('wopen', open);
+    if (open && !greeted) {
+      greeted = true;
+      setTimeout(function(){
+        botReply('هلا <b>' + getName() + '</b> 👋 شلونك اليوم؟', ['فاتورة','ربح','متأخرات']);
       }, 300);
     }
-  };
+    if (open) setTimeout(function(){ var i=document.getElementById('wadi-inp'); if(i)i.focus(); }, 300);
+  }
 
-  // ── Send user message ──
-  window.wadiSend = function() {
-    var inp = document.getElementById('wadi-input');
-    if (!inp) return;
-    var msg = inp.value.trim();
+  function send() {
+    var inp = document.getElementById('wadi-inp');
+    var msg = inp ? inp.value.trim() : '';
     if (!msg) return;
     inp.value = '';
-    _wadiMsg(msg, 'user');
-    _wadiRespond(msg);
-  };
+    addMsg(msg, 'u');
+    respond(msg);
+  }
 
-  // ── Quick reply chip ──
-  window.wadiReply = function(text) {
-    _wadiMsg(text, 'user');
-    _wadiRespond(text);
-  };
+  function reply(text) { addMsg(text, 'u'); respond(text); }
 
-  // FAB always visible
+  // Expose
+  window.wadiToggle = toggle;
+  window.wadiSend = send;
+  window.wadiReply = reply;
 
 })();
 
 </script>
-<div id="floating-scroll"><div id="floating-scroll-inner"></div></div>
-<!-- ══════════════════════════════════════
-     🤖 WADI ASSISTANT — v65.7
-     ══════════════════════════════════════ -->
-<button id="wadi-fab" title="مساعد وادي" onclick="wadiToggle()">💬</button>
-
-<div id="wadi-chat">
-  <div id="wadi-chat-header">
-    <div class="wc-avatar">🤖</div>
-    <div>
+<div id="floating-scroll"><div id="floating-scroll-inner"></div></div>    <div>
       <div class="wc-title">مساعد وادي</div>
       <div class="wc-status">● متاح الحين</div>
     </div>
