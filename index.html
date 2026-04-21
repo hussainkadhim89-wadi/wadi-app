@@ -10311,26 +10311,6 @@ body.dark #wadi-input{background:var(--bg3);color:var(--text);}
   <div class="footer">${APP_SETTINGS.companyNameAr} · هاتف: ${APP_SETTINGS.phoneHussain} · ${today}</div>
   <script>window.print();window.close();<\/script>
   
-<!-- ══════════════════════════════════════
-     🤖 WADI ASSISTANT — v65.7
-     ══════════════════════════════════════ -->
-<button id="wadi-fab" title="مساعد وادي" onclick="wadiToggle()" style="display:none">💬</button>
-
-<div id="wadi-chat">
-  <div id="wadi-chat-header">
-    <div class="wc-avatar">🤖</div>
-    <div>
-      <div class="wc-title">مساعد وادي</div>
-      <div class="wc-status">● متاح الحين</div>
-    </div>
-  </div>
-  <div id="wadi-messages"></div>
-  <div id="wadi-chat-footer">
-    <input id="wadi-input" type="text" placeholder="اكتب سؤالك..." dir="rtl" autocomplete="off"
-      onkeydown="if(event.key==='Enter')wadiSend()">
-    <button id="wadi-send" onclick="wadiSend()" title="إرسال">➤</button>
-  </div>
-</div>
 </body></html>`);
   w.document.close();
 }
@@ -11516,6 +11496,27 @@ async function _copyPublicLink(invId){
       </button>
       <button class="wa-cancel" id="wa-btn-back">← رجوع</button>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     🤖 WADI ASSISTANT — v65.7
+     ══════════════════════════════════════ -->
+<button id="wadi-fab" title="مساعد وادي" onclick="wadiToggle()" style="display:none">💬</button>
+
+<div id="wadi-chat">
+  <div id="wadi-chat-header">
+    <div class="wc-avatar">🤖</div>
+    <div>
+      <div class="wc-title">مساعد وادي</div>
+      <div class="wc-status">● متاح الحين</div>
+    </div>
+  </div>
+  <div id="wadi-messages"></div>
+  <div id="wadi-chat-footer">
+    <input id="wadi-input" type="text" placeholder="اكتب سؤالك..." dir="rtl" autocomplete="off"
+      onkeydown="if(event.key==='Enter')wadiSend()">
+    <button id="wadi-send" onclick="wadiSend()" title="إرسال">➤</button>
   </div>
 </div>
 </body>
