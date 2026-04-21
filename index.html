@@ -7252,7 +7252,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v63.9';
+const APP_VERSION = 'v64.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10682,8 +10682,9 @@ function _renderAdminRows(tbody) {
     var _avName = (typeof user.name === 'string' && user.name.trim()) ? user.name.trim() : (user.email || '?');
     av.textContent = _avName[0].toUpperCase();
     var info = document.createElement('div');
-    var _displayName = (typeof user.name === 'string' && user.name.trim()) ? user.name.trim() : (user.email || '—');
-    var _displayEmail = user.email || '';
+    var _displayName = (typeof user.username === 'string' && user.username.trim()) ? user.username.trim()
+      : (typeof user.name === 'string' && user.name.trim()) ? user.name.trim() : (user.email || '—');
+    var _displayEmail = (user.email || '').replace('@local.app','') || '—'; // hide fake email
     info.innerHTML = '<div style="font-weight:600;font-size:13px">' + _displayName + '</div>' +
       '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + _displayEmail + '</div>' +
       (user.id === isSelf ? '<span style="font-size:10px;color:var(--green);font-weight:600">● أنت</span>' : '');
@@ -10744,12 +10745,12 @@ function _renderAdminRows(tbody) {
       btnRole.addEventListener('click', function() { _changeRole(user); });
     }
 
-    // Reset password button
+    // Set password button (direct — no email)
     var btnPass = document.createElement('button');
     btnPass.className = 'btn btn-sm';
     btnPass.style.cssText = 'background:var(--bg3);border:1px solid var(--border);color:var(--text2);';
-    btnPass.textContent = '🔒 إعادة كلمة المرور';
-    btnPass.addEventListener('click', function() { _sendPasswordReset(user); });
+    btnPass.textContent = '🔑 تغيير كلمة المرور';
+    btnPass.addEventListener('click', function() { _openSetPasswordModal(user); });
 
     actWrap.appendChild(btnPerm);
     actWrap.appendChild(btnRole);
@@ -10782,17 +10783,37 @@ async function _changeRole(user) {
   }
 }
 
-// ── Send Password Reset ──
-async function _sendPasswordReset(user) {
+// ── Set Password Directly (no email) ──
+function _openSetPasswordModal(user) {
   if (!hasPermission('admin_panel')) return;
-  var ok = await confirmDelete('إرسال رابط إعادة تعيين كلمة المرور إلى ' + user.email + '؟');
-  if (!ok) return;
+  var displayName = (typeof user.username === 'string' && user.username) ? user.username : user.email;
+  var body = '<div class="form-grid">' +
+    '<div class="form-group"><label class="form-label">كلمة المرور الجديدة *</label>' +
+    '<input class="form-input" type="password" id="sp-new-password" placeholder="8 أحرف على الأقل" dir="ltr"></div>' +
+    '<div class="form-group"><label class="form-label">تأكيد كلمة المرور *</label>' +
+    '<input class="form-input" type="password" id="sp-confirm-password" placeholder="أعد الكتابة" dir="ltr"></div>' +
+    '</div>';
+  var footer = '<button class="btn btn-primary" onclick="_setPassword()">💾 تغيير كلمة المرور</button>' +
+    '<button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>';
+  window._pendingSetPassword = { userId: user.id, displayName: displayName };
+  openModal('🔑 تغيير كلمة مرور: ' + displayName, body, footer);
+}
+
+async function _setPassword() {
+  if (!hasPermission('admin_panel')) return;
+  if (!window._pendingSetPassword) return;
+  var newPass = document.getElementById('sp-new-password')?.value || '';
+  var confirm = document.getElementById('sp-confirm-password')?.value || '';
+  if (!newPass || newPass.length < 8) { showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'warning'); return; }
+  if (newPass !== confirm) { showToast('كلمتا المرور غير متطابقتين', 'warning'); return; }
   try {
-    await _adminCall('reset_password', null, { email: user.email });
-    showToast('✅ تم إرسال رابط إعادة التعيين إلى ' + user.email, 'success');
-    _logAction('password_reset', { target_email: user.email });
+    await _adminCall('set_password', window._pendingSetPassword.userId, { password: newPass });
+    closeModal();
+    showToast('✅ تم تغيير كلمة المرور لـ ' + window._pendingSetPassword.displayName, 'success');
+    _logAction('set_password', { target_id: window._pendingSetPassword.userId });
+    window._pendingSetPassword = null;
   } catch(e) {
-    handleError(e, 'خطأ في إرسال رابط إعادة التعيين');
+    handleError(e, 'خطأ في تغيير كلمة المرور');
   }
 }
 
@@ -10896,8 +10917,8 @@ async function _savePermissions(userId) {
 function _openCreateUserModal() {
   if (!hasPermission('admin_panel')) return;
   var body = '<div class="form-grid">' +
-    '<div class="form-group"><label class="form-label">البريد الإلكتروني *</label>' +
-    '<input class="form-input" type="email" id="cu-new-email" placeholder="example@email.com" dir="ltr"></div>' +
+    '<div class="form-group"><label class="form-label">اسم المستخدم *</label>' +
+    '<input class="form-input" type="text" id="cu-new-username" placeholder="مثال: ahmed_ali" dir="ltr" autocomplete="off"></div>' +
     '<div class="form-group"><label class="form-label">كلمة المرور *</label>' +
     '<input class="form-input" type="password" id="cu-new-password" placeholder="8 أحرف على الأقل" dir="ltr"></div>' +
     '<div class="form-group"><label class="form-label">الدور</label>' +
@@ -10910,16 +10931,17 @@ function _openCreateUserModal() {
 
 async function _createUser() {
   if (!hasPermission('admin_panel')) return;
-  var email = (document.getElementById('cu-new-email')?.value || '').trim();
+  var username = (document.getElementById('cu-new-username')?.value || '').trim().toLowerCase().replace(/\s+/g,'_');
   var password = document.getElementById('cu-new-password')?.value || '';
   var role = document.getElementById('cu-new-role')?.value || 'user';
-  if (!email || !password) { showToast('أدخل البريد وكلمة المرور', 'warning'); return; }
+  if (!username || !password) { showToast('أدخل اسم المستخدم وكلمة المرور', 'warning'); return; }
   if (password.length < 8) { showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'warning'); return; }
+  var fakeEmail = username + '@local.app';
   try {
-    await _adminCall('create_user', null, { email, password, role });
+    await _adminCall('create_user', null, { username, email: fakeEmail, password, role });
     closeModal();
-    showToast('✅ تم إنشاء المستخدم: ' + email, 'success');
-    _logAction('create_user', { email, role });
+    showToast('✅ تم إنشاء المستخدم: ' + username, 'success');
+    _logAction('create_user', { username, role });
     await renderAdminPanel();
   } catch(e) {
     handleError(e, 'خطأ في إنشاء المستخدم');
@@ -10929,6 +10951,7 @@ async function _createUser() {
 // expose for modal footer onclick
 window._savePermissions = _savePermissions;
 window._createUser = _createUser;
+window._setPassword = _setPassword;
 
 
 // ════════════════════════════════════════
