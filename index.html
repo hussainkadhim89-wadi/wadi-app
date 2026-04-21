@@ -5098,6 +5098,10 @@ async function renderSettings(){
 // 📋 ACTIVITY PAGE — v60.13
 // ════════════════════════════════════════
 async function renderActivity() {
+  // ── حفظ قيم الفلتر والبحث قبل setLoading (تمسح الـ DOM) ──
+  var _savedFilter = document.getElementById('activityFilter')?.value || 'all';
+  var _savedSearch = document.getElementById('activitySearch')?.value || '';
+
   setLoading('جاري تحميل سجل النشاط...');
   try {
     const { data, error } = await sb
@@ -5170,8 +5174,58 @@ async function renderActivity() {
       catch(_) { return ts; }
     }
 
+    // ── Filter + Search logic ──
+    var filtered = rows;
+    if (_savedFilter && _savedFilter !== 'all') {
+      filtered = filtered.filter(function(l) { return l.action_type === _savedFilter; });
+    }
+    if (_savedSearch) {
+      var _s = _savedSearch.toLowerCase();
+      filtered = filtered.filter(function(l) {
+        return _formatAction(l).toLowerCase().includes(_s);
+      });
+    }
+
     var pc = document.getElementById('page-content');
     pc.innerHTML = '';
+
+    // ── Filter Bar ──
+    var filterBar = document.createElement('div');
+    filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;';
+
+    var filterSelect = document.createElement('select');
+    filterSelect.id = 'activityFilter';
+    filterSelect.className = 'form-select';
+    filterSelect.style.cssText = 'min-width:170px;font-size:13px;';
+    [
+      ['all',                'الكل'],
+      ['create_user',        'إنشاء مستخدم'],
+      ['delete_user',        'حذف مستخدم'],
+      ['update_role',        'تغيير دور'],
+      ['update_permissions', 'تعديل صلاحيات'],
+      ['set_password',       'تغيير كلمة المرور'],
+      ['delete_invoices',    'حذف فواتير'],
+    ].forEach(function(opt) {
+      var o = document.createElement('option');
+      o.value = opt[0]; o.textContent = opt[1];
+      if (opt[0] === _savedFilter) o.selected = true;
+      filterSelect.appendChild(o);
+    });
+
+    var searchInput = document.createElement('input');
+    searchInput.id = 'activitySearch';
+    searchInput.className = 'form-input';
+    searchInput.placeholder = '🔍 بحث...';
+    searchInput.value = _savedSearch;
+    searchInput.style.cssText = 'min-width:200px;font-size:13px;';
+
+    filterBar.appendChild(filterSelect);
+    filterBar.appendChild(searchInput);
+    pc.appendChild(filterBar);
+
+    // ── events — re-render on change ──
+    filterSelect.addEventListener('change', renderActivity);
+    searchInput.addEventListener('input', renderActivity);
 
     var card = document.createElement('div');
     card.className = 'table-card';
@@ -5183,15 +5237,15 @@ async function renderActivity() {
     title.textContent = '📋 سجل النشاط';
     var countBadge = document.createElement('div');
     countBadge.className = 'table-count';
-    countBadge.textContent = rows.length + ' عملية';
+    countBadge.textContent = filtered.length + ' / ' + rows.length + ' عملية';
     header.appendChild(title);
     header.appendChild(countBadge);
     card.appendChild(header);
 
-    if (rows.length === 0) {
+    if (filtered.length === 0) {
       var empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.textContent = 'لا توجد عمليات مسجلة بعد';
+      empty.textContent = rows.length === 0 ? 'لا توجد عمليات مسجلة بعد' : 'لا توجد نتائج';
       card.appendChild(empty);
     } else {
       var list = document.createElement('div');
@@ -5205,7 +5259,7 @@ async function renderActivity() {
         return b.every(function(id) { return setA.has(id); });
       }
 
-      rows.forEach(function(row) {
+      filtered.forEach(function(row) {
         var item = document.createElement('div');
         item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;';
 
@@ -7303,7 +7357,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v64.8';
+const APP_VERSION = 'v64.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
