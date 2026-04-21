@@ -2853,6 +2853,21 @@ async function confirmDelete(msg='هل أنت متأكد من الحذف؟'){
   });
 }
 
+// confirmAction — للعمليات التي ليست حذف (تغيير دور، إلخ)
+async function confirmAction(msg, icon='⚠️') {
+  return new Promise(resolve => {
+    openModal('تأكيد',
+      '<div style="text-align:center;padding:16px 0">' +
+        '<div style="font-size:40px;margin-bottom:16px">' + icon + '</div>' +
+        '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">' + msg + '</div>' +
+      '</div>',
+      '<button class="btn btn-secondary" onclick="closeModal();window._delResolve(false)">إلغاء</button>' +
+      '<button class="btn btn-primary" onclick="closeModal();window._delResolve(true)">نعم</button>'
+    );
+    window._delResolve = resolve;
+  });
+}
+
 // ── SORTING ──
 let _sortCol={},_sortDir={};
 // حفظ حالة الفلاتر لكل صفحة
@@ -7252,7 +7267,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v64.0';
+const APP_VERSION = 'v64.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10752,9 +10767,22 @@ function _renderAdminRows(tbody) {
     btnPass.textContent = '🔑 تغيير كلمة المرور';
     btnPass.addEventListener('click', function() { _openSetPasswordModal(user); });
 
+    // Delete user button (can't delete self)
+    var btnDel = document.createElement('button');
+    btnDel.className = 'btn btn-danger btn-sm';
+    btnDel.textContent = '🗑️ حذف';
+    if (user.id === isSelf) {
+      btnDel.disabled = true;
+      btnDel.style.opacity = '0.4';
+      btnDel.title = 'لا يمكن حذف حسابك الخاص';
+    } else {
+      btnDel.addEventListener('click', function() { _deleteUser(user); });
+    }
+
     actWrap.appendChild(btnPerm);
     actWrap.appendChild(btnRole);
     actWrap.appendChild(btnPass);
+    actWrap.appendChild(btnDel);
     tdAct.appendChild(actWrap);
 
     tr.appendChild(tdUser);
@@ -10771,7 +10799,8 @@ async function _changeRole(user) {
   if (!hasPermission('admin_panel')) return;
   var newRole = user.role === 'admin' ? 'user' : 'admin';
   var label = newRole === 'admin' ? 'Admin' : 'User';
-  var ok = await confirmDelete('تغيير دور ' + (user.name||user.email) + ' إلى ' + label + '؟');
+  var _userName = (typeof user.username === 'string' && user.username) ? user.username : (user.email||'');
+  var ok = await confirmAction('تغيير دور ' + _userName + ' إلى ' + label + '؟', '👤');
   if (!ok) return;
   try {
     await _adminCall('update_role', user.id, { role: newRole });
@@ -10948,10 +10977,27 @@ async function _createUser() {
   }
 }
 
+// ── Delete User ──
+async function _deleteUser(user) {
+  if (!hasPermission('admin_panel')) return;
+  var _userName = (typeof user.username === 'string' && user.username) ? user.username : (user.email||'');
+  var ok = await confirmAction('هل تريد حذف المستخدم: ' + _userName + '؟', '🗑️');
+  if (!ok) return;
+  try {
+    await _adminCall('delete_user', user.id, null);
+    showToast('✅ تم حذف المستخدم: ' + _userName, 'success');
+    _logAction('delete_user', { target_id: user.id, username: _userName });
+    await renderAdminPanel();
+  } catch(e) {
+    handleError(e, 'خطأ في حذف المستخدم');
+  }
+}
+
 // expose for modal footer onclick
 window._savePermissions = _savePermissions;
 window._createUser = _createUser;
 window._setPassword = _setPassword;
+window._deleteUser = _deleteUser;
 
 
 // ════════════════════════════════════════
