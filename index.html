@@ -10314,7 +10314,7 @@ body.dark #wadi-input{background:var(--bg3);color:var(--text);}
 <!-- ══════════════════════════════════════
      🤖 WADI ASSISTANT — v65.7
      ══════════════════════════════════════ -->
-<button id="wadi-fab" title="مساعد وادي" onclick="wadiToggle()">💬</button>
+<button id="wadi-fab" title="مساعد وادي" onclick="wadiToggle()" style="display:none">💬</button>
 
 <div id="wadi-chat">
   <div id="wadi-chat-header">
@@ -11462,23 +11462,22 @@ async function _copyPublicLink(invId){
     _wadiRespond(text);
   };
 
-  // ── Only show FAB when logged in ──
-  var _origShowApp = window.showApp;
-  if (typeof showApp === 'function') {
-    var _wadiOrigShowApp = showApp;
-    window.showApp = function() {
-      _wadiOrigShowApp.apply(this, arguments);
-      setTimeout(function() {
-        var fab = document.getElementById('wadi-fab');
-        if (fab) fab.style.display = 'flex';
-      }, 1000);
-    };
-  }
-  // Hide FAB initially (shown after login)
-  document.addEventListener('DOMContentLoaded', function() {
+  // ── Show FAB only when app is visible (after login) ──
+  function _wadiCheckVisibility() {
     var fab = document.getElementById('wadi-fab');
-    if (fab) fab.style.display = 'none';
-  });
+    var app = document.getElementById('app');
+    if (!fab || !app) return;
+    fab.style.display = (app.style.display !== 'none' && app.style.display !== '') ? 'flex' : 'none';
+  }
+  // Poll every second until visible
+  var _wadiPoll = setInterval(function() {
+    var app = document.getElementById('app');
+    if (app && app.style.display !== 'none' && app.style.display !== '') {
+      var fab = document.getElementById('wadi-fab');
+      if (fab) fab.style.display = 'flex';
+      clearInterval(_wadiPoll);
+    }
+  }, 500);
 
 })();
 
