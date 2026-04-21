@@ -7252,7 +7252,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v63.7';
+const APP_VERSION = 'v63.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10512,8 +10512,13 @@ var _adminFilter = ''; // 'admin' | 'user' | ''
 
 // ── Edge Function caller ──
 async function _adminCall(action, targetId, payload) {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) throw new Error('No session');
+  const sessionResult = await sb.auth.getSession();
+  const session = sessionResult?.data?.session;
+  if (!session || !session.access_token) throw new Error('No session');
+
+  const _anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU';
+  console.log('[adminCall] token prefix:', session.access_token.slice(0,20));
+
   const res = await fetch(
     'https://lakokpqtksrpiillbuzb.supabase.co/functions/v1/admin-panel',
     {
@@ -10521,12 +10526,13 @@ async function _adminCall(action, targetId, payload) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
+        'apikey': _anonKey,
       },
       body: JSON.stringify({ action, targetId: targetId || null, payload: payload || null })
     }
   );
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Edge Function error');
+  if (!res.ok) throw new Error(json.error || 'Edge Function error ' + res.status);
   return json;
 }
 
