@@ -7370,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v65.8';
+const APP_VERSION = 'v66.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11228,7 +11228,57 @@ async function _copyPublicLink(invId){
 
   // ── State ──
   var open = false, greeted = false;
-  var quips = ['يلا نكمل شغل بطل 💪','تعبت اليوم؟ 😄','الشغل ماله نهاية بس نكمل 😎','وادي الطاقة ماشي زين 🚀'];
+
+  // ── Random pick helper ──
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // ── Personality pools ──
+  var _greetings = [
+    'هلا <b>{name}</b> 👋 شلونك اليوم؟',
+    'هلا وغلا <b>{name}</b> 😄 شو أقدر أسوي لك؟',
+    'أهلين <b>{name}</b> 💪 جاهز أساعدك!',
+    'هلا <b>{name}</b> ⚡ شو عندك اليوم؟',
+  ];
+  var _invoiceReplies = [
+    'شغلك حلو، عندك {count} فاتورة نشطة 🔥 تريد تشوفهن؟',
+    'لقيت {count} فاتورة بالنظام 👌 نروح عليهن؟',
+    'اليوم عندك {count} فواتير، استمر على هذا المستوى 👏',
+    '{count} فاتورة موجودة — تريد أوديك للصفحة؟',
+  ];
+  var _profitReplies = [
+    'الأرباح تحلل بالتفصيل بصفحة التقارير 📊 تبي تشوف؟',
+    'ابي أشوفك تحقق أرباح عالية 💰 روح للتقارير وشوف الأرقام!',
+    'التقارير تعطيك صورة كاملة عن الربح والهامش 📈',
+  ];
+  var _overdueReplies = [
+    '⏰ في ذمم تحتاج متابعة — تريد تشوف القائمة؟',
+    'المتأخرات موجودة بصفحة التحصيل، لا تتأخر عليها 😅',
+    'يلا نتابع الذمم — اضغط وشوف مين متأخر 👇',
+  ];
+  var _expenseReplies = [
+    '💸 المصروفات مسجلة كلها — تبي تراجعها؟',
+    'سجلت مصروفاتك بالنظام، تريد تشوف التفاصيل؟',
+    'المصروفات موجودة — نروح عليها؟ 📋',
+  ];
+  var _clientReplies = [
+    '👥 قاعدة عملائك جاهزة — تبي تشوف كشف حساب أحد؟',
+    'العملاء كلهم موجودين بالنظام 😊 نروح؟',
+    'قاعدة الزبائن منظمة — تريد تطلع عليها؟',
+  ];
+  var _casualReplies = [
+    'واضح تعبان اليوم 😄 يلا شد حيلك!',
+    'يلا شد حيلك 💪 نظامك صار مرتب ترى 😉',
+    'هيه ابو الشغل 😄 شو تبي؟',
+    'لو محتاج مساعدة قولي 🤝',
+    'جرّب تكتب: فاتورة أو ربح أو متأخرات 😊',
+    'أنا هنا لو احتجت شي 👋',
+  ];
+  var _thankReplies = [
+    'العفو ' + '😊' + ' أي شي ثاني؟',
+    'هلا والله! دايماً بخدمتك 🤝',
+    'لا شكر على واجب 😄',
+  ];
+  var _navReplies = ['تفضل 🚀', 'يلا 👇', 'حاضر 💨', 'عالعين 👁️'];
 
   function getName() {
     var p = window.currentUserProfile;
@@ -11236,6 +11286,16 @@ async function _copyPublicLink(invId){
     var el = document.getElementById('user-name-d');
     if (el && el.textContent !== '—') return el.textContent.trim();
     return 'صديقي';
+  }
+
+  // ── Get live invoice count from DOM ──
+  function getInvCount() {
+    var badge = document.querySelector('.table-count');
+    if (badge) {
+      var m = badge.textContent.match(/\d+/);
+      if (m) return m[0];
+    }
+    return null;
   }
 
   function addMsg(html, type, chips) {
@@ -11259,34 +11319,158 @@ async function _copyPublicLink(invId){
     msgs.scrollTop = msgs.scrollHeight;
   }
 
-  function botReply(html, chips) {
-    setTimeout(function(){ addMsg(html, 'b', chips); }, 600);
+  // ── Typing indicator ──
+  function showTyping() {
+    var msgs = document.getElementById('wadi-msgs');
+    var d = document.createElement('div');
+    d.className = 'wb'; d.id = 'wadi-typing';
+    d.innerHTML = '<span style="display:inline-flex;gap:4px;align-items:center">' +
+      '<span style="width:7px;height:7px;border-radius:50%;background:#9ca3af;display:inline-block;animation:wdot 1s infinite .0s both"></span>' +
+      '<span style="width:7px;height:7px;border-radius:50%;background:#9ca3af;display:inline-block;animation:wdot 1s infinite .2s both"></span>' +
+      '<span style="width:7px;height:7px;border-radius:50%;background:#9ca3af;display:inline-block;animation:wdot 1s infinite .4s both"></span>' +
+      '</span>';
+    // add keyframes once
+    if (!document.getElementById('wdot-style')) {
+      var s = document.createElement('style');
+      s.id = 'wdot-style';
+      s.textContent = '@keyframes wdot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}';
+      document.head.appendChild(s);
+    }
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function hideTyping() {
+    var el = document.getElementById('wadi-typing');
+    if (el) el.remove();
+  }
+
+  // ── Bot reply with realistic typing delay ──
+  function botReply(html, chips, delay) {
+    var d = delay !== undefined ? delay : (500 + Math.random() * 700);
+    showTyping();
+    setTimeout(function(){
+      hideTyping();
+      addMsg(html, 'b', chips);
+    }, d);
+  }
+
+  // ── Command Parser ──
+  function parseCommand(t) {
+    t = t.toLowerCase();
+    // Navigation commands
+    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب') || t.includes('وديني')) && t.includes('فاتور'))
+      return 'go_invoices';
+    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && (t.includes('تقرير') || t.includes('ربح')))
+      return 'go_reports';
+    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && (t.includes('ذمم') || t.includes('تحصيل') || t.includes('متأخر')))
+      return 'go_receivables';
+    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && t.includes('مصروف'))
+      return 'go_expenses';
+    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && (t.includes('عميل') || t.includes('زبون')))
+      return 'go_clients';
+    if (t.includes('رئيسية') || t.includes('dashboard') || (t.includes('روح') && t.includes('رئيسي')))
+      return 'go_dashboard';
+    if (t.includes('ادار') || t.includes('admin') || t.includes('لوحة الادار'))
+      return 'go_admin';
+    // Action commands
+    if ((t.includes('سوي') || t.includes('اضف') || t.includes('انشئ') || t.includes('جديد')) && t.includes('فاتور'))
+      return 'create_invoice';
+    if ((t.includes('سوي') || t.includes('اضف') || t.includes('انشئ') || t.includes('جديد')) && t.includes('مصروف'))
+      return 'create_expense';
+    if ((t.includes('سوي') || t.includes('اضف') || t.includes('انشئ') || t.includes('جديد')) && (t.includes('عميل') || t.includes('زبون')))
+      return 'create_client';
+    return null;
+  }
+
+  // ── Command Executor ──
+  function executeCommand(cmd) {
+    switch(cmd) {
+      case 'go_invoices':
+        if (!hasPermission('invoices_view')) return '❌ ما عندك صلاحية لعرض الفواتير';
+        setTimeout(function(){ showPage('invoices'); }, 600);
+        return pick(['حاضر 👁️ دا أوديك للفواتير', 'يلا نشوف الفواتير 🧾', 'عالعين، رايحين للفواتير 🚀']);
+      case 'go_reports':
+        if (!hasPermission('reports')) return '❌ ما عندك صلاحية للتقارير';
+        setTimeout(function(){ showPage('profit'); }, 600);
+        return pick(['يلا نشوف الأرباح 📊', 'رايحين للتقارير، تمسك 🔥', 'تفضل، التقارير جاهزة 📈']);
+      case 'go_receivables':
+        if (!hasPermission('payments')) return '❌ ما عندك صلاحية للذمم';
+        setTimeout(function(){ showPage('receivables'); }, 600);
+        return pick(['رايحين للذمم ⏰', 'يلا نتابع المتأخرات 💨', 'حاضر، الذمم جاهزة 👇']);
+      case 'go_expenses':
+        if (!hasPermission('expenses')) return '❌ ما عندك صلاحية للمصروفات';
+        setTimeout(function(){ showPage('expenses'); }, 600);
+        return pick(['يلا نشوف المصروفات 💸', 'رايحين للمصروفات 📋', 'تفضل 👇']);
+      case 'go_clients':
+        if (!hasPermission('clients_view')) return '❌ ما عندك صلاحية لعرض العملاء';
+        setTimeout(function(){ showPage('clients'); }, 600);
+        return pick(['يلا نشوف العملاء 👥', 'رايحين لقاعدة العملاء 🚀', 'تفضل، العملاء جاهزين 👇']);
+      case 'go_dashboard':
+        setTimeout(function(){ showPage('dashboard'); }, 600);
+        return pick(['رجعناك للرئيسية 👌', 'تفضل الرئيسية 🏠', 'يلا للداشبورد 📊']);
+      case 'go_admin':
+        if (!hasPermission('admin_panel')) return '❌ ما عندك صلاحية للوحة الإدارة';
+        setTimeout(function(){ showPage('admin'); }, 600);
+        return pick(['تفضل 🚀 دخلتك للإدارة', 'رايحين للوحة الإدارة 👑', 'حاضر، الإدارة جاهزة 💨']);
+      case 'create_invoice':
+        if (!hasPermission('invoices_create')) return '❌ ما عندك صلاحية لإنشاء فاتورة';
+        setTimeout(function(){
+          if (window._currentPage !== 'invoices') showPage('invoices');
+          setTimeout(function(){ if(typeof openInvoiceModal==='function') openInvoiceModal(); }, 500);
+        }, 600);
+        return pick(['تمام 🔥 افتحت لك إضافة فاتورة', 'يلا نسوي فاتورة جديدة ✨', 'جاهز، افتحت لك النموذج 📝']);
+      case 'create_expense':
+        if (!hasPermission('expenses')) return '❌ ما عندك صلاحية لإضافة مصروف';
+        setTimeout(function(){
+          if (window._currentPage !== 'expenses') showPage('expenses');
+          setTimeout(function(){ if(typeof openExpenseModal==='function') openExpenseModal(); }, 500);
+        }, 600);
+        return pick(['افتحت لك إضافة مصروف 💸', 'يلا نسجل المصروف 📋', 'جاهز، النموذج مفتوح 👇']);
+      case 'create_client':
+        if (!hasPermission('clients_edit')) return '❌ ما عندك صلاحية لإضافة عميل';
+        setTimeout(function(){
+          if (window._currentPage !== 'clients') showPage('clients');
+          setTimeout(function(){ if(typeof openClientModal==='function') openClientModal(); }, 500);
+        }, 600);
+        return pick(['افتحت لك إضافة عميل جديد 👥', 'يلا نضيف العميل ✨', 'جاهز، النموذج مفتوح 📝']);
+      default:
+        return null;
+    }
   }
 
   function respond(m) {
+    var orig = m;
     m = m.toLowerCase();
+
+    // ── Command detection first ──
+    var cmd = parseCommand(orig);
+    if (cmd) {
+      var cmdReply = executeCommand(cmd);
+      botReply(cmdReply);
+      return;
+    }
+
+    // ── Info queries ──
     if (m.includes('فاتورة')||m.includes('فواتير')) {
-      botReply('📄 الفواتير موجودة بالنظام — تريد أروحلك عليها؟', ['اذهب للفواتير','لا شكراً']);
+      var cnt = getInvCount();
+      var tpl = pick(_invoiceReplies);
+      botReply(tpl.replace('{count}', cnt || ''), ['افتح الفواتير','سوي فاتورة جديدة','لا شكراً']);
     } else if (m.includes('ربح')||m.includes('أرباح')) {
-      botReply('📊 تقدر تشوف تفاصيل الأرباح من التقارير.', ['اذهب للتقارير']);
+      botReply(pick(_profitReplies), ['افتح التقارير']);
     } else if (m.includes('متأخر')||m.includes('ذمم')) {
-      botReply('⏰ الذمم والمتأخرات في صفحة التحصيل.', ['اذهب للذمم']);
+      botReply(pick(_overdueReplies), ['افتح الذمم']);
     } else if (m.includes('مصروف')) {
-      botReply('💸 المصروفات مسجلة — تريد تشوفها؟', ['اذهب للمصروفات']);
+      botReply(pick(_expenseReplies), ['افتح المصروفات','اضف مصروف']);
     } else if (m.includes('عميل')||m.includes('زبون')) {
-      botReply('👥 قاعدة العملاء جاهزة.', ['اذهب للعملاء']);
-    } else if (m.includes('اذهب')||m.includes('روح')) {
-      if (m.includes('فاتور')) { botReply('تفضل 👇'); setTimeout(function(){showPage('invoices');},400); }
-      else if (m.includes('تقرير')||m.includes('ربح')) { botReply('تفضل 👇'); setTimeout(function(){showPage('profit');},400); }
-      else if (m.includes('ذمم')||m.includes('تحصيل')) { botReply('تفضل 👇'); setTimeout(function(){showPage('receivables');},400); }
-      else if (m.includes('مصروف')) { botReply('تفضل 👇'); setTimeout(function(){showPage('expenses');},400); }
-      else if (m.includes('عميل')) { botReply('تفضل 👇'); setTimeout(function(){showPage('clients');},400); }
-    } else if (m.includes('هلا')||m.includes('سلام')||m.includes('مرحبا')) {
-      botReply('هلا ' + getName() + ' 👋 كيف أساعدك؟', ['فاتورة','ربح','متأخرات']);
-    } else if (m.includes('شكر')||m.includes('يسلم')) {
-      botReply('العفو ' + getName() + ' 😊');
+      botReply(pick(_clientReplies), ['افتح العملاء','اضف عميل جديد']);
+    } else if (m.includes('هلا')||m.includes('سلام')||m.includes('مرحبا')||m.includes('هاي')) {
+      botReply(pick(_greetings).replace('{name}', getName()), ['فاتورة','ربح','متأخرات']);
+    } else if (m.includes('شكر')||m.includes('يسلم')||m.includes('مشكور')) {
+      botReply(pick(_thankReplies));
+    } else if (m.includes('لا شكراً')||m.includes('لا ')) {
+      botReply('زين 😊 لو احتجت شي أنا هنا!');
     } else {
-      botReply(quips[Math.floor(Math.random()*quips.length)] + '<br><small style="color:#9ca3af;font-size:11px">جرّب: فاتورة · ربح · متأخرات</small>');
+      botReply(pick(_casualReplies));
     }
   }
 
@@ -11297,8 +11481,9 @@ async function _copyPublicLink(invId){
     if (open && !greeted) {
       greeted = true;
       setTimeout(function(){
-        botReply('هلا <b>' + getName() + '</b> 👋 شلونك اليوم؟', ['فاتورة','ربح','متأخرات']);
-      }, 300);
+        var greeting = pick(_greetings).replace('{name}', getName());
+        botReply(greeting, ['فاتورة','ربح','متأخرات'], 400);
+      }, 200);
     }
     if (open) setTimeout(function(){ var i=document.getElementById('wadi-inp'); if(i)i.focus(); }, 300);
   }
