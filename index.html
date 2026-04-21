@@ -3006,8 +3006,13 @@ function hasPermission(key) {
   var p = window.currentUserProfile;
   if (!p) return false;                          // no profile → deny
   if (p.role === 'admin') return true;           // admin → always allow
-  if (!p.permissions) return false;              // no permissions obj → deny
-  return p.permissions[key] === true;            // explicit true only
+  var perms = p.permissions;
+  // guard: permissions stored as string → parse it
+  if (perms && typeof perms === 'string') {
+    try { perms = JSON.parse(perms); p.permissions = perms; } catch(_) { return false; }
+  }
+  if (!perms || typeof perms !== 'object') return false;
+  return perms[key] === true;                    // explicit true only
 }
 
 // ── Nav visibility — هides nav items user has no access to ──
@@ -3055,8 +3060,12 @@ async function _fetchProfile() {
     if (error) throw error;
 
     if (data) {
-      // Profile exists — use it
+      // Profile exists — parse permissions if stored as string
+      if (data.permissions && typeof data.permissions === 'string') {
+        try { data.permissions = JSON.parse(data.permissions); } catch(_) { data.permissions = {}; }
+      }
       window.currentUserProfile = data;
+      if (window.DEBUG) console.log('[PERMISSIONS]', data.role, data.permissions);
     } else {
       // First login — auto-create profile as 'user'
       const newProfile = {
@@ -3084,8 +3093,12 @@ function showApp(){
   const name=email.split('@')[0];
   document.getElementById('user-name-d').textContent=name;
   document.getElementById('user-avatar').textContent=name[0]?.toUpperCase()||'U';
-  // جلب profile قبل تحميل الـ app — non-blocking
+  // جلب profile — يجب أن يكتمل قبل عرض أي صفحة
   _fetchProfile().then(function() {
+    _applyNavPermissions();
+    showPage('dashboard');
+  }).catch(function(e) {
+    console.error('[showApp] profile fetch failed:', e);
     _applyNavPermissions();
     showPage('dashboard');
   });
@@ -7357,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v64.9';
+const APP_VERSION = 'v65.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
