@@ -7370,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v65.5';
+const APP_VERSION = 'v65.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10988,30 +10988,42 @@ function _openPermModal(user) {
 
   var _permModalTitle = '🔑 صلاحيات: ' + (user.name || (user.email||'').replace('@local.app',''));
 
-  // ── فتح كـ L2 panel فوق Admin Panel (لا يستبدله) ──
-  if (typeof openPanelLevel2 === 'function' && document.getElementById('panel-overlay')?.classList.contains('open')) {
-    openPanelLevel2(_permModalTitle, bodyHtml, footer, { contextLabel: 'تعديل صلاحيات', panelId: 'perm-' + user.id });
-  } else {
-    openModal(_permModalTitle, bodyHtml, footer);
-  }
+  // ── دائماً افتح كـ L2 panel — لا تستخدم openModal أبداً ──
+  openPanelLevel2(_permModalTitle, bodyHtml, footer, {
+    contextLabel: 'تعديل صلاحيات',
+    panelId: 'perm-' + user.id
+  });
 }
 
 async function _savePermissions(userId) {
   if (!hasPermission('admin_panel')) return;
   if (!window._pendingPerms || window._pendingPerms.userId !== userId) return;
 
-  // ── Read checkboxes directly from DOM — check L2 panel first, then L1, then modal ──
+  // ── قراءة الـ checkboxes من الـ DOM — ابحث في كل الـ containers ──
   var perms = {};
-  var container = document.getElementById('panel-l2-body') ||
-                  document.getElementById('panel-body') ||
-                  document.querySelector('.modal-body');
-  if (container) {
-    container.querySelectorAll('input[data-perm]').forEach(function(cb) {
+  var containers = [
+    document.getElementById('panel-l2-body'),
+    document.getElementById('panel-body'),
+    document.querySelector('.modal-body')
+  ];
+  var container = null;
+  var checkboxes = [];
+  for (var ci = 0; ci < containers.length; ci++) {
+    if (!containers[ci]) continue;
+    var found = containers[ci].querySelectorAll('input[data-perm]');
+    if (found.length > 0) { container = containers[ci]; checkboxes = found; break; }
+  }
+  console.log('[SAVE PERMISSIONS] container:', container ? container.id || container.className : 'NONE', 'checkboxes:', checkboxes.length);
+  if (checkboxes.length > 0) {
+    checkboxes.forEach(function(cb) {
       var k = cb.getAttribute('data-perm');
       if (k) perms[k] = cb.checked === true;
     });
   } else {
-    perms = window._pendingPerms.perms;
+    // checkboxes غير موجودة — مشكلة في الـ DOM
+    console.error('[SAVE PERMISSIONS] NO CHECKBOXES FOUND IN DOM');
+    showToast('خطأ: تعذّر قراءة الصلاحيات من النافذة', 'error');
+    return;
   }
 
   console.log('[SAVE PERMISSIONS] userId:', userId, 'perms:', JSON.stringify(perms));
