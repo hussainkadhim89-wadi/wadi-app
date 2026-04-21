@@ -5133,8 +5133,10 @@ async function renderActivity() {
       // ── Invoice actions ──
       if (type === 'delete_invoices') {
         var ids = Array.isArray(details.ids) ? details.ids : [];
-        var label = ids.length > 0 ? ids.join('، ') : count + ' فواتير';
-        return '🧾 حذف: ' + label;
+        var _invAdmin = userMap[row.user_id] || null;
+        var _invAdminName = (_invAdmin && (_invAdmin.name || _invAdmin.email)) || 'مجهول';
+        var label = ids.length > 0 ? ids.join('، ') : (details.count || '—') + ' فواتير';
+        return '🧾 ' + _invAdminName + ' حذف الفاتورة ' + label;
       }
       if (type === 'delete_invoice')  return '🧾 حذف فاتورة: ' + (details.id || '—');
       if (type === 'undo_delete') {
@@ -5147,7 +5149,7 @@ async function renderActivity() {
       var adminUser   = userMap[row.user_id] || null;
       var targetUser  = userMap[details.target_user_id] || null;
       var adminName   = (adminUser  && (adminUser.name  || adminUser.email))  || 'مجهول';
-      var targetName  = (targetUser && (targetUser.name || targetUser.email)) || 'مجهول';
+      var targetName  = (targetUser && (targetUser.name || targetUser.email)) || details.username || 'مستخدم محذوف';
       if (type === 'create_user')
         return '👤 ' + adminName + ' أنشأ المستخدم ' + (details.username || '—');
       if (type === 'delete_user')
@@ -7301,7 +7303,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v64.1';
+const APP_VERSION = 'v64.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
