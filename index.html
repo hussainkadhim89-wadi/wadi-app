@@ -7370,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v65.1';
+const APP_VERSION = 'v65.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10952,87 +10952,61 @@ async function _setPassword() {
 // ── Permissions Modal ──
 function _openPermModal(user) {
   if (!hasPermission('admin_panel')) return;
-  var perms = Object.assign({}, user.permissions || {});
 
-  var body = document.createElement('div');
-
-  if (user.role === 'admin') {
-    var note = document.createElement('div');
-    note.style.cssText = 'padding:12px;background:var(--accent-light);border-radius:8px;font-size:13px;color:var(--accent);margin-bottom:12px;text-align:center;';
-    note.textContent = '👑 Admin — يملك صلاحيات كاملة تلقائياً';
-    body.appendChild(note);
+  // ── Initialize perms — parse if stored as string ──
+  var rawPerms = user.permissions || {};
+  if (typeof rawPerms === 'string') {
+    try { rawPerms = JSON.parse(rawPerms); } catch(_) { rawPerms = {}; }
   }
+  var perms = Object.assign({}, rawPerms);
 
-  var grid = document.createElement('div');
-  grid.className = 'perm-grid';
+  // ── Store globally before openModal (setTimeout reads it) ──
+  window._pendingPerms = { userId: user.id, perms: perms, userEmail: user.email };
 
-  _PERM_KEYS.forEach(function(item) {
+  // ── Build body as HTML string (safe with innerHTML) ──
+  var adminNote = user.role === 'admin'
+    ? '<div style="padding:12px;background:var(--accent-light);border-radius:8px;font-size:13px;color:var(--accent);margin-bottom:12px;text-align:center;">👑 Admin — يملك صلاحيات كاملة تلقائياً</div>'
+    : '';
+
+  var rowsHtml = _PERM_KEYS.map(function(item) {
     var key = item[0], label = item[1];
-    var row = document.createElement('div');
-    row.className = 'perm-row';
+    var checked = perms[key] === true ? 'checked' : '';
+    var disabled = user.role === 'admin' ? 'disabled' : '';
+    return '<div class="perm-row">' +
+      '<span class="perm-label">' + label + '</span>' +
+      '<label class="perm-toggle">' +
+        '<input type="checkbox" data-perm="' + key + '" ' + checked + ' ' + disabled + '>' +
+        '<span class="perm-slider"></span>' +
+      '</label>' +
+    '</div>';
+  }).join('');
 
-    var lbl = document.createElement('span');
-    lbl.className = 'perm-label';
-    lbl.textContent = label;
-
-    var toggleWrap = document.createElement('label');
-    toggleWrap.className = 'perm-toggle';
-
-    var chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.checked = perms[key] === true;
-    if (user.role === 'admin') chk.disabled = true;
-    chk.addEventListener('change', function() {
-      perms[key] = this.checked;
-    });
-
-    var slider = document.createElement('span');
-    slider.className = 'perm-slider';
-
-    toggleWrap.appendChild(chk);
-    toggleWrap.appendChild(slider);
-    row.appendChild(lbl);
-    row.appendChild(toggleWrap);
-    grid.appendChild(row);
-  });
-
-  body.appendChild(grid);
+  var bodyHtml = adminNote + '<div class="perm-grid">' + rowsHtml + '</div>';
 
   var footer = '<button class="btn btn-primary" onclick="_savePermissions(\'' + user.id + '\')">💾 حفظ الصلاحيات</button>' +
     '<button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>';
 
-  // Store perms ref globally for save
-  window._pendingPerms = { userId: user.id, perms: perms, userEmail: user.email };
+  var _permModalTitle = '🔑 صلاحيات: ' + (user.name || (user.email||'').replace('@local.app',''));
+  openModal(_permModalTitle, bodyHtml, footer);
 
-  openModal('🔑 صلاحيات: ' + sanitizeText(user.name||user.email), body.outerHTML, footer);
-
-  // Re-attach listeners after modal renders (innerHTML loses them)
+  // ── Bind checkbox listeners after render — data-perm attribute for accuracy ──
   setTimeout(function() {
-    var modal = document.querySelector('.modal');
-    if (!modal) return;
-    _PERM_KEYS.forEach(function(item) {
-      var key = item[0];
-      var chkEl = modal.querySelector('[data-perm="' + key + '"]');
-      // fallback: use index
-    });
-    // Re-bind via grid checkboxes in order
-    var checkboxes = modal.querySelectorAll('.perm-toggle input[type=checkbox]');
-    checkboxes.forEach(function(cb, i) {
-      var key = _PERM_KEYS[i] ? _PERM_KEYS[i][0] : null;
-      if (!key) return;
-      cb.checked = window._pendingPerms.perms[key] === true;
-      if (user.role === 'admin') cb.disabled = true;
+    var container = document.querySelector('#panel-body, .modal-body');
+    if (!container) return;
+    container.querySelectorAll('input[data-perm]').forEach(function(cb) {
       cb.addEventListener('change', function() {
-        window._pendingPerms.perms[key] = this.checked;
+        var k = this.getAttribute('data-perm');
+        if (k) window._pendingPerms.perms[k] = this.checked;
       });
     });
-  }, 80);
+  }, 100);
 }
 
 async function _savePermissions(userId) {
   if (!hasPermission('admin_panel')) return;
   if (!window._pendingPerms || window._pendingPerms.userId !== userId) return;
   var perms = window._pendingPerms.perms;
+  if (window.DEBUG) console.log('[UPDATE PERMISSIONS]', userId, perms);
   try {
     await _adminCall('update_permissions', userId, { permissions: perms });
     closeModal();
