@@ -7252,7 +7252,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v63.8';
+const APP_VERSION = 'v63.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10578,6 +10578,14 @@ function _renderAdminTable() {
   });
   wrap.appendChild(stats);
 
+  // ── Create user button ──
+  var createBtn = document.createElement('button');
+  createBtn.className = 'btn btn-primary btn-sm';
+  createBtn.textContent = '➕ إضافة مستخدم';
+  createBtn.style.cssText = 'align-self:flex-start;';
+  createBtn.addEventListener('click', _openCreateUserModal);
+  wrap.appendChild(createBtn);
+
   // ── Search + filter bar ──
   var bar = document.createElement('div');
   bar.className = 'table-card';
@@ -10671,10 +10679,13 @@ function _renderAdminRows(tbody) {
     avatar.style.cssText = 'display:flex;align-items:center;gap:10px;';
     var av = document.createElement('div');
     av.style.cssText = 'width:34px;height:34px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--accent);flex-shrink:0;';
-    av.textContent = (user.name||user.email||'?')[0].toUpperCase();
+    var _avName = (typeof user.name === 'string' && user.name.trim()) ? user.name.trim() : (user.email || '?');
+    av.textContent = _avName[0].toUpperCase();
     var info = document.createElement('div');
-    info.innerHTML = '<div style="font-weight:600;font-size:13px">' + sanitizeText(user.name || user.email||'—') + '</div>' +
-      '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + sanitizeText(user.email||'') + '</div>' +
+    var _displayName = (typeof user.name === 'string' && user.name.trim()) ? user.name.trim() : (user.email || '—');
+    var _displayEmail = user.email || '';
+    info.innerHTML = '<div style="font-weight:600;font-size:13px">' + _displayName + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + _displayEmail + '</div>' +
       (user.id === isSelf ? '<span style="font-size:10px;color:var(--green);font-weight:600">● أنت</span>' : '');
     avatar.appendChild(av);
     avatar.appendChild(info);
@@ -10881,8 +10892,43 @@ async function _savePermissions(userId) {
   }
 }
 
+// ── Create User Modal ──
+function _openCreateUserModal() {
+  if (!hasPermission('admin_panel')) return;
+  var body = '<div class="form-grid">' +
+    '<div class="form-group"><label class="form-label">البريد الإلكتروني *</label>' +
+    '<input class="form-input" type="email" id="cu-new-email" placeholder="example@email.com" dir="ltr"></div>' +
+    '<div class="form-group"><label class="form-label">كلمة المرور *</label>' +
+    '<input class="form-input" type="password" id="cu-new-password" placeholder="8 أحرف على الأقل" dir="ltr"></div>' +
+    '<div class="form-group"><label class="form-label">الدور</label>' +
+    '<select class="form-select" id="cu-new-role"><option value="user">👤 User</option><option value="admin">👑 Admin</option></select></div>' +
+    '</div>';
+  var footer = '<button class="btn btn-primary" onclick="_createUser()">➕ إنشاء المستخدم</button>' +
+    '<button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>';
+  openModal('➕ إضافة مستخدم جديد', body, footer);
+}
+
+async function _createUser() {
+  if (!hasPermission('admin_panel')) return;
+  var email = (document.getElementById('cu-new-email')?.value || '').trim();
+  var password = document.getElementById('cu-new-password')?.value || '';
+  var role = document.getElementById('cu-new-role')?.value || 'user';
+  if (!email || !password) { showToast('أدخل البريد وكلمة المرور', 'warning'); return; }
+  if (password.length < 8) { showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'warning'); return; }
+  try {
+    await _adminCall('create_user', null, { email, password, role });
+    closeModal();
+    showToast('✅ تم إنشاء المستخدم: ' + email, 'success');
+    _logAction('create_user', { email, role });
+    await renderAdminPanel();
+  } catch(e) {
+    handleError(e, 'خطأ في إنشاء المستخدم');
+  }
+}
+
 // expose for modal footer onclick
 window._savePermissions = _savePermissions;
+window._createUser = _createUser;
 
 
 // ════════════════════════════════════════
