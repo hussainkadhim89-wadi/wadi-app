@@ -11005,8 +11005,22 @@ function _openPermModal(user) {
 async function _savePermissions(userId) {
   if (!hasPermission('admin_panel')) return;
   if (!window._pendingPerms || window._pendingPerms.userId !== userId) return;
-  var perms = window._pendingPerms.perms;
-  if (window.DEBUG) console.log('[UPDATE PERMISSIONS]', userId, perms);
+
+  // ── Read checkbox values DIRECTLY from DOM at save time ──
+  // (do NOT rely on event listeners — panel innerHTML replaces DOM)
+  var perms = {};
+  var container = document.querySelector('#panel-body, .modal-body');
+  if (container) {
+    container.querySelectorAll('input[data-perm]').forEach(function(cb) {
+      var k = cb.getAttribute('data-perm');
+      if (k) perms[k] = cb.checked === true;
+    });
+  } else {
+    // fallback to stored perms if container not found
+    perms = window._pendingPerms.perms;
+  }
+
+  console.log('[SAVE PERMISSIONS] userId:', userId, 'perms:', JSON.stringify(perms));
   try {
     await _adminCall('update_permissions', userId, { permissions: perms });
     closeModal();
