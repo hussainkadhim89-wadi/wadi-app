@@ -5102,18 +5102,35 @@ async function renderActivity() {
   try {
     const { data, error } = await sb
       .from('audit_logs')
-      .select('id,action_type,details,created_at')
+      .select('id,action_type,details,created_at,user_id')
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) throw error;
 
     const rows = (data || []);
 
+    // ── Batch fetch profiles for human-readable names ──
+    var _allUserIds = [];
+    rows.forEach(function(l) {
+      if (l.user_id) _allUserIds.push(l.user_id);
+      var d = {};
+      try { d = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch(_) {}
+      if (d.target_user_id) _allUserIds.push(d.target_user_id);
+    });
+    var _uniqueIds = _allUserIds.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    var userMap = {};
+    if (_uniqueIds.length > 0) {
+      var { data: _profiles } = await sb.from('profiles').select('id,name,email');
+      (_profiles || []).forEach(function(u) { userMap[u.id] = u; });
+    }
+
     function _formatAction(row) {
       var type    = row.action_type || '';
       var details = {};
       try { details = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
       var count = details.count ?? '—';
+
+      // ── Invoice actions ──
       if (type === 'delete_invoices') {
         var ids = Array.isArray(details.ids) ? details.ids : [];
         var label = ids.length > 0 ? ids.join('، ') : count + ' فواتير';
@@ -5125,6 +5142,23 @@ async function renderActivity() {
         var label = ids.length > 0 ? ids.join('، ') : count + ' فواتير';
         return '↩️ استرجاع: ' + label;
       }
+
+      // ── Admin User actions ──
+      var adminUser   = userMap[row.user_id] || null;
+      var targetUser  = userMap[details.target_user_id] || null;
+      var adminName   = (adminUser  && (adminUser.name  || adminUser.email))  || 'مجهول';
+      var targetName  = (targetUser && (targetUser.name || targetUser.email)) || 'مجهول';
+      if (type === 'create_user')
+        return '👤 ' + adminName + ' أنشأ المستخدم ' + (details.username || '—');
+      if (type === 'delete_user')
+        return '🗑️ ' + adminName + ' حذف المستخدم ' + targetName;
+      if (type === 'update_role')
+        return '🔄 ' + adminName + ' غيّر دور ' + targetName + ' إلى ' + (details.new_role || '—');
+      if (type === 'update_permissions')
+        return '🔑 ' + adminName + ' عدّل صلاحيات ' + targetName;
+      if (type === 'set_password')
+        return '🔒 ' + adminName + ' غيّر كلمة مرور ' + targetName;
+
       return type;
     }
 
