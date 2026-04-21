@@ -7370,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v66.0';
+const APP_VERSION = 'v66.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11354,31 +11354,50 @@ async function _copyPublicLink(invId){
     }, d);
   }
 
-  // ── Command Parser ──
+  // ── v66.1: Natural Language Keywords ──
+  function hasWord(list, text) {
+    return list.some(function(w){ return text.includes(w); });
+  }
+  var kw = {
+    invoices:    ['فاتورة','فواتير','فاتور'],
+    reports:     ['تقرير','تقارير','ربح','أرباح','profit'],
+    receivables: ['ذمم','متأخر','تحصيل','ذمة'],
+    expenses:    ['مصروف','مصاريف','expense'],
+    clients:     ['عميل','عملاء','زبون','زبائن','client'],
+    dashboard:   ['رئيسية','داشبورد','dashboard','الرئيسي'],
+    admin:       ['ادارة','ادار','اعداد','admin','لوحة الادار','المستخدمين'],
+    go:          ['روح','افتح','اذهب','وديني','اريد','عرض','شوف','وين'],
+    create:      ['سوي','اضف','انشئ','جديد','اريد اضيف','اريد اسوي'],
+    how_many:    ['كم','عدد','كمية','كام'],
+    money:       ['مبلغ','اجمالي','ايرادات','مبيعات','رقم'],
+  };
+
+  // ── Command Parser (v66.1) ──
   function parseCommand(t) {
     t = t.toLowerCase();
-    // Navigation commands
-    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب') || t.includes('وديني')) && t.includes('فاتور'))
-      return 'go_invoices';
-    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && (t.includes('تقرير') || t.includes('ربح')))
-      return 'go_reports';
-    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && (t.includes('ذمم') || t.includes('تحصيل') || t.includes('متأخر')))
-      return 'go_receivables';
-    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && t.includes('مصروف'))
-      return 'go_expenses';
-    if ((t.includes('افتح') || t.includes('روح') || t.includes('اذهب')) && (t.includes('عميل') || t.includes('زبون')))
-      return 'go_clients';
-    if (t.includes('رئيسية') || t.includes('dashboard') || (t.includes('روح') && t.includes('رئيسي')))
-      return 'go_dashboard';
-    if (t.includes('ادار') || t.includes('admin') || t.includes('لوحة الادار'))
-      return 'go_admin';
+    // Data queries — check first (before nav)
+    if (hasWord(kw.how_many, t) && hasWord(kw.invoices, t)) return 'query_inv_count';
+    if (hasWord(kw.how_many, t) && hasWord(kw.clients, t))  return 'query_client_count';
+    if (hasWord(kw.how_many, t) && hasWord(kw.receivables, t)) return 'query_overdue_count';
+    if ((hasWord(kw.how_many, t) || hasWord(kw.money, t)) && hasWord(kw.expenses, t)) return 'query_expenses';
     // Action commands
-    if ((t.includes('سوي') || t.includes('اضف') || t.includes('انشئ') || t.includes('جديد')) && t.includes('فاتور'))
-      return 'create_invoice';
-    if ((t.includes('سوي') || t.includes('اضف') || t.includes('انشئ') || t.includes('جديد')) && t.includes('مصروف'))
-      return 'create_expense';
-    if ((t.includes('سوي') || t.includes('اضف') || t.includes('انشئ') || t.includes('جديد')) && (t.includes('عميل') || t.includes('زبون')))
-      return 'create_client';
+    if (hasWord(kw.create, t) && hasWord(kw.invoices, t))   return 'create_invoice';
+    if (hasWord(kw.create, t) && hasWord(kw.expenses, t))   return 'create_expense';
+    if (hasWord(kw.create, t) && hasWord(kw.clients, t))    return 'create_client';
+    // Navigation commands
+    if (hasWord(kw.go, t) && hasWord(kw.invoices, t))       return 'go_invoices';
+    if (hasWord(kw.go, t) && hasWord(kw.reports, t))        return 'go_reports';
+    if (hasWord(kw.go, t) && hasWord(kw.receivables, t))    return 'go_receivables';
+    if (hasWord(kw.go, t) && hasWord(kw.expenses, t))       return 'go_expenses';
+    if (hasWord(kw.go, t) && hasWord(kw.clients, t))        return 'go_clients';
+    if (hasWord(kw.dashboard, t))                           return 'go_dashboard';
+    if (hasWord(kw.admin, t))                               return 'go_admin';
+    // Bare topic words without action → treat as info
+    if (hasWord(kw.invoices, t))    return 'info_invoices';
+    if (hasWord(kw.reports, t))     return 'info_reports';
+    if (hasWord(kw.receivables, t)) return 'info_receivables';
+    if (hasWord(kw.expenses, t))    return 'info_expenses';
+    if (hasWord(kw.clients, t))     return 'info_clients';
     return null;
   }
 
@@ -11433,6 +11452,63 @@ async function _copyPublicLink(invId){
           setTimeout(function(){ if(typeof openClientModal==='function') openClientModal(); }, 500);
         }, 600);
         return pick(['افتحت لك إضافة عميل جديد 👥', 'يلا نضيف العميل ✨', 'جاهز، النموذج مفتوح 📝']);
+      // ── v66.3 Data queries ──
+      case 'query_inv_count': {
+        var invRows = document.querySelectorAll('[data-invoice-id]').length;
+        var kpiVal = document.querySelector('.kpi-value');
+        var invTotal = '';
+        // try to get total from KPI card
+        var kpiCards = document.querySelectorAll('.kpi-card');
+        kpiCards.forEach(function(c){
+          if(c.querySelector('.kpi-label') && c.querySelector('.kpi-label').textContent.includes('إجمالي المبيعات'))
+            invTotal = c.querySelector('.kpi-value') ? c.querySelector('.kpi-value').textContent.trim() : '';
+        });
+        var cnt = invRows || getInvCount() || '؟';
+        var totalPart = invTotal ? ' بإجمالي ' + invTotal + ' د.ع' : '';
+        return pick([
+          'عندك <b>' + cnt + '</b> فاتورة نشطة' + totalPart + ' 📊',
+          'لقيت <b>' + cnt + '</b> فاتورة بالنظام الحين' + totalPart + ' 🧾',
+          'الفواتير النشطة: <b>' + cnt + '</b>' + totalPart + ' 👌',
+        ]);
+      }
+      case 'query_client_count': {
+        var clientRows = document.querySelectorAll('[data-client-id], .client-row').length;
+        var cnt2 = clientRows || '؟';
+        return pick([
+          'عندك <b>' + cnt2 + '</b> عميل بالنظام 👥',
+          'قاعدة العملاء تحتوي <b>' + cnt2 + '</b> عميل 📋',
+        ]);
+      }
+      case 'query_overdue_count': {
+        var overdueEl = document.getElementById('overdue-badge');
+        var overdueN = overdueEl ? (overdueEl.textContent.trim() || '0') : '؟';
+        if (overdueN === '0' || overdueN === '') {
+          return pick(['ما في متأخرات الحين ✅ كلشي تمام!', 'الذمم نظيفة، ما في متأخرات 🎉']);
+        }
+        return pick([
+          'عندك <b>' + overdueN + '</b> فاتورة متأخرة بالتحصيل ⏰',
+          'لازم تتابع <b>' + overdueN + '</b> ذمة متأخرة 💨',
+        ]);
+      }
+      case 'query_expenses': {
+        var expKpi = '';
+        document.querySelectorAll('.kpi-card').forEach(function(c){
+          if(c.querySelector('.kpi-label') && c.querySelector('.kpi-label').textContent.includes('مصروف'))
+            expKpi = c.querySelector('.kpi-value') ? c.querySelector('.kpi-value').textContent.trim() : '';
+        });
+        return expKpi
+          ? pick(['إجمالي المصروفات <b>' + expKpi + '</b> د.ع 💸', 'المصروفات وصلت <b>' + expKpi + '</b> د.ع 📋'])
+          : pick(['المصروفات مسجلة — روح لصفحة المصروفات للتفاصيل 💸', 'افتح صفحة المصروفات وشوف الأرقام 📋']);
+      }
+      // ── Info cases (bare topic) ──
+      case 'info_invoices': {
+        var cnt3 = getInvCount();
+        return pick(_invoiceReplies).replace('{count}', cnt3 || '');
+      }
+      case 'info_reports':     return pick(_profitReplies);
+      case 'info_receivables': return pick(_overdueReplies);
+      case 'info_expenses':    return pick(_expenseReplies);
+      case 'info_clients':     return pick(_clientReplies);
       default:
         return null;
     }
@@ -11442,33 +11518,27 @@ async function _copyPublicLink(invId){
     var orig = m;
     m = m.toLowerCase();
 
-    // ── Command detection first ──
+    // ── Command + data detection ──
     var cmd = parseCommand(orig);
     if (cmd) {
       var cmdReply = executeCommand(cmd);
-      botReply(cmdReply);
-      return;
+      if (cmdReply) { botReply(cmdReply); return; }
     }
 
-    // ── Info queries ──
-    if (m.includes('فاتورة')||m.includes('فواتير')) {
-      var cnt = getInvCount();
-      var tpl = pick(_invoiceReplies);
-      botReply(tpl.replace('{count}', cnt || ''), ['افتح الفواتير','سوي فاتورة جديدة','لا شكراً']);
-    } else if (m.includes('ربح')||m.includes('أرباح')) {
-      botReply(pick(_profitReplies), ['افتح التقارير']);
-    } else if (m.includes('متأخر')||m.includes('ذمم')) {
-      botReply(pick(_overdueReplies), ['افتح الذمم']);
-    } else if (m.includes('مصروف')) {
-      botReply(pick(_expenseReplies), ['افتح المصروفات','اضف مصروف']);
-    } else if (m.includes('عميل')||m.includes('زبون')) {
-      botReply(pick(_clientReplies), ['افتح العملاء','اضف عميل جديد']);
-    } else if (m.includes('هلا')||m.includes('سلام')||m.includes('مرحبا')||m.includes('هاي')) {
-      botReply(pick(_greetings).replace('{name}', getName()), ['فاتورة','ربح','متأخرات']);
-    } else if (m.includes('شكر')||m.includes('يسلم')||m.includes('مشكور')) {
+    // ── Conversational fallbacks ──
+    if (m.includes('هلا')||m.includes('سلام')||m.includes('مرحبا')||m.includes('هاي')||m.includes('أهلا')) {
+      botReply(pick(_greetings).replace('{name}', getName()), ['كم فاتورة عندي؟','في متأخرات؟','سوي فاتورة جديدة']);
+    } else if (m.includes('شكر')||m.includes('يسلم')||m.includes('مشكور')||m.includes('ثانكس')) {
       botReply(pick(_thankReplies));
-    } else if (m.includes('لا شكراً')||m.includes('لا ')) {
+    } else if (m.includes('لا شكراً')||m.includes('لا، شكراً')||m.includes('ما أبي')) {
       botReply('زين 😊 لو احتجت شي أنا هنا!');
+    } else if (m.includes('مساعدة')||m.includes('ايش تقدر')||m.includes('شو تعرف')) {
+      botReply('أقدر أساعدك بـ:<br>' +
+        '• <b>عرض أي صفحة</b> — "افتح الفواتير"<br>' +
+        '• <b>إضافة بيانات</b> — "سوي فاتورة جديدة"<br>' +
+        '• <b>أرقام فورية</b> — "كم فاتورة عندي؟"<br>' +
+        '• <b>متأخرات</b> — "كم ذمة متأخرة؟" ⚡',
+        ['كم فاتورة عندي؟','في متأخرات؟','افتح التقارير']);
     } else {
       botReply(pick(_casualReplies));
     }
