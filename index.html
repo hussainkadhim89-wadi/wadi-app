@@ -7370,7 +7370,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v65.3';
+const APP_VERSION = 'v65.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11021,15 +11021,21 @@ async function _savePermissions(userId) {
   }
 
   console.log('[SAVE PERMISSIONS] userId:', userId, 'perms:', JSON.stringify(perms));
+  var _btn = document.querySelector('#panel-footer .btn-primary, .modal-footer .btn-primary');
+  var _restore = _btn ? btnLoad(_btn, 'جاري الحفظ...') : null;
   try {
-    await _adminCall('update_permissions', userId, { permissions: perms });
+    var result = await _adminCall('update_permissions', userId, { permissions: perms });
+    console.log('[SAVE PERMISSIONS] result:', JSON.stringify(result));
+    if (_restore) _restore();
     closeModal();
     showToast('✅ تم حفظ الصلاحيات', 'success');
-    _logAction('update_permissions', { target_id: userId, target_email: window._pendingPerms.userEmail });
+    _logAction('update_permissions', { target_id: userId, target_email: window._pendingPerms ? window._pendingPerms.userEmail : '' });
     window._pendingPerms = null;
     await renderAdminPanel();
   } catch(e) {
-    handleError(e, 'خطأ في حفظ الصلاحيات');
+    if (_restore) _restore();
+    console.error('[SAVE PERMISSIONS] ERROR:', e);
+    handleError(e, 'خطأ في حفظ الصلاحيات: ' + e.message);
   }
 }
 
