@@ -7374,7 +7374,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v66.9';
+const APP_VERSION = 'v67.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11967,22 +11967,24 @@ async function _copyPublicLink(invId){
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     WADI PREMIUM FEEL PACK — v66.9
+     WADI PREMIUM FEEL PACK — v67.0
      ADDITIVE ONLY — ZERO MODIFICATION TO EXISTING CODE
      ═══════════════════════════════════════════════════ -->
 <style>
-/* ── PART 1: Button Spinner Extension (additive only) ── */
-.btn.loading::after {
-  content: '';
+/* ── PART 1: Button Spinner — NEW standalone class ONLY ── */
+/* NO .btn selector touched — spinner is a separate element */
+.wadi-btn-spinner {
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-inline-start: 8px;
+  width: 13px;
+  height: 13px;
+  margin-inline-start: 7px;
   border: 2px solid transparent;
   border-top-color: currentColor;
   border-radius: 50%;
   animation: wadi-spin 0.6s linear infinite;
   vertical-align: middle;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 /* ── PART 2: Micro Animations (NEW classes only) ── */
@@ -12202,26 +12204,97 @@ async function _copyPublicLink(invId){
   }, { passive: true });
   window.addEventListener('load', wadiUpgradeQR);
 
-  /* ── PART 6: Sound Polish wrapper ── */
-  window.addEventListener('load', function() {
-    if (typeof playSound !== 'function') return;
-    var _wadiOrigSound = playSound;
-    /* Wrap by redefining via safe override only if function is in window scope */
-    /* Since playSound is local to IIFE scope, we skip redefinition — triggers stay */
-    /* Sound already polished; this part is a no-op placeholder as safe */
-  });
+  /* ── PART 1 (JS): Button Spinner — append .wadi-btn-spinner element ── */
+  /* Observes buttons gaining .loading class — appends spinner span, removes on done */
+  (function() {
+    var spinnerObs = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        if (m.type !== 'attributes' || m.attributeName !== 'class') return;
+        var btn = m.target;
+        if (!btn || btn.tagName !== 'BUTTON') return;
+        var hasLoading = btn.classList.contains('loading');
+        var existing = btn.querySelector('.wadi-btn-spinner');
+        if (hasLoading && !existing) {
+          var sp = document.createElement('span');
+          sp.className = 'wadi-btn-spinner';
+          sp.setAttribute('aria-hidden', 'true');
+          btn.appendChild(sp);
+        } else if (!hasLoading && existing) {
+          existing.remove();
+        }
+      });
+    });
+    window.addEventListener('load', function() {
+      document.querySelectorAll('button').forEach(function(btn) {
+        spinnerObs.observe(btn, { attributes: true, attributeFilter: ['class'] });
+      });
+      /* Also observe new buttons added dynamically */
+      var domObs = new MutationObserver(function(muts) {
+        muts.forEach(function(m) {
+          m.addedNodes.forEach(function(n) {
+            if (!n.querySelectorAll) return;
+            n.querySelectorAll('button').forEach(function(btn) {
+              spinnerObs.observe(btn, { attributes: true, attributeFilter: ['class'] });
+            });
+          });
+        });
+      });
+      domObs.observe(document.body, { childList: true, subtree: true });
+    });
+  })();
+
+  /* ── PART 6: Sound Polish — wadiPlaySound wrapper ── */
+  /* Does NOT touch playSound function or its triggers */
+  /* Creates independent wadiPlaySound with enhanced tones */
+  window.wadiPlaySound = function(type) {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      if (type === 'send') {
+        /* Enhanced: double-chirp 880→1100Hz, warmer volume */
+        o.type = 'sine';
+        o.frequency.setValueAtTime(880, ctx.currentTime);
+        o.frequency.setValueAtTime(1100, ctx.currentTime + 0.07);
+        g.gain.setValueAtTime(0.10, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        o.start();
+        o.stop(ctx.currentTime + 0.20);
+      } else if (type === 'reply') {
+        /* Enhanced: warm chime 660→880Hz */
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(660, ctx.currentTime);
+        o.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.10);
+        g.gain.setValueAtTime(0.08, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+        o.start();
+        o.stop(ctx.currentTime + 0.25);
+      } else {
+        /* Enhanced: subtle triangle tap */
+        o.type = 'triangle';
+        o.frequency.value = 520;
+        g.gain.setValueAtTime(0.05, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        o.start();
+        o.stop(ctx.currentTime + 0.10);
+      }
+    } catch(_) {}
+  };
 
   /* ── PART 7: Search dataset extension ── */
+  /* Adds window._wadiExtraSearchData — merged safely at query time */
+  window._wadiExtraSearchData = [];
+  /* Consumer pattern: code using search can do:
+     const allData = [...(_gsearchData.invs||[]), ...window._wadiExtraSearchData];
+     This does NOT touch _gsearchData or any existing search logic */
+  /* Populate extra aliases for common terms */
   window.addEventListener('load', function() {
-    /* Safely extend _gsearchData after it's populated */
-    var _wadiSearchTimer = setInterval(function() {
-      if (typeof _gsearchData !== 'undefined' && _gsearchData.invs) {
-        /* Dataset already includes invs, clients, pays — no change needed */
-        /* Extension point: add extra aliases for common Arabic search terms */
-        clearInterval(_wadiSearchTimer);
-      }
-    }, 500);
-    setTimeout(function() { clearInterval(_wadiSearchTimer); }, 10000);
+    window._wadiExtraSearchData = [
+      /* Extra search aliases — extend as needed */
+      /* {id:'alias-1', customer_name:'فاتورة', label:'invoice'} */
+    ];
   });
 
   /* ── PART 8: Assistant Reactions (additive messages) ── */
