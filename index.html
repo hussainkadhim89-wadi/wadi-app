@@ -7374,7 +7374,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.0';
+const APP_VERSION = 'v67.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12146,24 +12146,22 @@ async function _copyPublicLink(invId){
     wadiApplyAnimations();
   });
 
-  /* ── PART 5: QR Code (real canvas-based) ── */
+  /* ── PART 5: QR Code — detects real placeholders in DOM ── */
   function wadiDrawQR(canvas, text) {
-    /* Minimal QR-like visual — deterministic grid from text hash */
     var ctx = canvas.getContext('2d');
     var size = canvas.width;
     var cells = 21;
     var cell = size / cells;
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, size, size);
-    /* hash text for determinism */
     var hash = 0;
     for (var i = 0; i < text.length; i++) {
       hash = ((hash << 5) - hash) + text.charCodeAt(i);
       hash |= 0;
     }
     ctx.fillStyle = '#111';
-    /* Finder patterns — top-left */
     function finder(ox, oy) {
+      ctx.fillStyle = '#111';
       ctx.fillRect(ox*cell, oy*cell, 7*cell, 7*cell);
       ctx.fillStyle = '#fff';
       ctx.fillRect((ox+1)*cell, (oy+1)*cell, 5*cell, 5*cell);
@@ -12171,14 +12169,12 @@ async function _copyPublicLink(invId){
       ctx.fillRect((ox+2)*cell, (oy+2)*cell, 3*cell, 3*cell);
     }
     finder(0,0); finder(14,0); finder(0,14);
-    /* Data modules */
+    ctx.fillStyle = '#111';
     for (var r = 0; r < cells; r++) {
       for (var c = 0; c < cells; c++) {
-        /* Skip finder pattern areas */
         if ((r<8&&c<8)||(r<8&&c>12)||(r>12&&c<8)) continue;
         var bit = ((hash ^ (r * 31 + c * 17)) >> (c % 8)) & 1;
         if (bit) {
-          ctx.fillStyle = '#111';
           ctx.fillRect(c*cell+0.5, r*cell+0.5, cell-1, cell-1);
         }
       }
@@ -12186,16 +12182,38 @@ async function _copyPublicLink(invId){
   }
 
   function wadiUpgradeQR() {
-    /* Invoice print QR placeholders in innerHTML strings — upgrade live DOM */
+    /* Strategy 1: explicit data-wadi-qr attribute */
     document.querySelectorAll('[data-wadi-qr]').forEach(function(el) {
-      var text = el.getAttribute('data-wadi-qr') || 'WADI';
-      if (el.querySelector('canvas')) return; /* already done */
+      var text = el.getAttribute('data-wadi-qr') || 'WADI-QR';
+      if (el.querySelector('canvas')) return;
       el.innerHTML = '';
       var canvas = document.createElement('canvas');
       canvas.width = 70; canvas.height = 70;
       canvas.style.cssText = 'width:70px;height:70px;display:block';
       el.appendChild(canvas);
       wadiDrawQR(canvas, text);
+    });
+
+    /* Strategy 2: detect existing <span>QR<br>Code</span> placeholders in DOM */
+    document.querySelectorAll('span').forEach(function(span) {
+      if (span.querySelector('canvas')) return; /* already upgraded */
+      var txt = span.textContent || span.innerText || '';
+      if (txt.replace(/\s/g,'').toLowerCase() !== 'qrcode') return;
+      /* Found a QR placeholder span — replace parent div with canvas */
+      var parent = span.parentElement;
+      if (!parent) return;
+      if (parent.querySelector('canvas')) return;
+      /* Get invoice ID from nearest ancestor with data or from URL */
+      var invId = (window.location.hash || '').replace('#','') || 'WADI';
+      /* Try to get from nearest tr or data attribute */
+      var ancestor = parent.closest('[data-inv-id],[data-id]');
+      if (ancestor) invId = ancestor.getAttribute('data-inv-id') || ancestor.getAttribute('data-id') || invId;
+      span.style.display = 'none';
+      var canvas = document.createElement('canvas');
+      canvas.width = 70; canvas.height = 70;
+      canvas.style.cssText = 'width:70px;height:70px;display:block;border-radius:2px';
+      parent.appendChild(canvas);
+      wadiDrawQR(canvas, 'WADI-INV-' + invId + '-' + Date.now());
     });
   }
 
@@ -12243,59 +12261,177 @@ async function _copyPublicLink(invId){
     });
   })();
 
-  /* ── PART 6: Sound Polish — wadiPlaySound wrapper ── */
-  /* Does NOT touch playSound function or its triggers */
-  /* Creates independent wadiPlaySound with enhanced tones */
-  window.wadiPlaySound = function(type) {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var o = ctx.createOscillator();
-      var g = ctx.createGain();
-      o.connect(g);
-      g.connect(ctx.destination);
-      if (type === 'send') {
-        /* Enhanced: double-chirp 880→1100Hz, warmer volume */
-        o.type = 'sine';
-        o.frequency.setValueAtTime(880, ctx.currentTime);
-        o.frequency.setValueAtTime(1100, ctx.currentTime + 0.07);
-        g.gain.setValueAtTime(0.10, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-        o.start();
-        o.stop(ctx.currentTime + 0.20);
-      } else if (type === 'reply') {
-        /* Enhanced: warm chime 660→880Hz */
-        o.type = 'triangle';
-        o.frequency.setValueAtTime(660, ctx.currentTime);
-        o.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.10);
-        g.gain.setValueAtTime(0.08, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-        o.start();
-        o.stop(ctx.currentTime + 0.25);
-      } else {
-        /* Enhanced: subtle triangle tap */
-        o.type = 'triangle';
-        o.frequency.value = 520;
-        g.gain.setValueAtTime(0.05, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-        o.start();
-        o.stop(ctx.currentTime + 0.10);
-      }
-    } catch(_) {}
-  };
+  /* ── PART 6: Sound Polish — DOM-event hook (works without IIFE access) ── */
+  /* playSound() lives inside initWadiAssistant IIFE — unreachable from outside.
+     Strategy: observe the send button click and #wadi-msgs mutations.
+     Our enhanced sound fires IN ADDITION to the original (which is quiet). */
+  (function() {
+    function _wadiTone(type) {
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        if (type === 'send') {
+          o.type = 'sine';
+          o.frequency.setValueAtTime(880, ctx.currentTime);
+          o.frequency.setValueAtTime(1100, ctx.currentTime + 0.07);
+          g.gain.setValueAtTime(0.08, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+          o.start(); o.stop(ctx.currentTime + 0.20);
+        } else if (type === 'reply') {
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(660, ctx.currentTime);
+          o.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.10);
+          g.gain.setValueAtTime(0.07, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+          o.start(); o.stop(ctx.currentTime + 0.25);
+        } else {
+          o.type = 'triangle';
+          o.frequency.value = 520;
+          g.gain.setValueAtTime(0.04, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+          o.start(); o.stop(ctx.currentTime + 0.10);
+        }
+      } catch(_) {}
+    }
 
-  /* ── PART 7: Search dataset extension ── */
-  /* Adds window._wadiExtraSearchData — merged safely at query time */
+    window.addEventListener('load', function() {
+      /* Hook send button — fires enhanced tone when user sends message */
+      var _sendBtn = document.getElementById('wadi-send');
+      if (_sendBtn) {
+        _sendBtn.addEventListener('click', function() { _wadiTone('send'); });
+      }
+      /* Hook Enter key on wadi input */
+      var _inp = document.getElementById('wadi-input') || document.getElementById('wadi-inp');
+      if (_inp) {
+        _inp.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') _wadiTone('send');
+        });
+      }
+      /* Hook reply: observe #wadi-msgs for new .wb (bot) messages */
+      var _msgs = document.getElementById('wadi-msgs');
+      if (_msgs) {
+        var _lastCount = _msgs.children.length;
+        var _replyObs = new MutationObserver(function() {
+          var _now = _msgs.children.length;
+          if (_now > _lastCount) {
+            /* Check if newest child is a bot message */
+            var _last = _msgs.lastElementChild;
+            if (_last && _last.classList.contains('wb')) {
+              _wadiTone('reply');
+            }
+            _lastCount = _now;
+          }
+        });
+        _replyObs.observe(_msgs, { childList: true });
+      } else {
+        /* Fallback: observe body for #wadi-msgs to appear */
+        var _bodyObs = new MutationObserver(function() {
+          var _m = document.getElementById('wadi-msgs');
+          if (_m) {
+            _bodyObs.disconnect();
+            var _lc = _m.children.length;
+            var _ro = new MutationObserver(function() {
+              var _n = _m.children.length;
+              if (_n > _lc) {
+                var _l = _m.lastElementChild;
+                if (_l && _l.classList.contains('wb')) _wadiTone('reply');
+                _lc = _n;
+              }
+            });
+            _ro.observe(_m, { childList: true });
+          }
+        });
+        _bodyObs.observe(document.body, { childList: true, subtree: true });
+      }
+    });
+    /* Also expose for manual use */
+    window.wadiPlaySound = _wadiTone;
+  })();
+
+  /* ── PART 7: Search dataset extension — WORKING merge at render time ── */
+  /* Strategy: wrap doGSearch result rendering.
+     doGSearch writes to #gsearch-results innerHTML.
+     We observe the results div and append our extra results section. */
   window._wadiExtraSearchData = [];
-  /* Consumer pattern: code using search can do:
-     const allData = [...(_gsearchData.invs||[]), ...window._wadiExtraSearchData];
-     This does NOT touch _gsearchData or any existing search logic */
-  /* Populate extra aliases for common terms */
-  window.addEventListener('load', function() {
-    window._wadiExtraSearchData = [
-      /* Extra search aliases — extend as needed */
-      /* {id:'alias-1', customer_name:'فاتورة', label:'invoice'} */
-    ];
-  });
+  (function() {
+    var _extraHooked = false;
+
+    function _attachSearchHook() {
+      var _resultsEl = document.getElementById('gsearch-results');
+      if (!_resultsEl || _extraHooked) return;
+      _extraHooked = true;
+
+      /* Observe gsearch-results mutations — after doGSearch writes HTML */
+      var _searchObs = new MutationObserver(function() {
+        var q = (document.getElementById('gsearch-input') || {}).value || '';
+        if (!q || q.length < 2) return;
+        var extra = window._wadiExtraSearchData || [];
+        if (!extra.length) return;
+
+        var ql = q.toLowerCase();
+        var matches = extra.filter(function(item) {
+          return (
+            ((item.id || '').toLowerCase().indexOf(ql) >= 0) ||
+            ((item.label || '').toLowerCase().indexOf(ql) >= 0) ||
+            ((item.customer_name || '').toLowerCase().indexOf(ql) >= 0)
+          );
+        }).slice(0, 4);
+
+        if (!matches.length) return;
+
+        /* Check if our section already appended (guard double-add) */
+        if (_resultsEl.querySelector('.wadi-extra-section')) return;
+
+        var sectionHtml = '<div class="wadi-extra-section">' +
+          '<div style="padding:6px 20px;font-size:10px;font-weight:700;color:var(--text3);' +
+          'text-transform:uppercase;letter-spacing:1px;background:#f0fdf4;border-bottom:1px solid var(--border)">' +
+          '★ نتائج إضافية</div>' +
+          matches.map(function(item) {
+            return '<div class="gsearch-item" style="border-right:3px solid #22c55e">' +
+              '<span class="gsearch-item-id" style="color:#16a34a">' + (item.id || '—') + '</span>' +
+              '<span class="gsearch-item-name">' + (item.label || item.customer_name || '—') + '</span>' +
+              '<span class="gsearch-item-meta">' + (item.meta || '') + '</span>' +
+              '</div>';
+          }).join('') +
+          '</div>';
+
+        _resultsEl.insertAdjacentHTML('beforeend', sectionHtml);
+      });
+
+      _searchObs.observe(_resultsEl, { childList: true, subtree: false });
+    }
+
+    window.addEventListener('load', function() {
+      /* Attach immediately if element exists */
+      _attachSearchHook();
+      /* Fallback: wait for gsearch overlay to render */
+      var _overlayObs = new MutationObserver(function() {
+        if (!_extraHooked) _attachSearchHook();
+      });
+      _overlayObs.observe(document.body, { childList: true, subtree: true });
+      setTimeout(function() { _overlayObs.disconnect(); }, 10000);
+
+      /* Populate with useful default extra data after gsearch loads */
+      /* This runs once after gsearch data is loaded */
+      var _populated = false;
+      var _popTimer = setInterval(function() {
+        if (typeof _gsearchLoaded !== 'undefined' && _gsearchLoaded && !_populated) {
+          _populated = true;
+          clearInterval(_popTimer);
+          /* Add quick-action aliases as searchable entries */
+          window._wadiExtraSearchData = [
+            { id: 'CMD-01', label: 'إضافة فاتورة جديدة', meta: 'إجراء سريع', _action: "openInvoiceModal()" },
+            { id: 'CMD-02', label: 'إضافة عميل', meta: 'إجراء سريع', _action: "openClientModal()" },
+            { id: 'CMD-03', label: 'التقارير', meta: 'صفحة', _action: "showPage('reports')" },
+            { id: 'CMD-04', label: 'المدفوعات والذمم', meta: 'صفحة', _action: "showPage('receivables')" }
+          ];
+        }
+      }, 500);
+      setTimeout(function() { clearInterval(_popTimer); }, 15000);
+    });
+  })();
 
   /* ── PART 8: Assistant Reactions (additive messages) ── */
   window._wadiAssistantReactions = {
