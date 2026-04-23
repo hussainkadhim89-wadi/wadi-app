@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.4">
+<meta name="app-version" content="v67.5">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -40,7 +40,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.4
+   ✨ ULTRA PREMIUM UX — v67.5
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -466,7 +466,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.4
+   🔥 ULTRA PREMIUM SIDEBAR — v67.5
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1672,7 +1672,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.4 Polish
+   ✨ ULTRA PREMIUM UX — v67.5 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -5354,10 +5354,19 @@ async function renderActivity() {
     // ══════════════════════════════════════════════
 
     // Fields to NEVER show in any modal
+    // Fields that must NEVER appear in any modal
     var _HIDDEN_FIELDS = new Set([
       'id','user_id','created_by','updated_by','owner_id',
       'updated_at','deleted_by','soft_deleted','__v',
-      'customer_id'  // shown via customer_name instead
+      'customer_id'
+    ]);
+
+    // Fields where 0 is a meaningful value (must NOT be hidden)
+    var _IMPORTANT_ZERO = new Set([
+      'total','cost_amount','sale_amount',
+      'comm_omar_pct','comm_sini_pct','comm_hussain_pct','comm_kapt_pct',
+      'discount','tax','paid_amount','remaining','balance',
+      'quantity','unit_price','net_profit','profit'
     ]);
 
     // Complete Arabic label map
@@ -5457,27 +5466,33 @@ async function renderActivity() {
       return m[3]+'/'+m[2]+'/'+m[1];
     }
 
-    // Format value for display — never raw UUIDs, ISO dates, JSON blobs
-    function _fmtVal(v){
-      if(v===null || v===undefined || v==='') return null; // null = hide row
+    // Format value for display
+    // Returns: formatted string | null (= hide this row)
+    function _fmtVal(v, fieldKey){
+      if(v === null || v === undefined || v === '') return null;
       if(typeof v === 'boolean') return v ? 'نعم' : 'لا';
       var s = String(v).trim();
-      if(s === '0' || s === '') return null;
-      // UUID → hide
+      if(s === '') return null;
+      // Zero: hide only if field is NOT in important-zero list
+      if(s === '0' || s === '0.00' || s === '0.0'){
+        return (fieldKey && _IMPORTANT_ZERO.has(fieldKey)) ? '0' : null;
+      }
+      // UUID → always hide
       if(_uuidRx.test(s)) return null;
-      // ISO date → DD/MM/YYYY
+      // ISO date → DD/MM/YYYY (English digits, LTR)
       if(_isoDateRx.test(s)) return _fmtDate(s);
       // raw JSON blob → hide
       if((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) return null;
+      // 'null' / 'undefined' strings → hide
+      if(s === 'null' || s === 'undefined') return null;
       return s;
     }
 
-    // Is this field meaningful enough to show?
+    // Should this field row be shown at all?
     function _shouldShow(key, val){
       if(_HIDDEN_FIELDS.has(key)) return false;
-      var fmted = _fmtVal(val);
-      if(fmted === null || fmted === '—' || fmted === 'null') return false;
-      return true;
+      var fmted = _fmtVal(val, key);
+      return fmted !== null;
     }
 
     // ── Modal موحد لتفاصيل التغيير ──
@@ -5523,11 +5538,12 @@ async function renderActivity() {
 
       // ── Helper: build a clean field row ──
       function _mkRow(labelText, valueHtml, valueColor){
+        if(valueHtml === null || valueHtml === undefined) return null;
         var row=document.createElement('div');
-        row.style.cssText='display:flex;align-items:baseline;gap:0;padding:10px 0;border-bottom:1px solid var(--border);';
+        row.style.cssText='display:flex;align-items:baseline;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);';
         row.innerHTML=
-          '<div style="width:42%;font-size:12px;font-weight:600;color:var(--text3);padding-left:4px;flex-shrink:0;">'+labelText+'</div>'+
-          '<div style="flex:1;font-size:13px;font-weight:600;color:'+(valueColor||'var(--text)')+';direction:ltr;text-align:left;">'+valueHtml+'</div>';
+          '<div style="min-width:130px;max-width:46%;font-size:12px;font-weight:600;color:var(--text3);flex-shrink:0;line-height:1.5;">'+labelText+'</div>'+
+          '<div style="flex:1;font-size:13px;font-weight:700;color:'+(valueColor||'var(--text)')+';direction:ltr;text-align:left;line-height:1.5;word-break:break-word;">'+valueHtml+'</div>';
         return row;
       }
 
@@ -5538,7 +5554,7 @@ async function renderActivity() {
           body.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">لا توجد بيانات</div>';
         } else {
           entries.forEach(function(kv){
-            body.appendChild(_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1]), '#16a34a'));
+            var _cr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#16a34a'); if(_cr) body.appendChild(_cr);
           });
         }
       } else if(row.action==='delete'){
@@ -5552,7 +5568,7 @@ async function renderActivity() {
           body.innerHTML+='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">لا توجد بيانات سابقة</div>';
         } else {
           bEntries.forEach(function(kv){
-            body.appendChild(_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1]), 'var(--text)'));
+            var _dr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), 'var(--text)'); if(_dr) body.appendChild(_dr);
           });
         }
       } else {
@@ -5574,8 +5590,8 @@ async function renderActivity() {
           tbl3.appendChild(thead);
           var tbody3=document.createElement('tbody');
           visibleChanges.forEach(function(c){
-            var bv=_fmtVal(c.before); var av=_fmtVal(c.after);
-            if(bv===null&&av===null) return; // skip empty rows
+            var bv=_fmtVal(c.before,c.field); var av=_fmtVal(c.after,c.field);
+            if(bv===null&&av===null) return; // skip fully empty diff rows
             var tr=document.createElement('tr');
             tr.style.cssText='transition:background .1s;';
             tr.onmouseenter=function(){ this.style.background='var(--bg3)'; };
@@ -7888,7 +7904,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.4';
+const APP_VERSION = 'v67.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7992,7 +8008,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.4
+// 🔥 ULTRA PREMIUM NAV JS — v67.5
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
