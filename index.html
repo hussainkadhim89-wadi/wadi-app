@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.10">
+<meta name="app-version" content="v67.11">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════════════
-   🎨 DESIGN TOKENS — v67.10
+   🎨 DESIGN TOKENS — v67.11
    Single source of truth for all CSS vars
    ══════════════════════════════════════════
 
@@ -99,7 +99,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.10
+   ✨ ULTRA PREMIUM UX — v67.11
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -546,7 +546,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.10
+   🔥 ULTRA PREMIUM SIDEBAR — v67.11
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1754,7 +1754,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.10 Polish
+   ✨ ULTRA PREMIUM UX — v67.11 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -5438,7 +5438,7 @@ async function renderActivity() {
     // Fields to NEVER show in any modal
     // Fields that must NEVER appear in any modal
     // ══════════════════════════════════════════════════════════
-    // 🗂️ MODAL DATA ENGINE — v67.10
+    // 🗂️ MODAL DATA ENGINE — v67.11
     // Handles field visibility, labelling, and value formatting
     // ══════════════════════════════════════════════════════════
 
@@ -6657,11 +6657,10 @@ async function _undoDelete() {
       .update({ is_deleted: false, deleted_at: null })
       .in('id', invIds);
     if (e1) throw e1;
-    // 2. استعادة البنود — flip is_deleted back to false
-    if (lineIds.length > 0) {
+    // 2. استعادة البنود — upsert (تم حذفها فعلياً لأنها بدون is_deleted)
+    if (lines.length > 0) {
       var { error: e2 } = await sb.from('invoice_lines')
-        .update({ is_deleted: false })
-        .in('id', lineIds);
+        .upsert(lines, { onConflict: 'id' });
       if (e2) throw e2;
     }
     // 3. نجح الاسترجاع — نظّف الـ buffer
@@ -6732,11 +6731,10 @@ async function _restoreFromAudit(log, btn) {
       .update({ is_deleted: false, deleted_at: null })
       .in('id', invIds);
     if (e1) throw e1;
-    // 4. استعادة البنود — flip is_deleted back to false
-    if (lineIds.length > 0) {
+    // 4. استعادة البنود — upsert (تم حذفها فعلياً لأنها بدون is_deleted)
+    if (lines.length > 0) {
       var { error: e2 } = await sb.from('invoice_lines')
-        .update({ is_deleted: false })
-        .in('id', lineIds);
+        .upsert(lines, { onConflict: 'id' });
       if (e2) throw e2;
     }
     // 5. تحديث audit_logs — restored: true
@@ -7443,15 +7441,14 @@ async function bulkDeleteInvoices(){
       }
     });
     console.log('[bulkDelete] بدء الحذف الجماعي — IDs:', selectedIds);
-    // 2. soft delete invoice_lines — لا نحذف، نعلّم فقط
-    const{data:updatedLines, error:e1}=await sb.from('invoice_lines')
-      .update({ is_deleted: true })
-      .in('invoice_id', selectedIds)
-      .select();
-    console.log('[bulkDelete] invoice_lines update — rows:', (updatedLines||[]).length, '| error:', e1);
+    // 2. حذف invoice_lines — hard delete (جدول بدون is_deleted)
+    const{error:e1}=await sb.from('invoice_lines')
+      .delete()
+      .in('invoice_id', selectedIds);
+    console.log('[bulkDelete] invoice_lines delete — error:', e1);
     if(e1) throw e1;
 
-    // 3. soft delete invoices — لا نحذف، نعلّم فقط
+    // 3. soft delete invoices — نعلّم is_deleted=true (بدون حذف فعلي)
     const{data:updatedInvs, error:e2}=await sb.from('invoices')
       .update({ is_deleted: true, deleted_at: new Date().toISOString() })
       .in('id', selectedIds)
@@ -8093,7 +8090,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.10';
+const APP_VERSION = 'v67.11';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -8197,7 +8194,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.10
+// 🔥 ULTRA PREMIUM NAV JS — v67.11
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
