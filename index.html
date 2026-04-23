@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.11">
+<meta name="app-version" content="v67.12">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════════════
-   🎨 DESIGN TOKENS — v67.11
+   🎨 DESIGN TOKENS — v67.12
    Single source of truth for all CSS vars
    ══════════════════════════════════════════
 
@@ -99,7 +99,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.11
+   ✨ ULTRA PREMIUM UX — v67.12
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -546,7 +546,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.11
+   🔥 ULTRA PREMIUM SIDEBAR — v67.12
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1754,7 +1754,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.11 Polish
+   ✨ ULTRA PREMIUM UX — v67.12 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -5438,7 +5438,7 @@ async function renderActivity() {
     // Fields to NEVER show in any modal
     // Fields that must NEVER appear in any modal
     // ══════════════════════════════════════════════════════════
-    // 🗂️ MODAL DATA ENGINE — v67.11
+    // 🗂️ MODAL DATA ENGINE — v67.12
     // Handles field visibility, labelling, and value formatting
     // ══════════════════════════════════════════════════════════
 
@@ -6565,7 +6565,20 @@ async function delInvoice(id){
       }
     });
 
-    // 2. soft delete — .select() لضمان رجوع البيانات والتأكد من التنفيذ
+    // 2. حذف invoice_lines أولاً — hard delete (جدول بدون is_deleted)
+    if(Array.isArray(linesSnap) && linesSnap.length > 0){
+      const{data:deletedLines, error:lErr}=await sb.from('invoice_lines')
+        .delete()
+        .eq('invoice_id', id)
+        .select();
+      console.log('[delInvoice] invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', lErr);
+      if(lErr){
+        console.error('[delInvoice] فشل حذف invoice_lines:', lErr.code, lErr.message);
+        throw lErr;
+      }
+    }
+
+    // 3. soft delete invoice — .select() لضمان رجوع البيانات والتأكد من التنفيذ
     const{data:updated, error}=await sb
       .from('invoices')
       .update({ is_deleted: true, deleted_at: new Date().toISOString() })
@@ -7441,12 +7454,26 @@ async function bulkDeleteInvoices(){
       }
     });
     console.log('[bulkDelete] بدء الحذف الجماعي — IDs:', selectedIds);
-    // 2. حذف invoice_lines — hard delete (جدول بدون is_deleted)
-    const{error:e1}=await sb.from('invoice_lines')
+    console.log('[bulkDelete] عدد البنود في الـ snapshot:', (linesSnap||[]).length);
+    if((linesSnap||[]).length > 0){
+      console.log('[bulkDelete] نموذج بند (للتحقق من الأعمدة):', linesSnap[0]);
+      console.log('[bulkDelete] invoice_id values في البنود:', [...new Set((linesSnap||[]).map(l=>l.invoice_id))]);
+    }
+
+    // 2. حذف invoice_lines — hard delete + .select() للتحقق من تنفيذ الحذف الفعلي
+    const{data:deletedLines, error:e1}=await sb.from('invoice_lines')
       .delete()
-      .in('invoice_id', selectedIds);
-    console.log('[bulkDelete] invoice_lines delete — error:', e1);
-    if(e1) throw e1;
+      .in('invoice_id', selectedIds)
+      .select();
+    console.log('[bulkDelete] invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', e1);
+    if(e1){
+      console.error('[bulkDelete] فشل حذف invoice_lines:', e1.code, e1.message);
+      throw e1;
+    }
+    if(!deletedLines || deletedLines.length === 0){
+      // ليس خطأ مميتاً — ربما الفواتير بدون بنود — نكمل
+      console.warn('[bulkDelete] invoice_lines: لا صفوف محذوفة (ربما بدون بنود أو RLS)');
+    }
 
     // 3. soft delete invoices — نعلّم is_deleted=true (بدون حذف فعلي)
     const{data:updatedInvs, error:e2}=await sb.from('invoices')
@@ -8090,7 +8117,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.11';
+const APP_VERSION = 'v67.12';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -8194,7 +8221,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.11
+// 🔥 ULTRA PREMIUM NAV JS — v67.12
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
