@@ -4,59 +4,106 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.5">
+<meta name="app-version" content="v67.6">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  /* Notion-style Base Colors */
-  --bg:#f7f7f5;--bg2:#ffffff;--bg3:#f9f9f8;--bg4:#f1f1ef;
-  --border:#e9e9e7;--border2:#d9d9d7;
-  /* Single Accent */
-  --accent:#2563eb;--accent2:#1d4ed8;--accent-light:#eff6ff;
-  /* Semantic Colors — خفيفة للتنبيهات فقط */
-  --green:#16a34a;--green-light:var(--green-light);
-  --red:#dc2626;--red-light:#fff5f5;
-  --yellow:#ca8a04;--yellow-light:var(--yellow-light);
-  --orange:#ea580c;--orange-light:var(--orange-light);
-  --purple:#7c3aed;--purple-light:var(--purple-light);
-  --teal:#0891b2;--teal-light:var(--teal-light);
-  /* Row highlight vars — يتغيرون مع dark mode */
-  --row-profit-high:var(--green-light);--row-profit-mid:var(--yellow-light);--row-profit-low:var(--red-light);
-  --row-profit-high-border:var(--row-profit-high-border);--row-profit-low-border:var(--row-profit-low-border);
-  /* Typography */
-  --text:#111111;--text2:#374151;--text3:#6b7280;--text4:#9ca3af;
-  /* Font — Inter أولاً ثم IBM Plex */
-  --font:'Inter','IBM Plex Sans Arabic',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
-  /* Shadows — خفيفة جداً */
-  --shadow:0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:0 2px 8px rgba(0,0,0,.06);
-  --shadow-lg:0 8px 24px rgba(0,0,0,.08);
-  /* Spacing System */
-  --sp-1:8px;--sp-2:16px;--sp-3:24px;--sp-4:32px;
-  /* Border Radius */
-  --radius:10px;--radius-sm:6px;--radius-lg:14px;
+/* ══════════════════════════════════════════
+   🎨 DESIGN TOKENS — v67.6
+   Single source of truth for all CSS vars
+   ══════════════════════════════════════════
+
+   SECTIONS:
+   1. Colors (Base + Semantic)
+   2. Shadows
+   3. Typography
+   4. Spacing + Radius
+   5. Animation
+   6. Layout
+   ══════════════════════════════════════════ */
+:root {
+
+  /* ── 1. Base Colors ── */
+  --bg: #f7f7f5;
+  --bg2: #ffffff;
+  --bg3: #f9f9f8;
+  --bg4: #f1f1ef;
+  --border: #e9e9e7;
+  --border2: #d9d9d7;
+
+  /* ── Accent ── */
+  --accent: #2563eb;
+  --accent2: #1d4ed8;
+  --accent-light: #eff6ff;
+
+  /* ── Semantic Colors (light bg versions fixed — no self-references) ── */
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --red: #dc2626;
+  --red-light: #fff5f5;
+  --yellow: #ca8a04;
+  --yellow-light: #fef9c3;
+  --orange: #ea580c;
+  --orange-light: #fff7ed;
+  --purple: #7c3aed;
+  --purple-light: #f5f3ff;
+  --teal: #0891b2;
+  --teal-light: #ecfeff;
+
+  /* ── Row Highlight (profit tiers) ── */
+  --row-profit-high: #dcfce7;
+  --row-profit-mid: #fef9c3;
+  --row-profit-low: #fff5f5;
+  --row-profit-high-border: #86efac;
+  --row-profit-low-border: #fca5a5;
+
+  /* ── 2. Shadows (single canonical set) ── */
+  --shadow:    0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,.1), 0 4px 8px rgba(0,0,0,.06);
+  --shadow-xl: 0 24px 48px rgba(0,0,0,.14), 0 8px 16px rgba(0,0,0,.08);
+
+  /* ── 3. Typography ── */
+  --text: #111111;
+  --text2: #374151;
+  --text3: #6b7280;
+  --text4: #9ca3af;
+  --font: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  /* ── 4. Spacing + Radius ── */
+  --sp-1: 8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+  --radius:    10px;
+  --radius-sm:  6px;
+  --radius-lg: 14px;
+
+  /* ── 5. Animation ── */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:   150ms;
+  --dur-normal: 220ms;
+  --dur-slow:   320ms;
+
+  /* ── 6. Layout ── */
+  --panel-w:    520px;
+  --panel-l1-w: 460px;
+  --panel-l2-w: 400px;
+  --panel-l2-offset: 32px;
+  --sidebar-mini-w: 52px;
+  --sidebar-full-w: 236px;
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.5
+   ✨ ULTRA PREMIUM UX — v67.6
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
-/* ── Enhanced CSS Variables ── */
-:root {
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,.1),0 4px 8px rgba(0,0,0,.06);
-  --shadow-xl: 0 24px 48px rgba(0,0,0,.14),0 8px 16px rgba(0,0,0,.08);
-  --panel-w: 520px;
-  --ease-out: cubic-bezier(0.16,1,0.3,1);
-  --ease-in-out: cubic-bezier(0.4,0,0.2,1);
-  --dur-fast: 150ms;
-  --dur-normal: 220ms;
-  --dur-slow: 320ms;
-}
+/* ── CSS variables consolidated above ── */
 
 /* ── Slide Panel (Right-to-Left) ── */
 .panel-overlay {
@@ -80,6 +127,7 @@
   transition:transform var(--dur-slow) var(--ease-out);
   z-index:1101;
   border-left:1px solid var(--border);
+  will-change:transform;
 }
 .panel-overlay.open .panel {
   transform:translateX(0);
@@ -116,11 +164,7 @@
   flex-shrink:0;
 }
 /* ── Nested Panels System — L1 + L2 ── */
-:root {
-  --panel-l1-w: 460px;
-  --panel-l2-w: 400px;
-  --panel-l2-offset: 32px; /* إزاحة يمين لإظهار التداخل */
-}
+/* --panel-l1-w, --panel-l2-w, --panel-l2-offset → consolidated in :root above */
 /* L1: أصغر قليلاً لما L2 مفتوح */
 .panel-overlay.l2-open #panel-l1 {
   transform: translateX(var(--panel-l2-offset)) !important;
@@ -235,6 +279,7 @@ body.dark .panel-overlay.l2-open #panel-l1 { filter:brightness(.75) saturate(.8)
   transition:transform var(--dur-normal) var(--ease-out),
              box-shadow var(--dur-normal) var(--ease-out),
              border-color var(--dur-fast) !important;
+  will-change:transform;
 }
 .kpi-card:hover {
   transform:translateY(-3px);
@@ -258,9 +303,10 @@ tr:hover td { background:#f6f8ff !important; }
   transition:background var(--dur-fast) var(--ease-in-out),
              color var(--dur-fast),
              transform var(--dur-fast) !important;
+  will-change:transform;
 }
 .nav-item:hover{transform:translateX(-2px);}
-.nav-item.active{transform:none;}
+.nav-item.active{transform:none;will-change:auto;}
 
 /* ── Form Inputs — Premium focus ── */
 .form-input,.form-select,.form-textarea,
@@ -320,6 +366,7 @@ tr:hover td { background:#f6f8ff !important; }
 .sdrop-item-sub{font-size:11px;color:var(--text3);}
 .sdrop-empty{padding:12px;text-align:center;color:var(--text4);font-size:12px;}
 
+/* ── MODULE 3: ANIMATIONS ── */
 /* ── Micro Interactions ── */
 @keyframes rowFlash{
   0%{background:#dbeafe;}
@@ -382,6 +429,7 @@ tr:hover td { background:#f6f8ff !important; }
 /* ── Toast — spring animation ── */
 #toast{
   transition:transform .28s var(--ease-out),opacity .22s ease !important;
+  will-change:transform,opacity;
 }
 #toast.show{
   transform:translateX(-50%) translateY(0) !important;
@@ -408,6 +456,38 @@ body.dark .btn-primary:hover{box-shadow:0 4px 12px rgba(37,99,235,.4);}
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+
+/* ══════════════════════════════════════════════════════════
+   📦 CSS ARCHITECTURE — SECTION MAP (v67.6)
+   ══════════════════════════════════════════════════════════
+   For future modularization, CSS is organized as follows:
+
+   MODULE 1 — layout.css
+     .layout, .sidebar, .main, .content, .topbar
+
+   MODULE 2 — components.css
+     .btn-*, .badge-*, .form-*, .modal-*, .panel-*
+     .kpi-card, .table-card, .table-wrap
+
+   MODULE 3 — animations.css
+     @keyframes *, transitions, will-change
+     Slide panel, toast, modal, row-flash
+
+   MODULE 4 — ui.css
+     Activity log, login log, date-picker, modals
+     Notification panel, global search
+
+   MODULE 5 — dark.css
+     All body.dark overrides
+
+   MODULE 6 — print.css
+     @media print rules
+
+   NOTE: Currently all modules are inline (single-file app).
+   Extraction is deferred until multi-file build is adopted.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── MODULE 1: LAYOUT ── */
 
 /* LOGIN */
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f7f7f5}
@@ -466,7 +546,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.5
+   🔥 ULTRA PREMIUM SIDEBAR — v67.6
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -660,7 +740,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* ── reduce-motion support — #48 ── */
 
 /* ══ #1 Mini Collapse Mode ══ */
-:root{ --sidebar-mini-w:52px; --sidebar-full-w:236px; }
+/* --sidebar-mini-w, --sidebar-full-w → consolidated in :root above */
 
 .sidebar.mini{
   width:var(--sidebar-mini-w)!important;
@@ -1436,6 +1516,7 @@ thead th{box-shadow:0 1px 0 var(--border)}
 .date-range-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px}
 .date-range-bar label{font-size:12px;font-weight:700;color:var(--text3)}
 
+/* ── MODULE 6: PRINT ── */
 /* PRINT CSS - كشف حساب */
 @media print{
   .sidebar,.topbar,.topbar-actions,.hamburger,.btn,.filter-bar,.pagination,#toast,#update-banner,#offline-banner,.nopr{display:none!important}
@@ -1445,6 +1526,7 @@ thead th{box-shadow:0 1px 0 var(--border)}
   .table-card{box-shadow:none!important;border:1px solid #ccc!important}
 }
 
+/* ── MODULE 5: DARK MODE ── */
 /* DARK MODE */
 body.dark{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#1e293b;--bg4:#334155;
@@ -1672,7 +1754,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.5 Polish
+   ✨ ULTRA PREMIUM UX — v67.6 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -7904,7 +7986,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.5';
+const APP_VERSION = 'v67.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -8008,7 +8090,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.5
+// 🔥 ULTRA PREMIUM NAV JS — v67.6
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
