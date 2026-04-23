@@ -1835,6 +1835,33 @@ input:focus,select:focus,textarea:focus{
 .table-wrap table tbody tr:hover td{background:var(--bg3);}
 
 /* ══════════════════════════════════════
+   🗃️ MODAL FIELD ROWS — v67.4
+   Clean label : value layout
+   ══════════════════════════════════════ */
+.modal-field-row {
+  display:flex;align-items:baseline;gap:0;
+  padding:10px 0;border-bottom:1px solid var(--border);
+}
+.modal-field-row:last-child { border-bottom:none; }
+.modal-field-label {
+  width:42%;font-size:12px;font-weight:600;
+  color:var(--text3);flex-shrink:0;padding-left:4px;
+}
+.modal-field-value {
+  flex:1;font-size:13px;font-weight:600;
+  color:var(--text);direction:ltr;text-align:left;
+}
+.modal-field-value.green { color:#16a34a; }
+.modal-field-value.muted { color:var(--text3);font-weight:400; }
+
+/* Numbers + dates always LTR */
+[dir="rtl"] .ltr-data {
+  direction:ltr;
+  display:inline-block;
+  unicode-bidi:plaintext;
+}
+
+/* ══════════════════════════════════════
    🗓️ DATE PICKER ENHANCEMENT — v67.4
    ══════════════════════════════════════ */
 input[type="date"] {
@@ -1870,32 +1897,44 @@ input[type="date"]::-webkit-calendar-picker-indicator {
    📋 ACTIVITY LOG CARD — v67.4
    ══════════════════════════════════════ */
 .activity-log-item {
-  display:flex;align-items:center;gap:12px;
-  padding:12px 16px;border-bottom:1px solid var(--border);
-  transition:background var(--dur-fast);
+  display:flex;align-items:center;gap:14px;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  transition:background var(--dur-fast), box-shadow var(--dur-fast), transform var(--dur-fast);
+  cursor:pointer;
+  border-radius:0;
 }
-.activity-log-item:hover { background:var(--bg3); }
+.activity-log-item:first-child { border-radius:var(--radius-sm) var(--radius-sm) 0 0; }
+.activity-log-item:last-child  { border-bottom:none; border-radius:0 0 var(--radius-sm) var(--radius-sm); }
+.activity-log-item:hover {
+  background:var(--bg3);
+  box-shadow:var(--shadow-sm);
+  transform:translateX(-2px);
+  z-index:1;
+  position:relative;
+}
 .activity-log-dot {
-  width:34px;height:34px;border-radius:50%;
+  width:38px;height:38px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-size:15px;flex-shrink:0;
+  font-size:16px;flex-shrink:0;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
 }
 .activity-log-dot.create { background:#dcfce7; }
 .activity-log-dot.update { background:#ffedd5; }
 .activity-log-dot.delete { background:#fee2e2; }
 .activity-log-dot.system { background:#dbeafe; }
 .activity-log-body { flex:1;min-width:0; }
-.activity-log-label { font-weight:700;font-size:13px; }
+.activity-log-label { font-weight:700;font-size:13px; line-height:1.4; }
 .activity-log-label.create { color:#16a34a; }
 .activity-log-label.update { color:#ea580c; }
 .activity-log-label.delete { color:#dc2626; }
-.activity-log-meta { font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:10px; }
+.activity-log-meta { font-size:11px;color:var(--text3);margin-top:3px;display:flex;gap:12px;flex-wrap:wrap; }
 
 /* dark mode for activity log */
 body.dark .activity-log-dot.create { background:#14532d; }
 body.dark .activity-log-dot.update { background:#431407; }
 body.dark .activity-log-dot.delete { background:#7f1d1d; }
 body.dark .activity-log-dot.system { background:#1e3a5f; }
+body.dark .activity-log-item:hover { background:var(--bg2); }
 
 
 #public-view{
@@ -5195,7 +5234,7 @@ async function renderSettings(){
 // ── diff helper ──
 function diffObjects(before, after){
   const changes = [];
-  const skip = ['id','created_at','updated_at'];
+  const skip = ['id','created_at','updated_at','user_id','created_by','updated_by','deleted_by','owner_id','customer_id'];
   for(const key in after){
     if(skip.includes(key)) continue;
     if(JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key])){
@@ -5244,7 +5283,16 @@ async function renderActivity() {
     function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
     function _formatDate(ts){
       if(!ts) return '—';
-      try { return new Date(ts).toLocaleString('ar-IQ',{dateStyle:'short',timeStyle:'short'}); }
+      try {
+        var d=new Date(ts);
+        if(isNaN(d)) return ts;
+        var dd=String(d.getDate()).padStart(2,'0');
+        var mm=String(d.getMonth()+1).padStart(2,'0');
+        var yy=d.getFullYear();
+        var hh=String(d.getHours()).padStart(2,'0');
+        var mi=String(d.getMinutes()).padStart(2,'0');
+        return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
+      }
       catch(_){ return ts; }
     }
 
@@ -5301,18 +5349,136 @@ async function renderActivity() {
     else if(_savedFilter==='invoice_delete') histRows=histRows.filter(function(l){ return l.action==='delete'; });
     else if(_savedFilter!=='all'&&!['invoice_create','invoice_update','invoice_delete'].includes(_savedFilter)) histRows=[];
 
-    // ── خريطة أسماء الحقول العربية ──
+    // ══════════════════════════════════════════════
+    // 🗂️ FIELD LABELS + VALUE FORMATTER — v67.4
+    // ══════════════════════════════════════════════
+
+    // Fields to NEVER show in any modal
+    var _HIDDEN_FIELDS = new Set([
+      'id','user_id','created_by','updated_by','owner_id',
+      'updated_at','deleted_by','soft_deleted','__v',
+      'customer_id'  // shown via customer_name instead
+    ]);
+
+    // Complete Arabic label map
     var _fieldLabels = {
-      invoice_id:'رقم الفاتورة', client_id:'العميل', total:'المبلغ',
-      status:'الحالة', created_at:'التاريخ', updated_at:'تاريخ التحديث',
-      invoice_number:'رقم الفاتورة', invoice_date:'تاريخ الفاتورة',
-      due_date:'تاريخ الاستحقاق', payment_terms:'شروط الدفع',
-      notes:'ملاحظات', discount:'خصم', tax:'ضريبة',
-      subtotal:'المجموع الفرعي', deleted_at:'تاريخ الحذف',
-      deleted:'محذوف', type:'النوع', currency:'العملة'
+      // ── Invoice core ──
+      invoice_id      : 'رقم الفاتورة',
+      invoice_number  : 'رقم الفاتورة',
+      id              : 'المعرّف',
+      date            : 'التاريخ',
+      invoice_date    : 'تاريخ الفاتورة',
+      created_at      : 'تاريخ الإنشاء',
+      updated_at      : 'تاريخ التحديث',
+      deleted_at      : 'تاريخ الحذف',
+      due_date        : 'تاريخ الاستحقاق',
+      // ── Customer ──
+      client_id       : 'العميل',
+      customer_id     : 'العميل',
+      customer_name   : 'اسم العميل',
+      name            : 'الاسم',
+      // ── Amounts ──
+      sale_amount     : 'سعر البيع',
+      cost_amount     : 'الكلفة',
+      total           : 'المبلغ الإجمالي',
+      subtotal        : 'المجموع الفرعي',
+      amount          : 'المبلغ',
+      paid_amount     : 'المبلغ المدفوع',
+      remaining       : 'المتبقي',
+      balance         : 'الرصيد',
+      discount        : 'الخصم',
+      tax             : 'الضريبة',
+      // ── Commissions ──
+      comm_omar_pct    : 'عمولة عمر',
+      comm_hussain_pct : 'عمولة حسين',
+      comm_sini_pct    : 'عمولة سيني',
+      comm_kapt_pct    : 'عمولة الكابتن',
+      comm_omar        : 'عمولة عمر',
+      comm_hussain     : 'عمولة حسين',
+      comm_sini        : 'عمولة سيني',
+      comm_kapt        : 'عمولة الكابتن',
+      // ── Profit ──
+      profit           : 'الربح',
+      profit_pct       : 'نسبة الربح',
+      profit_hussain   : 'أرباح حسين',
+      profit_nowar     : 'أرباح نوار',
+      net_profit       : 'صافي الربح',
+      // ── Status / Stage ──
+      status           : 'الحالة',
+      stage            : 'المرحلة',
+      type             : 'النوع',
+      currency         : 'العملة',
+      deleted          : 'محذوف',
+      // ── Terms / Notes ──
+      payment_terms    : 'شروط الدفع',
+      credit_days      : 'أيام الائتمان',
+      notes            : 'ملاحظات',
+      description      : 'الوصف',
+      reference        : 'المرجع',
+      site             : 'الموقع',
+      // ── PO / Delivery ──
+      lpo_number       : 'رقم أمر الشراء',
+      order_number     : 'رقم الأمر',
+      delivery_to      : 'التسليم إلى',
+      required_delivery: 'تاريخ التسليم المطلوب',
+      // ── Payment ──
+      payment_date     : 'تاريخ الدفع',
+      payment_method   : 'طريقة الدفع',
+      // ── Contact ──
+      email            : 'البريد الإلكتروني',
+      phone            : 'الهاتف',
+      address          : 'العنوان',
+      // ── Items ──
+      invoice_lines    : 'بنود الفاتورة',
+      quantity         : 'الكمية',
+      unit_price       : 'سعر الوحدة',
+      product_name     : 'اسم المنتج',
+      category         : 'الفئة',
+      // ── Expenses ──
+      extra_expenses   : 'مصاريف إضافية',
+      transport_cost   : 'أجور النقل',
+      gift_expense     : 'هدايا / صرفيات',
+      // ── System ──
+      created_by       : 'أنشأ بواسطة',
+      user_id          : 'المستخدم'
     };
+
+    // UUID regex
+    var _uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // ISO date — YYYY-MM-DD
+    var _isoDateRx = /^(\d{4})-(\d{2})-(\d{2})/;
+
     function _fieldLabel(k){ return _fieldLabels[k] || k; }
-    function _fmtVal(v){ if(v===null||v===undefined||v==='') return '—'; if(typeof v==='boolean') return v?'نعم':'لا'; return String(v); }
+
+    // Format date → DD/MM/YYYY (LTR English digits)
+    function _fmtDate(s){
+      var m = _isoDateRx.exec(s);
+      if(!m) return s;
+      return m[3]+'/'+m[2]+'/'+m[1];
+    }
+
+    // Format value for display — never raw UUIDs, ISO dates, JSON blobs
+    function _fmtVal(v){
+      if(v===null || v===undefined || v==='') return null; // null = hide row
+      if(typeof v === 'boolean') return v ? 'نعم' : 'لا';
+      var s = String(v).trim();
+      if(s === '0' || s === '') return null;
+      // UUID → hide
+      if(_uuidRx.test(s)) return null;
+      // ISO date → DD/MM/YYYY
+      if(_isoDateRx.test(s)) return _fmtDate(s);
+      // raw JSON blob → hide
+      if((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) return null;
+      return s;
+    }
+
+    // Is this field meaningful enough to show?
+    function _shouldShow(key, val){
+      if(_HIDDEN_FIELDS.has(key)) return false;
+      var fmted = _fmtVal(val);
+      if(fmted === null || fmted === '—' || fmted === 'null') return false;
+      return true;
+    }
 
     // ── Modal موحد لتفاصيل التغيير ──
     function _openDiffModal(row){
@@ -5349,49 +5515,50 @@ async function renderActivity() {
       var meta=document.createElement('div');
       meta.style.cssText='padding:10px 22px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;gap:18px;flex-wrap:wrap;flex-shrink:0;';
       meta.innerHTML='<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">👤 <b style="color:var(--text)">'+_userName(row.user_id)+'</b></span>'+
-        '<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">🕒 <b style="color:var(--text)">'+_formatDate(row.created_at)+'</b></span>';
+        '<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">🕒 <b style="color:var(--text);direction:ltr;display:inline-block">'+_formatDate(row.created_at)+'</b></span>';
       modal.appendChild(meta);
 
       var body=document.createElement('div');
       body.style.cssText='padding:20px 22px;flex:1;';
 
+      // ── Helper: build a clean field row ──
+      function _mkRow(labelText, valueHtml, valueColor){
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:baseline;gap:0;padding:10px 0;border-bottom:1px solid var(--border);';
+        row.innerHTML=
+          '<div style="width:42%;font-size:12px;font-weight:600;color:var(--text3);padding-left:4px;flex-shrink:0;">'+labelText+'</div>'+
+          '<div style="flex:1;font-size:13px;font-weight:600;color:'+(valueColor||'var(--text)')+';direction:ltr;text-align:left;">'+valueHtml+'</div>';
+        return row;
+      }
+
       if(row.action==='create'){
         // ── إنشاء: بيانات after فقط ──
-        var tbl=document.createElement('table');
-        tbl.style.cssText='width:100%;border-collapse:collapse;font-size:13px;';
-        var entries=Object.entries(after).filter(function(kv){ return !['id','updated_at'].includes(kv[0]); });
-        if(entries.length===0){ body.innerHTML+='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">لا توجد بيانات</div>'; }
-        else {
+        var entries=Object.entries(after).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
+        if(entries.length===0){
+          body.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">لا توجد بيانات</div>';
+        } else {
           entries.forEach(function(kv){
-            var tr=document.createElement('tr');
-            tr.innerHTML='<td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text3);width:38%;font-weight:600;font-size:12px">'+_fieldLabel(kv[0])+'</td>'+
-              '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;color:#16a34a;font-size:13px">'+_fmtVal(kv[1])+'</td>';
-            tbl.appendChild(tr);
+            body.appendChild(_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1]), '#16a34a'));
           });
-          body.appendChild(tbl);
         }
       } else if(row.action==='delete'){
         // ── حذف: note + بيانات before ──
         var note=document.createElement('div');
-        note.style.cssText='color:#dc2626;font-size:13px;font-weight:700;padding:10px 14px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;';
+        note.style.cssText='color:#dc2626;font-size:13px;font-weight:700;padding:10px 14px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;';
         note.innerHTML='🗑️ تم حذف هذه الفاتورة';
         body.appendChild(note);
-        var tbl2=document.createElement('table');
-        tbl2.style.cssText='width:100%;border-collapse:collapse;font-size:13px;';
-        var bEntries=Object.entries(before).filter(function(kv){ return !['id','updated_at'].includes(kv[0]); });
-        if(bEntries.length===0){ body.innerHTML+='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">لا توجد بيانات سابقة</div>'; }
-        else {
+        var bEntries=Object.entries(before).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
+        if(bEntries.length===0){
+          body.innerHTML+='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">لا توجد بيانات سابقة</div>';
+        } else {
           bEntries.forEach(function(kv){
-            var tr=document.createElement('tr');
-            tr.innerHTML='<td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text3);width:38%;font-weight:600;font-size:12px">'+_fieldLabel(kv[0])+'</td>'+
-              '<td style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text)">'+_fmtVal(kv[1])+'</td>';
-            tbl2.appendChild(tr);
+            body.appendChild(_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1]), 'var(--text)'));
           });
-          body.appendChild(tbl2);
         }
       } else {
         // ── تعديل: جدول مقارنة قبل / بعد ──
-        if(changes.length===0){
+        var visibleChanges=changes.filter(function(c){ return !_HIDDEN_FIELDS.has(c.field); });
+        if(visibleChanges.length===0){
           var noChange=document.createElement('div');
           noChange.style.cssText='color:var(--text3);font-size:13px;text-align:center;padding:24px;';
           noChange.textContent='لا توجد تغييرات مسجلة';
@@ -5401,19 +5568,22 @@ async function renderActivity() {
           tbl3.style.cssText='width:100%;border-collapse:collapse;font-size:13px;';
           var thead=document.createElement('thead');
           thead.innerHTML='<tr style="background:var(--bg4)">'+
-            '<th style="padding:9px 10px;text-align:right;font-size:11px;font-weight:700;color:var(--text3);border-bottom:2px solid var(--border2)">الحقل</th>'+
-            '<th style="padding:9px 10px;text-align:right;font-size:11px;font-weight:700;color:#dc2626;border-bottom:2px solid var(--border2)">قبل</th>'+
-            '<th style="padding:9px 10px;text-align:right;font-size:11px;font-weight:700;color:#16a34a;border-bottom:2px solid var(--border2)">بعد</th></tr>';
+            '<th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text3);border-bottom:2px solid var(--border2);white-space:nowrap">الحقل</th>'+
+            '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#dc2626;border-bottom:2px solid var(--border2)">قبل</th>'+
+            '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#16a34a;border-bottom:2px solid var(--border2)">بعد</th></tr>';
           tbl3.appendChild(thead);
           var tbody3=document.createElement('tbody');
-          changes.forEach(function(c){
+          visibleChanges.forEach(function(c){
+            var bv=_fmtVal(c.before); var av=_fmtVal(c.after);
+            if(bv===null&&av===null) return; // skip empty rows
             var tr=document.createElement('tr');
             tr.style.cssText='transition:background .1s;';
             tr.onmouseenter=function(){ this.style.background='var(--bg3)'; };
             tr.onmouseleave=function(){ this.style.background=''; };
-            tr.innerHTML='<td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text3);font-weight:600;font-size:12px">'+_fieldLabel(c.field)+'</td>'+
-              '<td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#dc2626;text-decoration:line-through;opacity:.8">'+_fmtVal(c.before)+'</td>'+
-              '<td style="padding:8px 10px;border-bottom:1px solid var(--border);color:#16a34a;font-weight:700">'+_fmtVal(c.after)+'</td>';
+            tr.innerHTML=
+              '<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text3);font-weight:600;font-size:12px;white-space:nowrap">'+_fieldLabel(c.field)+'</td>'+
+              '<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:#dc2626;text-decoration:line-through;opacity:.85;direction:ltr;text-align:left;">'+(bv||'—')+'</td>'+
+              '<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:#16a34a;font-weight:700;direction:ltr;text-align:left;">'+(av||'—')+'</td>';
             tbody3.appendChild(tr);
           });
           tbl3.appendChild(tbody3);
@@ -5433,7 +5603,7 @@ async function renderActivity() {
 
     // Filter Bar
     var filterBar=document.createElement('div');
-    filterBar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;';
+    filterBar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);';
 
     var filterSelect=document.createElement('select');
     filterSelect.id='activityFilter'; filterSelect.className='form-select';
@@ -5441,7 +5611,7 @@ async function renderActivity() {
     [
       ['all','الكل'],['create_user','إنشاء مستخدم'],['delete_user','حذف مستخدم'],
       ['update_role','تغيير دور'],['update_permissions','تعديل صلاحيات'],
-      ['set_password','تغيير كلمة المرور'],['delete_invoices','حذف فواتير (audit)'],
+      ['set_password','تغيير كلمة المرور'],['delete_invoices','حذف فواتير'],
       ['invoice_create','إنشاء فاتورة'],['invoice_update','تعديل فاتورة'],['invoice_delete','حذف فاتورة'],
     ].forEach(function(opt){
       var o=document.createElement('option');
@@ -5487,38 +5657,36 @@ async function renderActivity() {
 
     // ── قسم invoice_history ──
     if(histRows.length>0){
-      var hcard=document.createElement('div'); hcard.className='table-card'; hcard.style.marginBottom='16px';
+      var hcard=document.createElement('div'); hcard.className='table-card'; hcard.style.cssText='margin-bottom:16px;overflow:hidden;';
       var hhd=document.createElement('div'); hhd.className='table-header';
       var htt=document.createElement('div'); htt.className='table-title'; htt.textContent='🧾 سجل الفواتير';
       var hct=document.createElement('div'); hct.className='table-count'; hct.textContent=histRows.length+' عملية';
       hhd.appendChild(htt); hhd.appendChild(hct); hcard.appendChild(hhd);
-      var hlist=document.createElement('div'); hlist.style.cssText='display:flex;flex-direction:column;gap:0;';
+      var hlist=document.createElement('div'); hlist.style.cssText='display:flex;flex-direction:column;';
       histRows.forEach(function(row){
+        var actionCls=row.action==='create'?'create':row.action==='update'?'update':'delete';
         var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
-        var color=_actionColor(row.action);
-        var bgDot=row.action==='create'?'#dcfce7':row.action==='update'?'#ffedd5':'#fee2e2';
+        var actionAr=(row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف')+' فاتورة '+(row.invoice_id||'—');
         var item=document.createElement('div');
-        item.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer;';
-        item.onmouseenter=function(){ this.style.background='var(--bg3)'; };
-        item.onmouseleave=function(){ this.style.background=''; };
+        item.className='activity-log-item';
         var dot=document.createElement('div');
-        dot.style.cssText='width:34px;height:34px;border-radius:50%;background:'+bgDot+';display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;';
+        dot.className='activity-log-dot '+actionCls;
         dot.textContent=actionIcon;
-        var info=document.createElement('div'); info.style.cssText='flex:1;min-width:0;';
-        var lbl=document.createElement('div');
-        lbl.style.cssText='font-weight:700;color:'+color+';font-size:13px;';
-        lbl.textContent=(row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف')+' فاتورة '+(row.invoice_id||'—');
-        var sub=document.createElement('div');
-        sub.style.cssText='font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:10px;';
-        sub.innerHTML='<span>👤 '+_userName(row.user_id)+'</span><span>🕒 '+_formatDate(row.created_at)+'</span>';
-        info.appendChild(lbl); info.appendChild(sub);
+        var body=document.createElement('div'); body.className='activity-log-body';
+        var lbl=document.createElement('div'); lbl.className='activity-log-label '+actionCls; lbl.textContent=actionAr;
+        var meta=document.createElement('div'); meta.className='activity-log-meta';
+        meta.innerHTML='<span>👤 '+_userName(row.user_id)+'</span><span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
+        body.appendChild(lbl); body.appendChild(meta);
         var detBtn=document.createElement('button');
         detBtn.innerHTML='تفاصيل →';
-        detBtn.style.cssText='padding:4px 12px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--text2);transition:all .12s;white-space:nowrap;';
-        detBtn.onmouseenter=function(){ this.style.background=bgDot; this.style.borderColor=color; this.style.color=color; };
-        detBtn.onmouseleave=function(){ this.style.background='var(--bg4)'; this.style.borderColor='var(--border2)'; this.style.color='var(--text2)'; };
-        (function(r){ detBtn.addEventListener('click',function(e){ e.stopPropagation(); _openDiffModal(r); }); item.addEventListener('click',function(){ _openDiffModal(r); }); })(row);
-        item.appendChild(dot); item.appendChild(info); item.appendChild(detBtn);
+        detBtn.style.cssText='padding:5px 13px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--text2);transition:all .12s;white-space:nowrap;flex-shrink:0;';
+        (function(r,b,c){ 
+          b.onmouseenter=function(){ b.style.borderColor=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; b.style.color=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; };
+          b.onmouseleave=function(){ b.style.borderColor='var(--border2)'; b.style.color='var(--text2)'; };
+          b.addEventListener('click',function(e){ e.stopPropagation(); _openDiffModal(r); });
+          item.addEventListener('click',function(){ _openDiffModal(r); });
+        })(row,detBtn,actionCls);
+        item.appendChild(dot); item.appendChild(body); item.appendChild(detBtn);
         hlist.appendChild(item);
       });
       hcard.appendChild(hlist); pc.appendChild(hcard);
@@ -5535,7 +5703,7 @@ async function renderActivity() {
       var empty=document.createElement('div'); empty.className='empty-state'; empty.textContent='لا توجد نتائج';
       card.appendChild(empty);
     } else {
-      var list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;gap:0';
+      var list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;';
       function sameIds(a,b){ if(!Array.isArray(a)||!Array.isArray(b)) return false; if(a.length!==b.length) return false; var s=new Set(a); return b.every(function(id){ return s.has(id); }); }
       auditRows.forEach(function(row){
         // تحديد نوع العملية ولون وأيقونة
@@ -5548,21 +5716,21 @@ async function renderActivity() {
         else if(aType==='update_role'||aType==='update_permissions'){ aIcon='🔑'; aBg='#ffedd5'; aColor='#ea580c'; }
         else if(aType==='set_password'){ aIcon='🔒'; aBg='#ede9fe'; aColor='#7c3aed'; }
 
+        // determine CSS class
+        var aCls='system';
+        if(aType.includes('create')) aCls='create';
+        else if(aType.includes('delete')||aType.includes('undo')) aCls='delete';
+        else if(aType.includes('update')||aType.includes('role')||aType.includes('perm')||aType.includes('password')) aCls='update';
         var item=document.createElement('div');
-        item.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .12s;';
-        item.onmouseenter=function(){ this.style.background='var(--bg3)'; };
-        item.onmouseleave=function(){ this.style.background=''; };
+        item.className='activity-log-item';
         var dot=document.createElement('div');
-        dot.style.cssText='width:34px;height:34px;border-radius:50%;background:'+aBg+';display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;';
+        dot.className='activity-log-dot '+aCls;
         dot.textContent=aIcon;
-        var info=document.createElement('div'); info.style.cssText='flex:1;min-width:0;';
-        var lbl=document.createElement('div');
-        lbl.style.cssText='font-weight:600;color:'+aColor+';font-size:13px;';
-        lbl.textContent=_formatAction(row);
-        var sub=document.createElement('div');
-        sub.style.cssText='font-size:11px;color:var(--text3);margin-top:2px;';
-        sub.textContent='🕒 '+_formatDate(row.created_at);
-        info.appendChild(lbl); info.appendChild(sub);
+        var body=document.createElement('div'); body.className='activity-log-body';
+        var lbl=document.createElement('div'); lbl.className='activity-log-label '+aCls; lbl.textContent=_formatAction(row);
+        var sub=document.createElement('div'); sub.className='activity-log-meta';
+        sub.innerHTML='<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
+        body.appendChild(lbl); body.appendChild(sub);
         var right=document.createElement('div'); right.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
         if(row.action_type==='delete_invoices'){
           var rowDetails={}; try { rowDetails=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
@@ -5578,7 +5746,7 @@ async function renderActivity() {
             }
           }
         }
-        item.appendChild(dot); item.appendChild(info); item.appendChild(right); list.appendChild(item);
+        item.appendChild(dot); item.appendChild(body); item.appendChild(right); list.appendChild(item);
       });
       card.appendChild(list);
     }
@@ -5604,7 +5772,16 @@ async function renderLoginLog() {
 
     function _formatDate(ts){
       if(!ts) return '—';
-      try { return new Date(ts).toLocaleString('ar-IQ',{dateStyle:'short',timeStyle:'short'}); }
+      try {
+        var d=new Date(ts);
+        if(isNaN(d)) return ts;
+        var dd=String(d.getDate()).padStart(2,'0');
+        var mm=String(d.getMonth()+1).padStart(2,'0');
+        var yy=d.getFullYear();
+        var hh=String(d.getHours()).padStart(2,'0');
+        var mi=String(d.getMinutes()).padStart(2,'0');
+        return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
+      }
       catch(_){ return ts; }
     }
 
@@ -5647,7 +5824,7 @@ async function renderLoginLog() {
         email.textContent=row.email||'—';
         var sub = document.createElement('div');
         sub.style.cssText='font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;';
-        sub.innerHTML='<span>🕒 '+_formatDate(row.created_at)+'</span><span>'+dev.icon+' '+dev.label+'</span>';
+        sub.innerHTML='<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span><span>'+dev.icon+' '+dev.label+'</span>';
         info.appendChild(email); info.appendChild(sub);
         item.appendChild(dot); item.appendChild(info);
         list.appendChild(item);
@@ -12245,6 +12422,29 @@ async function _copyPublicLink(invId){
   }
 
   function reply(text) { addMsg(text, 'u'); respond(text); }
+
+  
+// ══════════════════════════════════════════
+// 🗓️ ARABIC DATE INPUTS — v67.4
+// Force Arabic locale display for date inputs
+// ══════════════════════════════════════════
+(function(){
+  var _arabicMonths = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
+    'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  var _arabicMonthsIraq = ['كانون الثاني','شباط','آذار','نيسان','مايس','حزيران',
+    'تموز','آب','أيلول','تشرين الأول','تشرين الثاني','كانون الأول'];
+
+  // Format a date value to Arabic display
+  window._fmtDateAr = function(val){
+    if(!val) return '';
+    try {
+      var parts = val.split('-');
+      if(parts.length!==3) return val;
+      var y=parts[0], m=parseInt(parts[1],10)-1, d=parseInt(parts[2],10);
+      return d + ' ' + _arabicMonths[m] + ' ' + y;
+    } catch(_){ return val; }
+  };
+})();
 
   // Expose
   window.wadiToggle = toggle;
