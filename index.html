@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.16">
+<meta name="app-version" content="v68.00">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -2018,6 +2018,133 @@ body.dark .activity-log-dot.delete { background:#7f1d1d; }
 body.dark .activity-log-dot.system { background:#1e3a5f; }
 body.dark .activity-log-item:hover { background:var(--bg2); }
 
+/* ══════════════════════════════════════════
+   📊 ACTIVITY ACCORDION — v68.00
+   Notion-style lazy-load section headers
+   ══════════════════════════════════════════ */
+.act-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.act-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--dur-fast);
+}
+.act-section:hover { box-shadow: var(--shadow-md); }
+.act-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast);
+  gap: 12px;
+}
+.act-section-header:hover { background: var(--bg3); }
+.act-section-header:active { background: var(--bg4); }
+.act-section-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.act-section-icon {
+  width: 38px; height: 38px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.act-section-icon.inv  { background: #dbeafe; }
+.act-section-icon.ops  { background: #d1fae5; }
+.act-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.2px;
+}
+.act-section-sub {
+  font-size: 11.5px;
+  color: var(--text3);
+  margin-top: 1px;
+}
+.act-section-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.act-section-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 2px 10px;
+  display: none; /* shown after load */
+}
+.act-section-arrow {
+  font-size: 11px;
+  color: var(--text3);
+  transition: transform var(--dur-normal) var(--ease-out);
+  flex-shrink: 0;
+}
+.act-section.open .act-section-arrow { transform: rotate(90deg); }
+.act-section-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.38s var(--ease-out);
+}
+.act-section.open .act-section-body {
+  max-height: 9999px; /* large enough for any content */
+}
+.act-section-inner {
+  border-top: 1px solid var(--border);
+}
+.act-section-loading {
+  padding: 28px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+/* spinner */
+.act-spin {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: act-spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes act-spin { to { transform: rotate(360deg); } }
+
+/* Filter bar inside accordion */
+.act-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+
+/* dark mode */
+body.dark .act-section { background: var(--bg2); border-color: var(--border); }
+body.dark .act-section-header:hover { background: var(--bg3); }
+body.dark .act-section-badge { background: #1e3a5f; border-color: #2563eb44; }
+
+
 
 #public-view{
   display:none;
@@ -2360,7 +2487,7 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
         </div>
         <div class="nav-group-items" id="grp-system">
           <div class="nav-item" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>الإعدادات</div>
-          <div class="nav-item" id="nav-activity" onclick="showPage('activity')"><span class="nav-icon">📊</span>سجل النشاط</div>
+          <div class="nav-item" id="nav-activity" onclick="showPage('activity')"><span class="nav-icon">📊</span>النشاط</div>
           <div class="nav-item" id="nav-login_log" onclick="showPage('login_log')"><span class="nav-icon">🔐</span>سجل الدخول</div>
           <div class="nav-item" id="nav-admin" onclick="showPage('admin')"><span class="nav-icon">👑</span>لوحة الإدارة</div>
         </div>
@@ -3388,7 +3515,7 @@ const pageInfo={
   credits:['💰 دفعات على الحساب','رصيد العملاء الدائن','<button class="btn btn-primary btn-sm" onclick="openCreditModal()">＋ دفعة جديدة</button>'],
   reports:['📈 التقارير','التقارير المالية الشاملة','<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ PDF</button>'],
   settings:['⚙️ الإعدادات','إعدادات النظام',''],
-  activity:['📊 سجل النشاط','تاريخ العمليات',''],
+  activity:['📊 النشاط','سجل الفواتير والعمليات',''],
   login_log:['🔐 سجل الدخول','سجل تسجيلات الدخول',''],
   admin:['👑 لوحة الإدارة','إدارة المستخدمين والصلاحيات',''],
 };
@@ -5374,577 +5501,452 @@ function diffObjects(before, after){
   return changes;
 }
 
-async function renderActivity() {
-  var _savedFilter = document.getElementById('activityFilter')?.value || 'all';
-  var _savedSearch = document.getElementById('activitySearch')?.value || '';
-  var _savedUser   = document.getElementById('activityUserFilter')?.value || 'all';
-  var _savedDate   = document.getElementById('activityDateFilter')?.value || '';
+// ════════════════════════════════════════════════════════
+// 📊 ACTIVITY PAGE — v68.00
+// Accordion-style lazy load: 2 sections, click to expand.
+// ◆ 📄 سجل الفواتير  → invoice_history
+// ◆ 📋 سجل العمليات → audit_logs
+// Data is NOT fetched until the section is clicked.
+// Only ONE section open at a time (accordion).
+// ════════════════════════════════════════════════════════
+function renderActivity() {
+  var pc = document.getElementById('page-content');
+  pc.innerHTML = '';
 
-  setLoading('جاري تحميل سجل النشاط...');
-  try {
-    // ── جلب audit_logs ──
-    const { data: auditData, error: auditError } = await sb
-      .from('audit_logs')
-      .select('id,action_type,details,created_at,user_id')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (auditError) throw auditError;
+  // ── Shared helpers (defined once, captured by both section loaders) ──
 
-    // ── جلب invoice_history ──
-    const { data: histData } = await sb
-      .from('invoice_history')
-      .select('id,invoice_id,action,before,after,user_id,created_at')
-      .order('created_at', { ascending: false })
-      .limit(100);
+  function _formatDate(ts){
+    if(!ts) return '—';
+    try{
+      var d=new Date(ts); if(isNaN(d)) return ts;
+      var dd=String(d.getDate()).padStart(2,'0');
+      var mm=String(d.getMonth()+1).padStart(2,'0');
+      var yy=d.getFullYear();
+      var hh=String(d.getHours()).padStart(2,'0');
+      var mi=String(d.getMinutes()).padStart(2,'0');
+      return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
+    }catch(_){ return ts; }
+  }
 
-    // ── Batch fetch profiles ──
-    var _allUserIds = [];
-    (auditData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
-    (histData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
-    var _uniqueIds = _allUserIds.filter(function(v,i,a){ return a.indexOf(v)===i; });
-    var userMap = {};
-    if (_uniqueIds.length > 0) {
-      var { data: _profiles } = await sb.from('profiles').select('id,name,email');
-      (_profiles||[]).forEach(function(u){ userMap[u.id]=u; });
-    }
+  // Field labels + hidden-field sets (used by diff modal)
+  var _HIDDEN_FIELDS = new Set([
+    'id','user_id','created_by','updated_by','owner_id',
+    'updated_at','deleted_by','soft_deleted','__v',
+    'customer_id','is_deleted','public_link_enabled','invoice_type','created_date'
+  ]);
+  var _IMPORTANT_ZERO = new Set([
+    'total','cost_amount','sale_amount',
+    'comm_omar_pct','comm_sini_pct','comm_hussain_pct','comm_kapt_pct',
+    'discount','tax','paid_amount','remaining','balance',
+    'quantity','unit_price','net_profit','profit','subtotal'
+  ]);
+  var _fieldLabels = {
+    invoice_id:'رقم الفاتورة',invoice_number:'رقم الفاتورة',id:'المعرّف',reference:'المرجع',
+    date:'التاريخ',invoice_date:'تاريخ الفاتورة',created_at:'تاريخ الإنشاء',created_date:'تاريخ الإنشاء',
+    updated_at:'تاريخ التحديث',deleted_at:'تاريخ الحذف',due_date:'تاريخ الاستحقاق',payment_date:'تاريخ الدفع',
+    required_delivery:'تاريخ التسليم المطلوب',client_id:'العميل',customer_id:'العميل',
+    customer_name:'اسم العميل',name:'الاسم',sale_amount:'سعر البيع',cost_amount:'الكلفة',
+    total:'المبلغ الإجمالي',subtotal:'المجموع الفرعي',amount:'المبلغ',paid_amount:'المبلغ المدفوع',
+    remaining:'المتبقي',balance:'الرصيد',discount:'الخصم',tax:'الضريبة',
+    comm_omar_pct:'عمولة عمر %',comm_hussain_pct:'عمولة حسين %',comm_sini_pct:'عمولة الصيني %',
+    comm_kapt_pct:'عمولة الكابتن %',comm_omar:'عمولة عمر',comm_hussain:'عمولة حسين',
+    comm_sini:'عمولة الصيني',comm_kapt:'عمولة الكابتن',
+    profit:'الربح',profit_pct:'نسبة الربح %',profit_hussain:'أرباح حسين',
+    profit_nowar:'أرباح نوار',net_profit:'صافي الربح',
+    status:'الحالة',stage:'المرحلة',type:'نوع الفاتورة',invoice_type:'نوع الفاتورة',
+    currency:'العملة',deleted:'محذوف',payment_terms:'شروط الدفع',credit_days:'أيام الائتمان',
+    notes:'ملاحظات',description:'الوصف',next_action:'الإجراء التالي',site:'الموقع / المشروع',
+    lpo_number:'رقم أمر الشراء',order_number:'رقم الأمر',delivery_to:'التسليم إلى',
+    payment_method:'طريقة الدفع',email:'البريد الإلكتروني',phone:'الهاتف',address:'العنوان',
+    invoice_lines:'بنود الفاتورة',quantity:'الكمية',unit_price:'سعر الوحدة',
+    product_name:'اسم المنتج / الخدمة',category:'الفئة',extra_expenses:'مصاريف إضافية',
+    transport_cost:'أجور النقل',gift_expense:'هدايا / صرفيات',
+    created_by:'أنشأ بواسطة',user_id:'المستخدم'
+  };
+  var _uuidRx=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var _isoDateRx=/^(\d{4})-(\d{2})-(\d{2})/;
+  function _fieldLabel(k){ return _fieldLabels[k]||k; }
+  function _fmtDate(s){ var m=_isoDateRx.exec(s); if(!m) return s; return m[3]+'/'+m[2]+'/'+m[1]; }
+  function _fmtVal(v,fieldKey){
+    if(v===null||v===undefined||v==='') return null;
+    if(typeof v==='boolean') return v?'نعم':'لا';
+    var s=String(v).trim();
+    if(s===''||s==='null'||s==='undefined'||s==='false') return null;
+    if(s==='0'||s==='0.00'||s==='0.0') return (fieldKey&&_IMPORTANT_ZERO.has(fieldKey))?'0':null;
+    if(_uuidRx.test(s)) return null;
+    if(_isoDateRx.test(s)) return _fmtDate(s);
+    if((s.startsWith('{')&&s.endsWith('}'))||(s.startsWith('[')&&s.endsWith(']'))) return null;
+    return s;
+  }
+  function _shouldShow(key,val){ if(_HIDDEN_FIELDS.has(key)) return false; return _fmtVal(val,key)!==null; }
 
-    var userOptions = Object.values(userMap);
-
+  // ── Diff modal (unchanged logic, lifted out) ──
+  function _openDiffModal(row, userMap){
+    var before=row.before||{};
+    var after=row.after||{};
+    var changes=diffObjects(before,after);
+    var color=row.action==='create'?'#16a34a':row.action==='update'?'#ea580c':'#dc2626';
+    var bgColor=row.action==='create'?'#f0fdf4':row.action==='update'?'#fff7ed':'#fff5f5';
+    var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
+    var actionLabel=row.action==='create'?'إنشاء فاتورة':row.action==='update'?'تعديل فاتورة':'حذف فاتورة';
     function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
-    function _formatDate(ts){
-      if(!ts) return '—';
-      try {
-        var d=new Date(ts);
-        if(isNaN(d)) return ts;
-        var dd=String(d.getDate()).padStart(2,'0');
-        var mm=String(d.getMonth()+1).padStart(2,'0');
-        var yy=d.getFullYear();
-        var hh=String(d.getHours()).padStart(2,'0');
-        var mi=String(d.getMinutes()).padStart(2,'0');
-        return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
-      }
-      catch(_){ return ts; }
+    var overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);';
+    var modal=document.createElement('div');
+    modal.style.cssText='background:#fff;border-radius:14px;width:100%;max-width:580px;max-height:85vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);display:flex;flex-direction:column;';
+    var hd=document.createElement('div');
+    hd.style.cssText='padding:18px 22px;border-bottom:3px solid '+color+';display:flex;align-items:center;justify-content:space-between;background:'+bgColor+';border-radius:14px 14px 0 0;flex-shrink:0;';
+    var htitle=document.createElement('div');
+    htitle.innerHTML='<div style="font-size:15px;font-weight:800;color:'+color+'">'+actionIcon+' '+actionLabel+'</div>'+
+      '<div style="font-size:12px;color:var(--text3);margin-top:2px;font-weight:500">رقم الفاتورة: <b style="color:var(--text)">'+(row.invoice_id||'—')+'</b></div>';
+    var closeBtn=document.createElement('button');
+    closeBtn.innerHTML='✕';
+    closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px;border-radius:6px;transition:background .15s;line-height:1;';
+    closeBtn.onmouseenter=function(){ this.style.background='rgba(0,0,0,.08)'; };
+    closeBtn.onmouseleave=function(){ this.style.background='none'; };
+    closeBtn.onclick=function(){ document.body.removeChild(overlay); };
+    hd.appendChild(htitle); hd.appendChild(closeBtn); modal.appendChild(hd);
+    var meta=document.createElement('div');
+    meta.style.cssText='padding:10px 22px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;gap:18px;flex-wrap:wrap;flex-shrink:0;';
+    meta.innerHTML='<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">👤 <b style="color:var(--text)">'+_userName(row.user_id)+'</b></span>'+
+      '<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">🕒 <b style="color:var(--text);direction:ltr;display:inline-block">'+_formatDate(row.created_at)+'</b></span>';
+    modal.appendChild(meta);
+    var body=document.createElement('div');
+    body.style.cssText='padding:16px 22px 20px;flex:1;';
+    function _mkRow(labelText,valueHtml,valueColor){
+      if(valueHtml===null||valueHtml===undefined) return null;
+      var r=document.createElement('div');
+      r.style.cssText='display:flex;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px solid #f3f3f2;';
+      r.innerHTML='<div style="min-width:120px;max-width:44%;font-size:11.5px;font-weight:500;color:#9ca3af;flex-shrink:0;line-height:1.6;text-align:right;">'+labelText+'</div>'+
+        '<div style="flex:1;font-size:13px;font-weight:600;color:'+(valueColor||'#111111')+';direction:ltr;text-align:left;line-height:1.6;word-break:break-word;">'+valueHtml+'</div>';
+      return r;
     }
-
-    function _formatAction(row) {
-      var type=row.action_type||''; var details={};
-      try { details=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
-      var adminName=_userName(row.user_id);
-      var targetUser=userMap[details.target_user_id]||null;
-      var targetName=(targetUser&&(targetUser.name||targetUser.email))||details.username||'مستخدم محذوف';
-      if(type==='delete_invoices'){ var ids=(details.ids||[]); return '🧾 '+adminName+' حذف الفاتورة '+(ids.length?ids.join('، '):'—'); }
-      if(type==='delete_invoice')  return '🧾 حذف فاتورة: '+(details.id||'—');
-      if(type==='undo_delete'){ var ids2=(details.ids||[]); return '↩️ استرجاع: '+(ids2.length?ids2.join('، '):'—'); }
-      if(type==='create_user') return '👤 '+adminName+' أنشأ المستخدم '+(details.username||'—');
-      if(type==='delete_user') return '🗑️ '+adminName+' حذف المستخدم '+targetName;
-      if(type==='update_role') return '🔄 '+adminName+' غيّر دور '+targetName+' إلى '+(details.new_role||'—');
-      if(type==='update_permissions') return '🔑 '+adminName+' عدّل صلاحيات '+targetName;
-      if(type==='set_password') return '🔒 '+adminName+' غيّر كلمة مرور '+targetName;
-      return type;
-    }
-
-    function _histLabel(row){
-      var a=row.action==='create'?'➕ إنشاء':row.action==='update'?'✏️ تعديل':'🗑️ حذف';
-      return a+' فاتورة '+( row.invoice_id||'—');
-    }
-
-    function _actionColor(action){
-      if(action==='create') return '#16a34a';
-      if(action==='update') return '#ea580c';
-      if(action==='delete') return '#dc2626';
-      return 'var(--text3)';
-    }
-
-    // ── فلترة audit_logs ──
-    var auditRows = auditData||[];
-    if(_savedFilter!=='all') auditRows=auditRows.filter(function(l){ return l.action_type===_savedFilter; });
-    if(_savedUser!=='all')   auditRows=auditRows.filter(function(l){ return l.user_id===_savedUser; });
-    if(_savedDate)           auditRows=auditRows.filter(function(l){ return (l.created_at||'').startsWith(_savedDate); });
-    if(_savedSearch){
-      var _s=_savedSearch.toLowerCase();
-      auditRows=auditRows.filter(function(l){ return _formatAction(l).toLowerCase().includes(_s); });
-    }
-
-    // ── فلترة invoice_history ──
-    var histRows = histData||[];
-    if(_savedUser!=='all') histRows=histRows.filter(function(l){ return l.user_id===_savedUser; });
-    if(_savedDate)         histRows=histRows.filter(function(l){ return (l.created_at||'').startsWith(_savedDate); });
-    if(_savedSearch){
-      var _s2=_savedSearch.toLowerCase();
-      histRows=histRows.filter(function(l){ return _histLabel(l).toLowerCase().includes(_s2); });
-    }
-    // فلتر نوع العملية على invoice_history
-    if(_savedFilter==='invoice_create') histRows=histRows.filter(function(l){ return l.action==='create'; });
-    else if(_savedFilter==='invoice_update') histRows=histRows.filter(function(l){ return l.action==='update'; });
-    else if(_savedFilter==='invoice_delete') histRows=histRows.filter(function(l){ return l.action==='delete'; });
-    else if(_savedFilter!=='all'&&!['invoice_create','invoice_update','invoice_delete'].includes(_savedFilter)) histRows=[];
-
-    // ══════════════════════════════════════════════
-    // 🗂️ FIELD LABELS + VALUE FORMATTER — v67.4
-    // ══════════════════════════════════════════════
-
-    // Fields to NEVER show in any modal
-    // Fields that must NEVER appear in any modal
-    // ══════════════════════════════════════════════════════════
-    // 🗂️ MODAL DATA ENGINE — v67.14
-    // Handles field visibility, labelling, and value formatting
-    // ══════════════════════════════════════════════════════════
-
-    // Fields that must NEVER appear in any modal (system/internal)
-    var _HIDDEN_FIELDS = new Set([
-      'id', 'user_id', 'created_by', 'updated_by', 'owner_id',
-      'updated_at', 'deleted_by', 'soft_deleted', '__v',
-      'customer_id',          // shown via customer_name instead
-      'is_deleted',           // internal flag
-      'public_link_enabled',  // internal flag
-      'invoice_type',         // shown via type label instead
-      'created_date'          // shown via created_at
-    ]);
-
-    // Fields where 0 is a meaningful business value (must NOT be hidden)
-    var _IMPORTANT_ZERO = new Set([
-      'total', 'cost_amount', 'sale_amount',
-      'comm_omar_pct', 'comm_sini_pct', 'comm_hussain_pct', 'comm_kapt_pct',
-      'discount', 'tax', 'paid_amount', 'remaining', 'balance',
-      'quantity', 'unit_price', 'net_profit', 'profit', 'subtotal'
-    ]);
-
-    // ── Complete Arabic label map (ALL fields) ──
-    var _fieldLabels = {
-      // ── Invoice identifiers ──
-      invoice_id       : 'رقم الفاتورة',
-      invoice_number   : 'رقم الفاتورة',
-      id               : 'المعرّف',
-      reference        : 'المرجع',
-      // ── Dates ──
-      date             : 'التاريخ',
-      invoice_date     : 'تاريخ الفاتورة',
-      created_at       : 'تاريخ الإنشاء',
-      created_date     : 'تاريخ الإنشاء',
-      updated_at       : 'تاريخ التحديث',
-      deleted_at       : 'تاريخ الحذف',
-      due_date         : 'تاريخ الاستحقاق',
-      payment_date     : 'تاريخ الدفع',
-      required_delivery: 'تاريخ التسليم المطلوب',
-      // ── Customer ──
-      client_id        : 'العميل',
-      customer_id      : 'العميل',
-      customer_name    : 'اسم العميل',
-      name             : 'الاسم',
-      // ── Amounts ──
-      sale_amount      : 'سعر البيع',
-      cost_amount      : 'الكلفة',
-      total            : 'المبلغ الإجمالي',
-      subtotal         : 'المجموع الفرعي',
-      amount           : 'المبلغ',
-      paid_amount      : 'المبلغ المدفوع',
-      remaining        : 'المتبقي',
-      balance          : 'الرصيد',
-      discount         : 'الخصم',
-      tax              : 'الضريبة',
-      // ── Commissions (corrected labels) ──
-      comm_omar_pct    : 'عمولة عمر %',
-      comm_hussain_pct : 'عمولة حسين %',
-      comm_sini_pct    : 'عمولة الصيني %',
-      comm_kapt_pct    : 'عمولة الكابتن %',
-      comm_omar        : 'عمولة عمر',
-      comm_hussain     : 'عمولة حسين',
-      comm_sini        : 'عمولة الصيني',
-      comm_kapt        : 'عمولة الكابتن',
-      // ── Profit ──
-      profit           : 'الربح',
-      profit_pct       : 'نسبة الربح %',
-      profit_hussain   : 'أرباح حسين',
-      profit_nowar     : 'أرباح نوار',
-      net_profit       : 'صافي الربح',
-      // ── Status / Stage / Type ──
-      status           : 'الحالة',
-      stage            : 'المرحلة',
-      type             : 'نوع الفاتورة',
-      invoice_type     : 'نوع الفاتورة',
-      currency         : 'العملة',
-      deleted          : 'محذوف',
-      // ── Terms / Notes ──
-      payment_terms    : 'شروط الدفع',
-      credit_days      : 'أيام الائتمان',
-      notes            : 'ملاحظات',
-      description      : 'الوصف',
-      next_action      : 'الإجراء التالي',
-      site             : 'الموقع / المشروع',
-      // ── PO / Delivery ──
-      lpo_number       : 'رقم أمر الشراء',
-      order_number     : 'رقم الأمر',
-      delivery_to      : 'التسليم إلى',
-      // ── Payment ──
-      payment_method   : 'طريقة الدفع',
-      // ── Contact ──
-      email            : 'البريد الإلكتروني',
-      phone            : 'الهاتف',
-      address          : 'العنوان',
-      // ── Line items ──
-      invoice_lines    : 'بنود الفاتورة',
-      quantity         : 'الكمية',
-      unit_price       : 'سعر الوحدة',
-      product_name     : 'اسم المنتج / الخدمة',
-      category         : 'الفئة',
-      // ── Expenses ──
-      extra_expenses   : 'مصاريف إضافية',
-      transport_cost   : 'أجور النقل',
-      gift_expense     : 'هدايا / صرفيات',
-      // ── System (for display only where needed) ──
-      created_by       : 'أنشأ بواسطة',
-      user_id          : 'المستخدم'
-    };
-
-    // UUID regex
-    var _uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    // ISO date — YYYY-MM-DD
-    var _isoDateRx = /^(\d{4})-(\d{2})-(\d{2})/;
-
-    // Return Arabic label, or the raw key if unmapped
-    function _fieldLabel(k){ return _fieldLabels[k] || k; }
-
-    // Format date value → DD/MM/YYYY (English digits, LTR)
-    function _fmtDate(s){
-      var m = _isoDateRx.exec(s);
-      if(!m) return s;
-      return m[3]+'/'+m[2]+'/'+m[1];
-    }
-
-    // Format any value for display
-    // Returns: string to show | null (= hide this row entirely)
-    function _fmtVal(v, fieldKey){
-      if(v === null || v === undefined || v === '') return null;
-      if(typeof v === 'boolean') return v ? 'نعم' : 'لا';
-      var s = String(v).trim();
-      if(s === '') return null;
-      if(s === 'null' || s === 'undefined' || s === 'false') return null;
-      // Zero: show only for important numeric fields
-      if(s === '0' || s === '0.00' || s === '0.0'){
-        return (fieldKey && _IMPORTANT_ZERO.has(fieldKey)) ? '0' : null;
-      }
-      // UUID → always hide (never show raw IDs)
-      if(_uuidRx.test(s)) return null;
-      // ISO date → DD/MM/YYYY
-      if(_isoDateRx.test(s)) return _fmtDate(s);
-      // Raw JSON blob → hide
-      if((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) return null;
-      return s;
-    }
-
-    // Final gate: should this field row be visible?
-    function _shouldShow(key, val){
-      if(_HIDDEN_FIELDS.has(key)) return false;
-      return _fmtVal(val, key) !== null;
-    }
-
-    // ── Modal موحد لتفاصيل التغيير ──
-    function _openDiffModal(row){
-      var before=row.before||{};
-      var after=row.after||{};
-      var changes=diffObjects(before,after);
-      var color=row.action==='create'?'#16a34a':row.action==='update'?'#ea580c':'#dc2626';
-      var bgColor=row.action==='create'?'#f0fdf4':row.action==='update'?'#fff7ed':'#fff5f5';
-      var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
-      var actionLabel=row.action==='create'?'إنشاء فاتورة':row.action==='update'?'تعديل فاتورة':'حذف فاتورة';
-
-      var overlay=document.createElement('div');
-      overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);';
-
-      var modal=document.createElement('div');
-      modal.style.cssText='background:#fff;border-radius:14px;width:100%;max-width:580px;max-height:85vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);display:flex;flex-direction:column;';
-
-      // Header
-      var hd=document.createElement('div');
-      hd.style.cssText='padding:18px 22px;border-bottom:3px solid '+color+';display:flex;align-items:center;justify-content:space-between;background:'+bgColor+';border-radius:14px 14px 0 0;flex-shrink:0;';
-      var htitle=document.createElement('div');
-      htitle.innerHTML='<div style="font-size:15px;font-weight:800;color:'+color+'">'+actionIcon+' '+actionLabel+'</div>'+
-        '<div style="font-size:12px;color:var(--text3);margin-top:2px;font-weight:500">رقم الفاتورة: <b style="color:var(--text)">'+(row.invoice_id||'—')+'</b></div>';
-      var closeBtn=document.createElement('button');
-      closeBtn.innerHTML='✕';
-      closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px;border-radius:6px;transition:background .15s;line-height:1;';
-      closeBtn.onmouseenter=function(){ this.style.background='rgba(0,0,0,.08)'; };
-      closeBtn.onmouseleave=function(){ this.style.background='none'; };
-      closeBtn.onclick=function(){ document.body.removeChild(overlay); };
-      hd.appendChild(htitle); hd.appendChild(closeBtn);
-      modal.appendChild(hd);
-
-      // Meta info
-      var meta=document.createElement('div');
-      meta.style.cssText='padding:10px 22px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;gap:18px;flex-wrap:wrap;flex-shrink:0;';
-      meta.innerHTML='<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">👤 <b style="color:var(--text)">'+_userName(row.user_id)+'</b></span>'+
-        '<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">🕒 <b style="color:var(--text);direction:ltr;display:inline-block">'+_formatDate(row.created_at)+'</b></span>';
-      modal.appendChild(meta);
-
-      var body=document.createElement('div');
-      body.style.cssText='padding:16px 22px 20px;flex:1;';
-
-      // ── Notion-style field row: label (muted) + value (bold) ──
-      function _mkRow(labelText, valueHtml, valueColor){
-        if(valueHtml === null || valueHtml === undefined) return null;
-        var row=document.createElement('div');
-        row.style.cssText=[
-          'display:flex',
-          'align-items:baseline',
-          'gap:12px',
-          'padding:9px 0',
-          'border-bottom:1px solid #f3f3f2'  // Notion-soft border
-        ].join(';');
-        row.innerHTML=
-          '<div style="min-width:120px;max-width:44%;font-size:11.5px;font-weight:500;'+
-            'color:#9ca3af;flex-shrink:0;line-height:1.6;text-align:right;">'+labelText+'</div>'+
-          '<div style="flex:1;font-size:13px;font-weight:600;'+
-            'color:'+(valueColor||'#111111')+';direction:ltr;text-align:left;'+
-            'line-height:1.6;word-break:break-word;">'+valueHtml+'</div>';
-        return row;
-      }
-
-      if(row.action==='create'){
-        // ── إنشاء: بيانات after — business fields only ──
-        var entries=Object.entries(after).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
-        if(entries.length===0){
-          body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد بيانات</div>';
-        } else {
-          entries.forEach(function(kv){
-            var _cr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#16a34a');
-            if(_cr) body.appendChild(_cr);
-          });
-        }
-
-      } else if(row.action==='delete'){
-        // ── حذف: تنبيه + بيانات before ──
-        var note=document.createElement('div');
-        note.style.cssText=[
-          'color:#dc2626','font-size:12.5px','font-weight:600',
-          'padding:9px 13px','background:#fff5f5',
-          'border:1px solid #fecaca','border-radius:8px',
-          'margin-bottom:14px','display:flex','align-items:center','gap:8px'
-        ].join(';');
-        note.innerHTML='🗑️ تم حذف هذه الفاتورة';
-        body.appendChild(note);
-        var bEntries=Object.entries(before).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
-        if(bEntries.length===0){
-          body.innerHTML+='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0;">لا توجد بيانات</div>';
-        } else {
-          bEntries.forEach(function(kv){
-            var _dr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#111111');
-            if(_dr) body.appendChild(_dr);
-          });
-        }
-
-      } else {
-        // ── تعديل: Notion-style diff table ──
-        var visibleChanges=changes.filter(function(c){
-          if(_HIDDEN_FIELDS.has(c.field)) return false;
-          var bv=_fmtVal(c.before,c.field), av=_fmtVal(c.after,c.field);
-          return !(bv===null && av===null);
-        });
-        if(visibleChanges.length===0){
-          body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد تغييرات</div>';
-        } else {
-          // Table header
-          var tblWrap=document.createElement('div');
-          tblWrap.style.cssText='border-radius:8px;overflow:hidden;border:1px solid #f0f0ee;';
-          var tblHead=document.createElement('div');
-          tblHead.style.cssText=[
-            'display:grid','grid-template-columns:2fr 3fr 3fr',
-            'background:#f9f9f8','padding:8px 12px',
-            'border-bottom:1px solid #e9e9e7'
-          ].join(';');
-          tblHead.innerHTML=
-            '<div style="font-size:10.5px;font-weight:700;color:#9ca3af;text-align:right;">الحقل</div>'+
-            '<div style="font-size:10.5px;font-weight:700;color:#dc2626;text-align:left;padding-right:8px">قبل</div>'+
-            '<div style="font-size:10.5px;font-weight:700;color:#16a34a;text-align:left;">بعد</div>';
-          tblWrap.appendChild(tblHead);
-
-          visibleChanges.forEach(function(c, idx){
-            var bv=_fmtVal(c.before,c.field)||'—';
-            var av=_fmtVal(c.after,c.field)||'—';
-            var diffRow=document.createElement('div');
-            var isLast=(idx===visibleChanges.length-1);
-            diffRow.style.cssText=[
-              'display:grid','grid-template-columns:2fr 3fr 3fr',
-              'padding:9px 12px',
-              'transition:background .1s',
-              isLast?'':'border-bottom:1px solid #f3f3f2'
-            ].join(';');
-            diffRow.onmouseenter=function(){ this.style.background='#f9f9f8'; };
-            diffRow.onmouseleave=function(){ this.style.background=''; };
-            diffRow.innerHTML=
-              '<div style="font-size:11.5px;font-weight:500;color:#6b7280;text-align:right;line-height:1.6;align-self:center;">'+_fieldLabel(c.field)+'</div>'+
-              '<div style="font-size:12.5px;color:#dc2626;text-decoration:line-through;opacity:.8;direction:ltr;text-align:left;padding-right:8px;line-height:1.6;align-self:center;word-break:break-word;">'+bv+'</div>'+
-              '<div style="font-size:12.5px;font-weight:700;color:#16a34a;direction:ltr;text-align:left;line-height:1.6;align-self:center;word-break:break-word;">'+av+'</div>';
-            tblWrap.appendChild(diffRow);
-          });
-          body.appendChild(tblWrap);
-        }
-      }
-
-      modal.appendChild(body);
-      overlay.appendChild(modal);
-      overlay.addEventListener('click',function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
-      document.body.appendChild(overlay);
-    }
-
-    // ── بناء الـ UI ──
-    var pc=document.getElementById('page-content');
-    pc.innerHTML='';
-
-    // Filter Bar
-    var filterBar=document.createElement('div');
-    filterBar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);';
-
-    var filterSelect=document.createElement('select');
-    filterSelect.id='activityFilter'; filterSelect.className='form-select';
-    filterSelect.style.cssText='min-width:170px;font-size:13px;';
-    [
-      ['all','الكل'],['create_user','إنشاء مستخدم'],['delete_user','حذف مستخدم'],
-      ['update_role','تغيير دور'],['update_permissions','تعديل صلاحيات'],
-      ['set_password','تغيير كلمة المرور'],['delete_invoices','حذف فواتير'],
-      ['invoice_create','إنشاء فاتورة'],['invoice_update','تعديل فاتورة'],['invoice_delete','حذف فاتورة'],
-    ].forEach(function(opt){
-      var o=document.createElement('option');
-      o.value=opt[0]; o.textContent=opt[1];
-      if(opt[0]===_savedFilter) o.selected=true;
-      filterSelect.appendChild(o);
-    });
-
-    var userSelect=document.createElement('select');
-    userSelect.id='activityUserFilter'; userSelect.className='form-select';
-    userSelect.style.cssText='min-width:150px;font-size:13px;';
-    var allOpt=document.createElement('option'); allOpt.value='all'; allOpt.textContent='كل المستخدمين';
-    if(_savedUser==='all') allOpt.selected=true;
-    userSelect.appendChild(allOpt);
-    userOptions.forEach(function(u){
-      var o=document.createElement('option'); o.value=u.id; o.textContent=u.name||u.email||u.id;
-      if(u.id===_savedUser) o.selected=true;
-      userSelect.appendChild(o);
-    });
-
-    var dateWrap=document.createElement('div');
-    dateWrap.className='date-input-wrap';
-    var dateInput=document.createElement('input');
-    dateInput.id='activityDateFilter'; dateInput.type='date'; dateInput.className='form-input';
-    dateInput.style.cssText='font-size:13px;'; dateInput.value=_savedDate;
-    dateWrap.appendChild(dateInput);
-
-    var searchInput=document.createElement('input');
-    searchInput.id='activitySearch'; searchInput.className='form-input';
-    searchInput.placeholder='🔍 بحث...'; searchInput.value=_savedSearch;
-    searchInput.style.cssText='min-width:180px;font-size:13px;';
-
-    filterBar.appendChild(filterSelect);
-    filterBar.appendChild(userSelect);
-    filterBar.appendChild(dateWrap);
-    filterBar.appendChild(searchInput);
-    pc.appendChild(filterBar);
-
-    filterSelect.addEventListener('change',renderActivity);
-    userSelect.addEventListener('change',renderActivity);
-    dateInput.addEventListener('change',renderActivity);
-    searchInput.addEventListener('input',renderActivity);
-
-    // ── قسم invoice_history ──
-    if(histRows.length>0){
-      var hcard=document.createElement('div'); hcard.className='table-card'; hcard.style.cssText='margin-bottom:16px;overflow:hidden;';
-      var hhd=document.createElement('div'); hhd.className='table-header';
-      var htt=document.createElement('div'); htt.className='table-title'; htt.textContent='🧾 سجل الفواتير';
-      var hct=document.createElement('div'); hct.className='table-count'; hct.textContent=histRows.length+' عملية';
-      hhd.appendChild(htt); hhd.appendChild(hct); hcard.appendChild(hhd);
-      var hlist=document.createElement('div'); hlist.style.cssText='display:flex;flex-direction:column;';
-      histRows.forEach(function(row){
-        var actionCls=row.action==='create'?'create':row.action==='update'?'update':'delete';
-        var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
-        var actionAr=(row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف')+' فاتورة '+(row.invoice_id||'—');
-        var item=document.createElement('div');
-        item.className='activity-log-item';
-        var dot=document.createElement('div');
-        dot.className='activity-log-dot '+actionCls;
-        dot.textContent=actionIcon;
-        var body=document.createElement('div'); body.className='activity-log-body';
-        var lbl=document.createElement('div'); lbl.className='activity-log-label '+actionCls; lbl.textContent=actionAr;
-        var meta=document.createElement('div'); meta.className='activity-log-meta';
-        meta.innerHTML='<span>👤 '+_userName(row.user_id)+'</span><span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
-        body.appendChild(lbl); body.appendChild(meta);
-        var detBtn=document.createElement('button');
-        detBtn.innerHTML='تفاصيل →';
-        detBtn.style.cssText='padding:5px 13px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--text2);transition:all .12s;white-space:nowrap;flex-shrink:0;';
-        (function(r,b,c){ 
-          b.onmouseenter=function(){ b.style.borderColor=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; b.style.color=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; };
-          b.onmouseleave=function(){ b.style.borderColor='var(--border2)'; b.style.color='var(--text2)'; };
-          b.addEventListener('click',function(e){ e.stopPropagation(); _openDiffModal(r); });
-          item.addEventListener('click',function(){ _openDiffModal(r); });
-        })(row,detBtn,actionCls);
-        item.appendChild(dot); item.appendChild(body); item.appendChild(detBtn);
-        hlist.appendChild(item);
-      });
-      hcard.appendChild(hlist); pc.appendChild(hcard);
-    }
-
-    // ── قسم audit_logs ──
-    var card=document.createElement('div'); card.className='table-card';
-    var header=document.createElement('div'); header.className='table-header';
-    var title=document.createElement('div'); title.className='table-title'; title.textContent='📊 سجل النشاط';
-    var countBadge=document.createElement('div'); countBadge.className='table-count'; countBadge.textContent=auditRows.length+' / '+(auditData||[]).length+' عملية';
-    header.appendChild(title); header.appendChild(countBadge); card.appendChild(header);
-
-    if(auditRows.length===0){
-      var empty=document.createElement('div'); empty.className='empty-state'; empty.textContent='لا توجد نتائج';
-      card.appendChild(empty);
+    if(row.action==='create'){
+      var entries=Object.entries(after).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
+      if(entries.length===0){ body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد بيانات</div>'; }
+      else { entries.forEach(function(kv){ var _cr=_mkRow(_fieldLabel(kv[0]),_fmtVal(kv[1],kv[0]),'#16a34a'); if(_cr) body.appendChild(_cr); }); }
+    } else if(row.action==='delete'){
+      var note=document.createElement('div');
+      note.style.cssText='color:#dc2626;font-size:12.5px;font-weight:600;padding:9px 13px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;';
+      note.innerHTML='🗑️ تم حذف هذه الفاتورة'; body.appendChild(note);
+      var bEntries=Object.entries(before).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
+      if(bEntries.length===0){ body.innerHTML+='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0;">لا توجد بيانات</div>'; }
+      else { bEntries.forEach(function(kv){ var _dr=_mkRow(_fieldLabel(kv[0]),_fmtVal(kv[1],kv[0]),'#111111'); if(_dr) body.appendChild(_dr); }); }
     } else {
-      var list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;';
-      function sameIds(a,b){ if(!Array.isArray(a)||!Array.isArray(b)) return false; if(a.length!==b.length) return false; var s=new Set(a); return b.every(function(id){ return s.has(id); }); }
-      auditRows.forEach(function(row){
-        // تحديد نوع العملية ولون وأيقونة
-        var aType=row.action_type||'';
-        var aIcon='⚙️'; var aBg='#f1f5f9'; var aColor='var(--text3)';
-        if(aType==='create_user'){ aIcon='👤'; aBg='#dcfce7'; aColor='#16a34a'; }
-        else if(aType==='delete_user'){ aIcon='🗑️'; aBg='#fee2e2'; aColor='#dc2626'; }
-        else if(aType==='delete_invoices'||aType==='delete_invoice'){ aIcon='🧾'; aBg='#fee2e2'; aColor='#dc2626'; }
-        else if(aType==='undo_delete'){ aIcon='↩️'; aBg='#dbeafe'; aColor='#2563eb'; }
-        else if(aType==='update_role'||aType==='update_permissions'){ aIcon='🔑'; aBg='#ffedd5'; aColor='#ea580c'; }
-        else if(aType==='set_password'){ aIcon='🔒'; aBg='#ede9fe'; aColor='#7c3aed'; }
+      var visibleChanges=changes.filter(function(c){
+        if(_HIDDEN_FIELDS.has(c.field)) return false;
+        var bv=_fmtVal(c.before,c.field), av=_fmtVal(c.after,c.field);
+        return !(bv===null && av===null);
+      });
+      if(visibleChanges.length===0){ body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد تغييرات</div>'; }
+      else {
+        var tblWrap=document.createElement('div'); tblWrap.style.cssText='border-radius:8px;overflow:hidden;border:1px solid #f0f0ee;';
+        var tblHead=document.createElement('div');
+        tblHead.style.cssText='display:grid;grid-template-columns:2fr 3fr 3fr;background:#f9f9f8;padding:8px 12px;border-bottom:1px solid #e9e9e7;';
+        tblHead.innerHTML='<div style="font-size:10.5px;font-weight:700;color:#9ca3af;text-align:right;">الحقل</div>'+
+          '<div style="font-size:10.5px;font-weight:700;color:#dc2626;text-align:left;padding-right:8px">قبل</div>'+
+          '<div style="font-size:10.5px;font-weight:700;color:#16a34a;text-align:left;">بعد</div>';
+        tblWrap.appendChild(tblHead);
+        visibleChanges.forEach(function(c,idx){
+          var bv=_fmtVal(c.before,c.field)||'—', av=_fmtVal(c.after,c.field)||'—';
+          var diffRow=document.createElement('div');
+          var isLast=(idx===visibleChanges.length-1);
+          diffRow.style.cssText='display:grid;grid-template-columns:2fr 3fr 3fr;padding:9px 12px;transition:background .1s;'+(isLast?'':'border-bottom:1px solid #f3f3f2;');
+          diffRow.onmouseenter=function(){ this.style.background='#f9f9f8'; };
+          diffRow.onmouseleave=function(){ this.style.background=''; };
+          diffRow.innerHTML=
+            '<div style="font-size:11.5px;font-weight:500;color:#6b7280;text-align:right;line-height:1.6;align-self:center;">'+_fieldLabel(c.field)+'</div>'+
+            '<div style="font-size:12.5px;color:#dc2626;text-decoration:line-through;opacity:.8;direction:ltr;text-align:left;padding-right:8px;line-height:1.6;align-self:center;word-break:break-word;">'+bv+'</div>'+
+            '<div style="font-size:12.5px;font-weight:700;color:#16a34a;direction:ltr;text-align:left;line-height:1.6;align-self:center;word-break:break-word;">'+av+'</div>';
+          tblWrap.appendChild(diffRow);
+        });
+        body.appendChild(tblWrap);
+      }
+    }
+    modal.appendChild(body);
+    overlay.appendChild(modal);
+    overlay.addEventListener('click',function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+  }
 
-        // determine CSS class
-        var aCls='system';
-        if(aType.includes('create')) aCls='create';
-        else if(aType.includes('delete')||aType.includes('undo')) aCls='delete';
-        else if(aType.includes('update')||aType.includes('role')||aType.includes('perm')||aType.includes('password')) aCls='update';
-        var item=document.createElement('div');
-        item.className='activity-log-item';
-        var dot=document.createElement('div');
-        dot.className='activity-log-dot '+aCls;
-        dot.textContent=aIcon;
-        var body=document.createElement('div'); body.className='activity-log-body';
-        var lbl=document.createElement('div'); lbl.className='activity-log-label '+aCls; lbl.textContent=_formatAction(row);
-        var sub=document.createElement('div'); sub.className='activity-log-meta';
-        sub.innerHTML='<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
-        body.appendChild(lbl); body.appendChild(sub);
-        var right=document.createElement('div'); right.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
-        if(row.action_type==='delete_invoices'){
-          var rowDetails={}; try { rowDetails=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
-          if(rowDetails.snapshot){
-            var ids=rowDetails.ids||[];
-            var isAlreadyRestored=auditRows.some(function(l){ if(l.action_type!=='undo_delete') return false; var ld={}; try{ ld=typeof l.details==='string'?JSON.parse(l.details):(l.details||{}); }catch(_){} return sameIds(ld.ids,ids)&&new Date(l.created_at)>new Date(row.created_at); });
-            if(rowDetails.restored===true||isAlreadyRestored){
-              var doneLabel=document.createElement('span'); doneLabel.textContent='✓ تم الاسترجاع'; doneLabel.style.cssText='padding:4px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:6px;'; right.appendChild(doneLabel);
-            } else {
-              var undoBtn=document.createElement('button'); undoBtn.textContent='↩️ استرجاع'; undoBtn.style.cssText='padding:4px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
-              (function(cr,cb){ cb.addEventListener('click',function(){ _restoreFromAudit(cr,cb); }); })(row,undoBtn);
-              right.appendChild(undoBtn);
+  // ── Accordion builder ──
+  var accordion = document.createElement('div');
+  accordion.className = 'act-accordion';
+  pc.appendChild(accordion);
+
+  // State: which section is currently open
+  var _openSection = null;
+
+  function _makeSection(opts){
+    // opts: { id, iconClass, icon, title, sub, loadFn }
+    var sec = document.createElement('div');
+    sec.className = 'act-section';
+    sec.id = 'act-sec-' + opts.id;
+
+    var hdr = document.createElement('div');
+    hdr.className = 'act-section-header';
+    hdr.setAttribute('role','button');
+    hdr.setAttribute('tabindex','0');
+
+    var left = document.createElement('div');
+    left.className = 'act-section-left';
+
+    var iconEl = document.createElement('div');
+    iconEl.className = 'act-section-icon ' + opts.iconClass;
+    iconEl.textContent = opts.icon;
+
+    var textWrap = document.createElement('div');
+    var titleEl = document.createElement('div');
+    titleEl.className = 'act-section-title';
+    titleEl.textContent = opts.title;
+    var subEl = document.createElement('div');
+    subEl.className = 'act-section-sub';
+    subEl.textContent = opts.sub;
+    textWrap.appendChild(titleEl);
+    textWrap.appendChild(subEl);
+
+    left.appendChild(iconEl);
+    left.appendChild(textWrap);
+
+    var right = document.createElement('div');
+    right.className = 'act-section-right';
+
+    var badge = document.createElement('span');
+    badge.className = 'act-section-badge';
+    badge.id = 'act-badge-' + opts.id;
+
+    var arrow = document.createElement('span');
+    arrow.className = 'act-section-arrow';
+    arrow.textContent = '▶';
+
+    right.appendChild(badge);
+    right.appendChild(arrow);
+
+    hdr.appendChild(left);
+    hdr.appendChild(right);
+
+    var bodyWrap = document.createElement('div');
+    bodyWrap.className = 'act-section-body';
+
+    var inner = document.createElement('div');
+    inner.className = 'act-section-inner';
+    bodyWrap.appendChild(inner);
+
+    sec.appendChild(hdr);
+    sec.appendChild(bodyWrap);
+    accordion.appendChild(sec);
+
+    var _loaded = false;
+
+    function _open(){
+      // Close any other open section
+      if(_openSection && _openSection !== sec){
+        _openSection.classList.remove('open');
+      }
+      sec.classList.add('open');
+      _openSection = sec;
+      if(!_loaded){
+        _loaded = true;
+        // Show spinner
+        inner.innerHTML = '<div class="act-section-loading"><div class="act-spin"></div><span>جاري التحميل...</span></div>';
+        opts.loadFn(inner, badge);
+      }
+    }
+    function _close(){
+      sec.classList.remove('open');
+      if(_openSection === sec) _openSection = null;
+    }
+    function _toggle(){
+      if(sec.classList.contains('open')){ _close(); } else { _open(); }
+    }
+
+    hdr.addEventListener('click', _toggle);
+    hdr.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); _toggle(); }});
+  }
+
+  // ══════════════════════════════════════════
+  // 📄 SECTION 1 — سجل الفواتير (invoice_history)
+  // ══════════════════════════════════════════
+  _makeSection({
+    id: 'inv',
+    iconClass: 'inv',
+    icon: '📄',
+    title: 'سجل الفواتير',
+    sub: 'تاريخ الإنشاء والتعديل والحذف لكل فاتورة',
+    loadFn: async function(container, badge){
+      try{
+        var{data:histData}=await sb
+          .from('invoice_history')
+          .select('id,invoice_id,action,before,after,user_id,created_at')
+          .order('created_at',{ascending:false})
+          .limit(100);
+
+        var histRows=histData||[];
+
+        // Fetch profiles for user names
+        var userMap={};
+        var uids=histRows.filter(function(r){ return r.user_id; }).map(function(r){ return r.user_id; });
+        var uniqueUids=uids.filter(function(v,i,a){ return a.indexOf(v)===i; });
+        if(uniqueUids.length>0){
+          var{data:_p}=await sb.from('profiles').select('id,name,email');
+          (_p||[]).forEach(function(u){ userMap[u.id]=u; });
+        }
+        function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
+
+        // Update badge
+        badge.textContent = histRows.length + ' عملية';
+        badge.style.display = 'inline-block';
+
+        container.innerHTML = '';
+        if(histRows.length===0){
+          container.innerHTML='<div class="empty-state">لا توجد عمليات</div>';
+          return;
+        }
+
+        var list=document.createElement('div');
+        list.style.cssText='display:flex;flex-direction:column;';
+        histRows.forEach(function(row){
+          var actionCls=row.action==='create'?'create':row.action==='update'?'update':'delete';
+          var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
+          var actionAr=(row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف')+' فاتورة '+(row.invoice_id||'—');
+          var item=document.createElement('div'); item.className='activity-log-item';
+          var dot=document.createElement('div'); dot.className='activity-log-dot '+actionCls; dot.textContent=actionIcon;
+          var body=document.createElement('div'); body.className='activity-log-body';
+          var lbl=document.createElement('div'); lbl.className='activity-log-label '+actionCls; lbl.textContent=actionAr;
+          var meta=document.createElement('div'); meta.className='activity-log-meta';
+          meta.innerHTML='<span>👤 '+_userName(row.user_id)+'</span><span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
+          body.appendChild(lbl); body.appendChild(meta);
+          var detBtn=document.createElement('button');
+          detBtn.innerHTML='تفاصيل →';
+          detBtn.style.cssText='padding:5px 13px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--text2);transition:all .12s;white-space:nowrap;flex-shrink:0;';
+          (function(r,b,c,um){
+            b.onmouseenter=function(){ b.style.borderColor=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; b.style.color=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; };
+            b.onmouseleave=function(){ b.style.borderColor='var(--border2)'; b.style.color='var(--text2)'; };
+            b.addEventListener('click',function(e){ e.stopPropagation(); _openDiffModal(r,um); });
+            item.addEventListener('click',function(){ _openDiffModal(r,um); });
+          })(row,detBtn,actionCls,userMap);
+          item.appendChild(dot); item.appendChild(body); item.appendChild(detBtn);
+          list.appendChild(item);
+        });
+        container.appendChild(list);
+
+      }catch(e){ container.innerHTML='<div class="empty-state" style="color:var(--red)">خطأ في التحميل</div>'; console.error('[activity-inv]',e); }
+    }
+  });
+
+  // ══════════════════════════════════════════
+  // 📋 SECTION 2 — سجل العمليات (audit_logs)
+  // ══════════════════════════════════════════
+  _makeSection({
+    id: 'ops',
+    iconClass: 'ops',
+    icon: '📋',
+    title: 'سجل العمليات',
+    sub: 'الحذف والاسترجاع وإدارة المستخدمين والصلاحيات',
+    loadFn: async function(container, badge){
+      try{
+        var{data:auditData,error:auditError}=await sb
+          .from('audit_logs')
+          .select('id,action_type,details,created_at,user_id')
+          .order('created_at',{ascending:false})
+          .limit(100);
+        if(auditError) throw auditError;
+
+        var auditRows=auditData||[];
+
+        // Fetch profiles
+        var userMap={};
+        var uids=auditRows.filter(function(r){ return r.user_id; }).map(function(r){ return r.user_id; });
+        var uniqueUids=uids.filter(function(v,i,a){ return a.indexOf(v)===i; });
+        if(uniqueUids.length>0){
+          var{data:_p}=await sb.from('profiles').select('id,name,email');
+          (_p||[]).forEach(function(u){ userMap[u.id]=u; });
+        }
+        function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
+
+        function _formatAction(row){
+          var type=row.action_type||''; var details={};
+          try{ details=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); }catch(_){}
+          var adminName=_userName(row.user_id);
+          var targetUser=userMap[details.target_user_id]||null;
+          var targetName=(targetUser&&(targetUser.name||targetUser.email))||details.username||'مستخدم محذوف';
+          if(type==='delete_invoices'){ var ids=(details.ids||[]); return '🧾 '+adminName+' حذف الفاتورة '+(ids.length?ids.join('، '):'—'); }
+          if(type==='delete_invoice') return '🧾 حذف فاتورة: '+(details.id||'—');
+          if(type==='undo_delete'){ var ids2=(details.ids||[]); return '↩️ استرجاع: '+(ids2.length?ids2.join('، '):'—'); }
+          if(type==='create_user') return '👤 '+adminName+' أنشأ المستخدم '+(details.username||'—');
+          if(type==='delete_user') return '🗑️ '+adminName+' حذف المستخدم '+targetName;
+          if(type==='update_role') return '🔄 '+adminName+' غيّر دور '+targetName+' إلى '+(details.new_role||'—');
+          if(type==='update_permissions') return '🔑 '+adminName+' عدّل صلاحيات '+targetName;
+          if(type==='set_password') return '🔒 '+adminName+' غيّر كلمة مرور '+targetName;
+          return type;
+        }
+
+        function sameIds(a,b){ if(!Array.isArray(a)||!Array.isArray(b)) return false; if(a.length!==b.length) return false; var s=new Set(a); return b.every(function(id){ return s.has(id); }); }
+
+        // Update badge
+        badge.textContent = auditRows.length + ' عملية';
+        badge.style.display = 'inline-block';
+
+        container.innerHTML = '';
+        if(auditRows.length===0){
+          container.innerHTML='<div class="empty-state">لا توجد عمليات</div>';
+          return;
+        }
+
+        var list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;';
+        auditRows.forEach(function(row){
+          var aType=row.action_type||'';
+          var aIcon='⚙️';
+          if(aType==='create_user') aIcon='👤';
+          else if(aType==='delete_user') aIcon='🗑️';
+          else if(aType==='delete_invoices'||aType==='delete_invoice') aIcon='🧾';
+          else if(aType==='undo_delete') aIcon='↩️';
+          else if(aType==='update_role'||aType==='update_permissions') aIcon='🔑';
+          else if(aType==='set_password') aIcon='🔒';
+          var aCls='system';
+          if(aType.includes('create')) aCls='create';
+          else if(aType.includes('delete')||aType.includes('undo')) aCls='delete';
+          else if(aType.includes('update')||aType.includes('role')||aType.includes('perm')||aType.includes('password')) aCls='update';
+          var item=document.createElement('div'); item.className='activity-log-item';
+          var dot=document.createElement('div'); dot.className='activity-log-dot '+aCls; dot.textContent=aIcon;
+          var body=document.createElement('div'); body.className='activity-log-body';
+          var lbl=document.createElement('div'); lbl.className='activity-log-label '+aCls; lbl.textContent=_formatAction(row);
+          var sub=document.createElement('div'); sub.className='activity-log-meta';
+          sub.innerHTML='<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
+          body.appendChild(lbl); body.appendChild(sub);
+          var right=document.createElement('div'); right.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
+          if(row.action_type==='delete_invoices'){
+            var rowDetails={}; try{ rowDetails=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); }catch(_){}
+            if(rowDetails.snapshot){
+              var ids=rowDetails.ids||[];
+              var isAlreadyRestored=auditRows.some(function(l){
+                if(l.action_type!=='undo_delete') return false;
+                var ld={}; try{ ld=typeof l.details==='string'?JSON.parse(l.details):(l.details||{}); }catch(_){}
+                return sameIds(ld.ids,ids)&&new Date(l.created_at)>new Date(row.created_at);
+              });
+              if(rowDetails.restored===true||isAlreadyRestored){
+                var doneLabel=document.createElement('span');
+                doneLabel.textContent='✓ تم الاسترجاع';
+                doneLabel.style.cssText='padding:4px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:6px;';
+                right.appendChild(doneLabel);
+              } else {
+                var undoBtn=document.createElement('button');
+                undoBtn.textContent='↩️ استرجاع';
+                undoBtn.style.cssText='padding:4px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
+                (function(cr,cb){ cb.addEventListener('click',function(){ _restoreFromAudit(cr,cb); }); })(row,undoBtn);
+                right.appendChild(undoBtn);
+              }
             }
           }
-        }
-        item.appendChild(dot); item.appendChild(body); item.appendChild(right); list.appendChild(item);
-      });
-      card.appendChild(list);
-    }
-    pc.appendChild(card);
+          item.appendChild(dot); item.appendChild(body); item.appendChild(right); list.appendChild(item);
+        });
+        container.appendChild(list);
 
-  } catch(e) {
-    handleError(e, 'خطأ في تحميل سجل النشاط');
-  }
+      }catch(e){ container.innerHTML='<div class="empty-state" style="color:var(--red)">خطأ في التحميل</div>'; console.error('[activity-ops]',e); }
+    }
+  });
 }
+
 
 // ── Login Log Page ──
 async function renderLoginLog() {
@@ -6531,7 +6533,7 @@ async function saveInvoice(existingId, goToLines=false){
         if(dupCheck.is_deleted){
           // CASE 1 — موجودة ومحذوفة → سؤال استرجاع
           const confirmed=await _showDupDeletedModal(id);
-          if(confirmed){ await _restoreFromAuditById(id); }
+          if(confirmed){ await _restoreDeletedInvoice(id); }
         } else {
           // CASE 2 — موجودة ونشطة → رسالة بدون خيارات
           _showDupActiveModal(id);
@@ -6845,59 +6847,99 @@ function _showDupActiveModal(invId){
   overlay.addEventListener('click',function(e){ if(e.target===overlay) _close(); });
 }
 
-// ════════════════════════════════════════
-// ♻️ RESTORE BY ID — v67.16
-// Single entry point for duplicate-flow restore.
-// Fetches the matching audit_logs row then delegates
-// entirely to _restoreFromAudit (the ONE restore implementation).
-// ════════════════════════════════════════
-async function _restoreFromAuditById(invId){
+// RESTORE deleted invoice — reads lines snapshot from audit_logs (DB, not memory)
+async function _restoreDeletedInvoice(invId){
   try{
     showToast('جاري الاسترجاع...','info');
 
-    // STEP 1 — locate the most recent audit snapshot that contains this invoice
-    var{data:auditRows,error:ae}=await sb.from('audit_logs')
-      .select('id,details')
-      .eq('action_type','delete_invoices')
-      .order('id',{ascending:false})
-      .limit(50);
-    if(ae) throw ae;
+    // STEP 1 — flip is_deleted on invoice
+    var{error:e1}=await sb.from('invoices')
+      .update({is_deleted:false, deleted_at:null})
+      .eq('id', invId);
+    if(e1) throw e1;
+    console.log('[restore] invoice flipped is_deleted=false ✓');
 
-    var matchedLog=null;
-    if(Array.isArray(auditRows)){
-      for(var i=0;i<auditRows.length;i++){
-        var det={};
-        try{ det=typeof auditRows[i].details==='string'?JSON.parse(auditRows[i].details):(auditRows[i].details||{}); }catch(_){}
-        var snap=det.snapshot;
-        var matched=det.invoice_id===invId||
-          (snap&&Array.isArray(snap.invoices)&&snap.invoices.some(function(iv){return iv.id===invId;}));
-        if(matched&&snap&&Array.isArray(snap.invoices)){
-          matchedLog=auditRows[i];
-          console.log('[_restoreFromAuditById] matched audit row:',auditRows[i].id,'for invoice:',invId);
-          break;
+    // STEP 2 — fetch lines snapshot from audit_logs (DB — persistent across refresh)
+    var linesRestored = 0;
+    try{
+      var{data:auditRows, error:ae}=await sb.from('audit_logs')
+        .select('id,details')
+        .eq('action_type','delete_invoices')
+        .order('id',{ascending:false})
+        .limit(50);
+
+      if(ae) throw ae;
+
+      // البحث عن أحدث snapshot يحتوي على هذه الفاتورة
+      var snapLines = null;
+      if(Array.isArray(auditRows)){
+        for(var i=0;i<auditRows.length;i++){
+          var det={};
+          try{ det=typeof auditRows[i].details==='string'?JSON.parse(auditRows[i].details):(auditRows[i].details||{}); }catch(_){}
+          var snap=det.snapshot;
+          // تطابق invoice_id مباشرة أو ضمن invoices[]
+          var matchId = det.invoice_id===invId ||
+            (snap && Array.isArray(snap.invoices) && snap.invoices.some(function(iv){ return iv.id===invId; }));
+          if(matchId && snap && Array.isArray(snap.lines)){
+            snapLines=snap.lines;
+            console.log('[restore] snapshot found in audit_logs row:', auditRows[i].id, '| lines:', snapLines.length);
+            break;
+          }
         }
       }
+
+      if(snapLines===null){
+        // لا يوجد snapshot — استرجاع الفاتورة فقط مع تحذير
+        console.warn('[restore] no snapshot found for', invId, '— invoice restored without lines');
+        clearCache(); closeModal();
+        showToast('تم استرجاع الفاتورة بدون البنود (لا يوجد نسخة محفوظة)', 'warning');
+        addNotif('♻️','تم استرجاع الفاتورة '+invId+' (بدون بنود)','warning');
+        renderInvoices();
+        return;
+      }
+
+      // STEP 3 — restore lines (skip if empty snapshot)
+      if(snapLines.length===0){
+        console.log('[restore] snapshot empty — no lines to restore');
+      } else {
+        // تنظيف الـ snapshot: فقط الأعمدة الصحيحة، بدون تكرار
+        var cleanLines=snapLines.map(function(l){
+          return {
+            id:           l.id,
+            invoice_id:   invId,  // تأكيد invoice_id الصحيح
+            description:  l.description||'',
+            qty:          l.qty||0,
+            unit_price:   l.unit_price||0,
+            cost_unit:    l.cost_unit||0,
+            unit:         l.unit||'',
+            notes:        l.notes||null
+          };
+        });
+        var{error:e2}=await sb.from('invoice_lines').upsert(cleanLines,{onConflict:'id'});
+        if(e2){
+          console.error('[restore] upsert lines error:', e2);
+          showToast('تم استرجاع الفاتورة — لكن فشل استرجاع البنود: '+e2.message,'warning');
+        } else {
+          linesRestored=cleanLines.length;
+          console.log('[restore] lines upserted:', linesRestored, '✓');
+        }
+      }
+    } catch(snapErr){
+      console.error('[restore] snapshot fetch error (non-fatal):', snapErr);
+      showToast('تم استرجاع الفاتورة بدون البنود (خطأ في جلب الـ snapshot)', 'warning');
     }
 
-    if(!matchedLog){
-      // No snapshot — restore invoice only + warning (no crash)
-      console.warn('[_restoreFromAuditById] no audit snapshot for',invId,'— restoring invoice header only');
-      var{error:e1}=await sb.from('invoices')
-        .update({is_deleted:false,deleted_at:null})
-        .eq('id',invId);
-      if(e1) throw e1;
-      clearCache(); closeModal();
-      showToast('تم استرجاع الفاتورة بدون البنود (لا توجد نسخة محفوظة)','warning');
-      addNotif('♻️','تم استرجاع الفاتورة '+invId+' (بدون بنود)','warning');
-      renderInvoices();
-      return;
-    }
-
-    // STEP 2 — delegate entirely to the canonical _restoreFromAudit
-    await _restoreFromAudit(matchedLog, null);
+    // STEP 4 — UI update
+    clearCache(); closeModal();
+    var msg=linesRestored>0
+      ? 'تم استرجاع الفاتورة '+invId+' مع '+linesRestored+' بنود ✓'
+      : 'تم استرجاع الفاتورة '+invId+' ✓';
+    showToast(msg,'success');
+    addNotif('♻️',msg,'success');
+    renderInvoices();
 
   }catch(e){
-    console.error('[_restoreFromAuditById] fatal:',e);
+    console.error('[restore] fatal error:', e);
     handleError(e,'فشل الاسترجاع');
   }
 }
