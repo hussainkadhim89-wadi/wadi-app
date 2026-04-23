@@ -40,7 +40,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.1
+   ✨ ULTRA PREMIUM UX — v67.2
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -466,7 +466,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.1
+   🔥 ULTRA PREMIUM SIDEBAR — v67.2
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1672,7 +1672,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.1 Polish
+   ✨ ULTRA PREMIUM UX — v67.2 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -7393,7 +7393,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.1';
+const APP_VERSION = 'v67.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7497,7 +7497,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.1
+// 🔥 ULTRA PREMIUM NAV JS — v67.2
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
@@ -11416,7 +11416,7 @@ async function _copyPublicLink(invId){
   // ── v66.5: Multi-Suggestion Engine ──
 
   // Map action strings → execution
-  // ── v67.1 Part 1: Action Tracker ──
+  // ── v67.2 Part 1: Action Tracker ──
   function trackAction(action) {
     try {
       var data = JSON.parse(localStorage.getItem('wadi_usage') || '{}');
@@ -11626,7 +11626,7 @@ async function _copyPublicLink(invId){
 
   // ── Command Executor ──
   function executeCommand(cmd) {
-    // ── v67.1: Track every executed command ──
+    // ── v67.2: Track every executed command ──
     trackAction(cmd);
     switch(cmd) {
       case 'go_invoices':
@@ -11825,7 +11825,7 @@ async function _copyPublicLink(invId){
 
     var msgHtml = lines.join('<br>');
 
-    // ── v67.1: prefer adaptive suggestions ──
+    // ── v67.2: prefer adaptive suggestions ──
     var adaptive2 = getAdaptiveSuggestions();
     var ctx;
     if (!adaptive2) {
@@ -11860,7 +11860,7 @@ async function _copyPublicLink(invId){
     else
       lines.push('✅ كلشي نظيف، ما في متأخرات 🔥');
 
-    // ── v67.1: add adaptive hint ──
+    // ── v67.2: add adaptive hint ──
     var adaptive = getAdaptiveSuggestions();
     if (adaptive) lines.push('<span style="font-size:11px;color:#6b7280">💡 حسب استخدامك — اختر من الأزرار أدناه</span>');
 
