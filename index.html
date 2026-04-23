@@ -2853,21 +2853,6 @@ async function confirmDelete(msg='هل أنت متأكد من الحذف؟'){
   });
 }
 
-// confirmAction — للعمليات التي ليست حذف (تغيير دور، إلخ)
-async function confirmAction(msg, icon='⚠️') {
-  return new Promise(resolve => {
-    openModal('تأكيد',
-      '<div style="text-align:center;padding:16px 0">' +
-        '<div style="font-size:40px;margin-bottom:16px">' + icon + '</div>' +
-        '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">' + msg + '</div>' +
-      '</div>',
-      '<button class="btn btn-secondary" onclick="closeModal();window._delResolve(false)">إلغاء</button>' +
-      '<button class="btn btn-primary" onclick="closeModal();window._delResolve(true)">نعم</button>'
-    );
-    window._delResolve = resolve;
-  });
-}
-
 // ── SORTING ──
 let _sortCol={},_sortDir={};
 // حفظ حالة الفلاتر لكل صفحة
@@ -3006,13 +2991,8 @@ function hasPermission(key) {
   var p = window.currentUserProfile;
   if (!p) return false;                          // no profile → deny
   if (p.role === 'admin') return true;           // admin → always allow
-  var perms = p.permissions;
-  // guard: permissions stored as string → parse it
-  if (perms && typeof perms === 'string') {
-    try { perms = JSON.parse(perms); p.permissions = perms; } catch(_) { return false; }
-  }
-  if (!perms || typeof perms !== 'object') return false;
-  return perms[key] === true;                    // explicit true only
+  if (!p.permissions) return false;              // no permissions obj → deny
+  return p.permissions[key] === true;            // explicit true only
 }
 
 // ── Nav visibility — هides nav items user has no access to ──
@@ -3060,12 +3040,8 @@ async function _fetchProfile() {
     if (error) throw error;
 
     if (data) {
-      // Profile exists — parse permissions if stored as string
-      if (data.permissions && typeof data.permissions === 'string') {
-        try { data.permissions = JSON.parse(data.permissions); } catch(_) { data.permissions = {}; }
-      }
+      // Profile exists — use it
       window.currentUserProfile = data;
-      if (window.DEBUG) console.log('[PERMISSIONS]', data.role, data.permissions);
     } else {
       // First login — auto-create profile as 'user'
       const newProfile = {
@@ -3093,12 +3069,8 @@ function showApp(){
   const name=email.split('@')[0];
   document.getElementById('user-name-d').textContent=name;
   document.getElementById('user-avatar').textContent=name[0]?.toUpperCase()||'U';
-  // جلب profile — يجب أن يكتمل قبل عرض أي صفحة
+  // جلب profile قبل تحميل الـ app — non-blocking
   _fetchProfile().then(function() {
-    _applyNavPermissions();
-    showPage('dashboard');
-  }).catch(function(e) {
-    console.error('[showApp] profile fetch failed:', e);
     _applyNavPermissions();
     showPage('dashboard');
   });
@@ -3535,10 +3507,6 @@ async function renderDashboard(){
       });
       sessionStorage.setItem('wadi_bi_toast','1');
     },1800);
-  }
-  // ── v66.6: Proactive Assistant trigger after dashboard loads ──
-  if (typeof window._wadiProactive === 'function') {
-    window._wadiProactive();
   }
   }catch(e){
     console.error('Dashboard error:',e);
@@ -5115,49 +5083,26 @@ async function renderSettings(){
 // 📋 ACTIVITY PAGE — v60.13
 // ════════════════════════════════════════
 async function renderActivity() {
-  // ── حفظ قيم الفلتر والبحث قبل setLoading (تمسح الـ DOM) ──
-  var _savedFilter = document.getElementById('activityFilter')?.value || 'all';
-  var _savedSearch = document.getElementById('activitySearch')?.value || '';
-
   setLoading('جاري تحميل سجل النشاط...');
   try {
     const { data, error } = await sb
       .from('audit_logs')
-      .select('id,action_type,details,created_at,user_id')
+      .select('id,action_type,details,created_at')
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) throw error;
 
     const rows = (data || []);
 
-    // ── Batch fetch profiles for human-readable names ──
-    var _allUserIds = [];
-    rows.forEach(function(l) {
-      if (l.user_id) _allUserIds.push(l.user_id);
-      var d = {};
-      try { d = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch(_) {}
-      if (d.target_user_id) _allUserIds.push(d.target_user_id);
-    });
-    var _uniqueIds = _allUserIds.filter(function(v, i, a) { return a.indexOf(v) === i; });
-    var userMap = {};
-    if (_uniqueIds.length > 0) {
-      var { data: _profiles } = await sb.from('profiles').select('id,name,email');
-      (_profiles || []).forEach(function(u) { userMap[u.id] = u; });
-    }
-
     function _formatAction(row) {
       var type    = row.action_type || '';
       var details = {};
       try { details = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
       var count = details.count ?? '—';
-
-      // ── Invoice actions ──
       if (type === 'delete_invoices') {
         var ids = Array.isArray(details.ids) ? details.ids : [];
-        var _invAdmin = userMap[row.user_id] || null;
-        var _invAdminName = (_invAdmin && (_invAdmin.name || _invAdmin.email)) || 'مجهول';
-        var label = ids.length > 0 ? ids.join('، ') : (details.count || '—') + ' فواتير';
-        return '🧾 ' + _invAdminName + ' حذف الفاتورة ' + label;
+        var label = ids.length > 0 ? ids.join('، ') : count + ' فواتير';
+        return '🧾 حذف: ' + label;
       }
       if (type === 'delete_invoice')  return '🧾 حذف فاتورة: ' + (details.id || '—');
       if (type === 'undo_delete') {
@@ -5165,23 +5110,6 @@ async function renderActivity() {
         var label = ids.length > 0 ? ids.join('، ') : count + ' فواتير';
         return '↩️ استرجاع: ' + label;
       }
-
-      // ── Admin User actions ──
-      var adminUser   = userMap[row.user_id] || null;
-      var targetUser  = userMap[details.target_user_id] || null;
-      var adminName   = (adminUser  && (adminUser.name  || adminUser.email))  || 'مجهول';
-      var targetName  = (targetUser && (targetUser.name || targetUser.email)) || details.username || 'مستخدم محذوف';
-      if (type === 'create_user')
-        return '👤 ' + adminName + ' أنشأ المستخدم ' + (details.username || '—');
-      if (type === 'delete_user')
-        return '🗑️ ' + adminName + ' حذف المستخدم ' + targetName;
-      if (type === 'update_role')
-        return '🔄 ' + adminName + ' غيّر دور ' + targetName + ' إلى ' + (details.new_role || '—');
-      if (type === 'update_permissions')
-        return '🔑 ' + adminName + ' عدّل صلاحيات ' + targetName;
-      if (type === 'set_password')
-        return '🔒 ' + adminName + ' غيّر كلمة مرور ' + targetName;
-
       return type;
     }
 
@@ -5191,58 +5119,8 @@ async function renderActivity() {
       catch(_) { return ts; }
     }
 
-    // ── Filter + Search logic ──
-    var filtered = rows;
-    if (_savedFilter && _savedFilter !== 'all') {
-      filtered = filtered.filter(function(l) { return l.action_type === _savedFilter; });
-    }
-    if (_savedSearch) {
-      var _s = _savedSearch.toLowerCase();
-      filtered = filtered.filter(function(l) {
-        return _formatAction(l).toLowerCase().includes(_s);
-      });
-    }
-
     var pc = document.getElementById('page-content');
     pc.innerHTML = '';
-
-    // ── Filter Bar ──
-    var filterBar = document.createElement('div');
-    filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;';
-
-    var filterSelect = document.createElement('select');
-    filterSelect.id = 'activityFilter';
-    filterSelect.className = 'form-select';
-    filterSelect.style.cssText = 'min-width:170px;font-size:13px;';
-    [
-      ['all',                'الكل'],
-      ['create_user',        'إنشاء مستخدم'],
-      ['delete_user',        'حذف مستخدم'],
-      ['update_role',        'تغيير دور'],
-      ['update_permissions', 'تعديل صلاحيات'],
-      ['set_password',       'تغيير كلمة المرور'],
-      ['delete_invoices',    'حذف فواتير'],
-    ].forEach(function(opt) {
-      var o = document.createElement('option');
-      o.value = opt[0]; o.textContent = opt[1];
-      if (opt[0] === _savedFilter) o.selected = true;
-      filterSelect.appendChild(o);
-    });
-
-    var searchInput = document.createElement('input');
-    searchInput.id = 'activitySearch';
-    searchInput.className = 'form-input';
-    searchInput.placeholder = '🔍 بحث...';
-    searchInput.value = _savedSearch;
-    searchInput.style.cssText = 'min-width:200px;font-size:13px;';
-
-    filterBar.appendChild(filterSelect);
-    filterBar.appendChild(searchInput);
-    pc.appendChild(filterBar);
-
-    // ── events — re-render on change ──
-    filterSelect.addEventListener('change', renderActivity);
-    searchInput.addEventListener('input', renderActivity);
 
     var card = document.createElement('div');
     card.className = 'table-card';
@@ -5254,15 +5132,15 @@ async function renderActivity() {
     title.textContent = '📋 سجل النشاط';
     var countBadge = document.createElement('div');
     countBadge.className = 'table-count';
-    countBadge.textContent = filtered.length + ' / ' + rows.length + ' عملية';
+    countBadge.textContent = rows.length + ' عملية';
     header.appendChild(title);
     header.appendChild(countBadge);
     card.appendChild(header);
 
-    if (filtered.length === 0) {
+    if (rows.length === 0) {
       var empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.textContent = rows.length === 0 ? 'لا توجد عمليات مسجلة بعد' : 'لا توجد نتائج';
+      empty.textContent = 'لا توجد عمليات مسجلة بعد';
       card.appendChild(empty);
     } else {
       var list = document.createElement('div');
@@ -5276,7 +5154,7 @@ async function renderActivity() {
         return b.every(function(id) { return setA.has(id); });
       }
 
-      filtered.forEach(function(row) {
+      rows.forEach(function(row) {
         var item = document.createElement('div');
         item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;';
 
@@ -7374,7 +7252,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v66.8';
+const APP_VERSION = 'v64.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10199,7 +10077,6 @@ body.dark .admin-table th { background:var(--bg2); }
 body.dark .admin-badge-admin { background:#422006;color:#fcd34d;border-color:#78350f; }
 body.dark .admin-badge-user  { background:#1e3a5f;color:#93c5fd;border-color:#1d4ed8; }
 body.dark .perm-row { background:var(--bg2); }
-
 </style></head><body>
   <div class="header">
     <div class="logo">⚡ وادي الطاقة للتجارة العامة</div>
@@ -10214,8 +10091,7 @@ body.dark .perm-row { background:var(--bg2); }
   </div>
   <div class="footer">${APP_SETTINGS.companyNameAr} · هاتف: ${APP_SETTINGS.phoneHussain} · ${today}</div>
   <script>window.print();window.close();<\/script>
-  
-</body></html>`);
+  </body></html>`);
   w.document.close();
 }
 
@@ -10876,22 +10752,9 @@ function _renderAdminRows(tbody) {
     btnPass.textContent = '🔑 تغيير كلمة المرور';
     btnPass.addEventListener('click', function() { _openSetPasswordModal(user); });
 
-    // Delete user button (can't delete self)
-    var btnDel = document.createElement('button');
-    btnDel.className = 'btn btn-danger btn-sm';
-    btnDel.textContent = '🗑️ حذف';
-    if (user.id === isSelf) {
-      btnDel.disabled = true;
-      btnDel.style.opacity = '0.4';
-      btnDel.title = 'لا يمكن حذف حسابك الخاص';
-    } else {
-      btnDel.addEventListener('click', function() { _deleteUser(user); });
-    }
-
     actWrap.appendChild(btnPerm);
     actWrap.appendChild(btnRole);
     actWrap.appendChild(btnPass);
-    actWrap.appendChild(btnDel);
     tdAct.appendChild(actWrap);
 
     tr.appendChild(tdUser);
@@ -10908,8 +10771,7 @@ async function _changeRole(user) {
   if (!hasPermission('admin_panel')) return;
   var newRole = user.role === 'admin' ? 'user' : 'admin';
   var label = newRole === 'admin' ? 'Admin' : 'User';
-  var _userName = (typeof user.username === 'string' && user.username) ? user.username : (user.email||'');
-  var ok = await confirmAction('تغيير دور ' + _userName + ' إلى ' + label + '؟', '👤');
+  var ok = await confirmDelete('تغيير دور ' + (user.name||user.email) + ' إلى ' + label + '؟');
   if (!ok) return;
   try {
     await _adminCall('update_role', user.id, { role: newRole });
@@ -10958,96 +10820,96 @@ async function _setPassword() {
 // ── Permissions Modal ──
 function _openPermModal(user) {
   if (!hasPermission('admin_panel')) return;
+  var perms = Object.assign({}, user.permissions || {});
 
-  // ── Initialize perms — parse if stored as string ──
-  var rawPerms = user.permissions || {};
-  if (typeof rawPerms === 'string') {
-    try { rawPerms = JSON.parse(rawPerms); } catch(_) { rawPerms = {}; }
+  var body = document.createElement('div');
+
+  if (user.role === 'admin') {
+    var note = document.createElement('div');
+    note.style.cssText = 'padding:12px;background:var(--accent-light);border-radius:8px;font-size:13px;color:var(--accent);margin-bottom:12px;text-align:center;';
+    note.textContent = '👑 Admin — يملك صلاحيات كاملة تلقائياً';
+    body.appendChild(note);
   }
-  var perms = Object.assign({}, rawPerms);
 
-  // ── Store globally before openModal (setTimeout reads it) ──
-  window._pendingPerms = { userId: user.id, perms: perms, userEmail: user.email };
+  var grid = document.createElement('div');
+  grid.className = 'perm-grid';
 
-  // ── Build body as HTML string (safe with innerHTML) ──
-  var adminNote = user.role === 'admin'
-    ? '<div style="padding:12px;background:var(--accent-light);border-radius:8px;font-size:13px;color:var(--accent);margin-bottom:12px;text-align:center;">👑 Admin — يملك صلاحيات كاملة تلقائياً</div>'
-    : '';
-
-  var rowsHtml = _PERM_KEYS.map(function(item) {
+  _PERM_KEYS.forEach(function(item) {
     var key = item[0], label = item[1];
-    var checked = perms[key] === true ? 'checked' : '';
-    var disabled = user.role === 'admin' ? 'disabled' : '';
-    return '<div class="perm-row">' +
-      '<span class="perm-label">' + label + '</span>' +
-      '<label class="perm-toggle">' +
-        '<input type="checkbox" data-perm="' + key + '" ' + checked + ' ' + disabled + '>' +
-        '<span class="perm-slider"></span>' +
-      '</label>' +
-    '</div>';
-  }).join('');
+    var row = document.createElement('div');
+    row.className = 'perm-row';
 
-  var bodyHtml = adminNote + '<div class="perm-grid">' + rowsHtml + '</div>';
+    var lbl = document.createElement('span');
+    lbl.className = 'perm-label';
+    lbl.textContent = label;
+
+    var toggleWrap = document.createElement('label');
+    toggleWrap.className = 'perm-toggle';
+
+    var chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = perms[key] === true;
+    if (user.role === 'admin') chk.disabled = true;
+    chk.addEventListener('change', function() {
+      perms[key] = this.checked;
+    });
+
+    var slider = document.createElement('span');
+    slider.className = 'perm-slider';
+
+    toggleWrap.appendChild(chk);
+    toggleWrap.appendChild(slider);
+    row.appendChild(lbl);
+    row.appendChild(toggleWrap);
+    grid.appendChild(row);
+  });
+
+  body.appendChild(grid);
 
   var footer = '<button class="btn btn-primary" onclick="_savePermissions(\'' + user.id + '\')">💾 حفظ الصلاحيات</button>' +
     '<button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>';
 
-  var _permModalTitle = '🔑 صلاحيات: ' + (user.name || (user.email||'').replace('@local.app',''));
+  // Store perms ref globally for save
+  window._pendingPerms = { userId: user.id, perms: perms, userEmail: user.email };
 
-  // ── دائماً افتح كـ L2 panel — لا تستخدم openModal أبداً ──
-  openPanelLevel2(_permModalTitle, bodyHtml, footer, {
-    contextLabel: 'تعديل صلاحيات',
-    panelId: 'perm-' + user.id
-  });
+  openModal('🔑 صلاحيات: ' + sanitizeText(user.name||user.email), body.outerHTML, footer);
+
+  // Re-attach listeners after modal renders (innerHTML loses them)
+  setTimeout(function() {
+    var modal = document.querySelector('.modal');
+    if (!modal) return;
+    _PERM_KEYS.forEach(function(item) {
+      var key = item[0];
+      var chkEl = modal.querySelector('[data-perm="' + key + '"]');
+      // fallback: use index
+    });
+    // Re-bind via grid checkboxes in order
+    var checkboxes = modal.querySelectorAll('.perm-toggle input[type=checkbox]');
+    checkboxes.forEach(function(cb, i) {
+      var key = _PERM_KEYS[i] ? _PERM_KEYS[i][0] : null;
+      if (!key) return;
+      cb.checked = window._pendingPerms.perms[key] === true;
+      if (user.role === 'admin') cb.disabled = true;
+      cb.addEventListener('change', function() {
+        window._pendingPerms.perms[key] = this.checked;
+      });
+    });
+  }, 80);
 }
 
 async function _savePermissions(userId) {
   if (!hasPermission('admin_panel')) return;
   if (!window._pendingPerms || window._pendingPerms.userId !== userId) return;
-
-  // ── قراءة الـ checkboxes من الـ DOM — ابحث في كل الـ containers ──
-  var perms = {};
-  var containers = [
-    document.getElementById('panel-l2-body'),
-    document.getElementById('panel-body'),
-    document.querySelector('.modal-body')
-  ];
-  var container = null;
-  var checkboxes = [];
-  for (var ci = 0; ci < containers.length; ci++) {
-    if (!containers[ci]) continue;
-    var found = containers[ci].querySelectorAll('input[data-perm]');
-    if (found.length > 0) { container = containers[ci]; checkboxes = found; break; }
-  }
-  console.log('[SAVE PERMISSIONS] container:', container ? container.id || container.className : 'NONE', 'checkboxes:', checkboxes.length);
-  if (checkboxes.length > 0) {
-    checkboxes.forEach(function(cb) {
-      var k = cb.getAttribute('data-perm');
-      if (k) perms[k] = cb.checked === true;
-    });
-  } else {
-    // checkboxes غير موجودة — مشكلة في الـ DOM
-    console.error('[SAVE PERMISSIONS] NO CHECKBOXES FOUND IN DOM');
-    showToast('خطأ: تعذّر قراءة الصلاحيات من النافذة', 'error');
-    return;
-  }
-
-  console.log('[SAVE PERMISSIONS] userId:', userId, 'perms:', JSON.stringify(perms));
-  var _btn = document.querySelector('#panel-footer .btn-primary, .modal-footer .btn-primary');
-  var _restore = _btn ? btnLoad(_btn, 'جاري الحفظ...') : null;
+  var perms = window._pendingPerms.perms;
   try {
-    var result = await _adminCall('update_permissions', userId, { permissions: perms });
-    console.log('[SAVE PERMISSIONS] result:', JSON.stringify(result));
-    if (_restore) _restore();
+    await _adminCall('update_permissions', userId, { permissions: perms });
     closeModal();
     showToast('✅ تم حفظ الصلاحيات', 'success');
-    _logAction('update_permissions', { target_id: userId, target_email: window._pendingPerms ? window._pendingPerms.userEmail : '' });
+    _logAction('update_permissions', { target_id: userId, target_email: window._pendingPerms.userEmail });
     window._pendingPerms = null;
     await renderAdminPanel();
   } catch(e) {
-    if (_restore) _restore();
-    console.error('[SAVE PERMISSIONS] ERROR:', e);
-    handleError(e, 'خطأ في حفظ الصلاحيات: ' + e.message);
+    handleError(e, 'خطأ في حفظ الصلاحيات');
   }
 }
 
@@ -11086,27 +10948,10 @@ async function _createUser() {
   }
 }
 
-// ── Delete User ──
-async function _deleteUser(user) {
-  if (!hasPermission('admin_panel')) return;
-  var _userName = (typeof user.username === 'string' && user.username) ? user.username : (user.email||'');
-  var ok = await confirmAction('هل تريد حذف المستخدم: ' + _userName + '؟', '🗑️');
-  if (!ok) return;
-  try {
-    await _adminCall('delete_user', user.id, null);
-    showToast('✅ تم حذف المستخدم: ' + _userName, 'success');
-    _logAction('delete_user', { target_id: user.id, username: _userName });
-    await renderAdminPanel();
-  } catch(e) {
-    handleError(e, 'خطأ في حذف المستخدم');
-  }
-}
-
 // expose for modal footer onclick
 window._savePermissions = _savePermissions;
 window._createUser = _createUser;
 window._setPassword = _setPassword;
-window._deleteUser = _deleteUser;
 
 
 // ════════════════════════════════════════
@@ -11159,777 +11004,8 @@ async function _copyPublicLink(invId){
   }
 }
 
-
-
-// ══════════════════════════════════════════
-// 🤖 WADI ASSISTANT — v65.8
-// Built entirely via JS — no HTML dependency
-// ══════════════════════════════════════════
-(function initWadiAssistant() {
-
-  // ── CSS ──
-  var style = document.createElement('style');
-  style.textContent = [
-    '#wadi-fab{position:fixed;bottom:28px;left:28px;z-index:9999;width:52px;height:52px;',
-    'border-radius:50%;background:#2563eb;color:#fff;border:none;font-size:22px;',
-    'cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,.4);display:flex;',
-    'align-items:center;justify-content:center;transition:transform .2s;}',
-    '#wadi-fab:hover{transform:scale(1.1);}',
-    '#wadi-fab.wopen{transform:rotate(45deg);}',
-    '#wadi-chat{position:fixed;bottom:90px;left:28px;z-index:9998;width:300px;',
-    'max-height:440px;background:#fff;border-radius:16px;',
-    'box-shadow:0 8px 32px rgba(0,0,0,.15);border:1px solid #e9e9e7;',
-    'display:flex;flex-direction:column;transform:translateY(16px) scale(.97);',
-    'opacity:0;pointer-events:none;transition:transform .25s,opacity .2s;}',
-    '#wadi-chat.wopen{transform:translateY(0) scale(1);opacity:1;pointer-events:auto;}',
-    '#wadi-chat-hdr{padding:12px 14px;background:#2563eb;border-radius:16px 16px 0 0;',
-    'display:flex;align-items:center;gap:8px;flex-shrink:0;}',
-    '#wadi-chat-hdr .wt{color:#fff;font-weight:700;font-size:13px;}',
-    '#wadi-chat-hdr .ws{color:rgba(255,255,255,.75);font-size:10px;}',
-    '#wadi-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}',
-    '.wb,.wu{max-width:85%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;}',
-    '.wb{background:#f1f1ef;color:#111;border-radius:4px 12px 12px 12px;align-self:flex-start;}',
-    '.wu{background:#2563eb;color:#fff;border-radius:12px 4px 12px 12px;align-self:flex-end;}',
-    '.wchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}',
-    '.wchip{padding:4px 10px;border-radius:12px;font-size:11px;background:#eff6ff;',
-    'color:#2563eb;border:1px solid #bfdbfe;cursor:pointer;font-family:inherit;}',
-    '.wchip:hover{background:#dbeafe;}',
-    '#wadi-chat-ftr{padding:10px 12px;border-top:1px solid #e9e9e7;display:flex;gap:8px;flex-shrink:0;}',
-    '#wadi-inp{flex:1;padding:8px 12px;border:1px solid #e9e9e7;border-radius:20px;',
-    'font-size:13px;font-family:inherit;outline:none;background:#f9f9f8;color:#111;}',
-    '#wadi-inp:focus{border-color:#2563eb;}',
-    '#wadi-snd{width:36px;height:36px;border-radius:50%;background:#2563eb;color:#fff;',
-    'border:none;font-size:14px;cursor:pointer;flex-shrink:0;}',
-    '.wsugg-wrap{align-self:flex-start;max-width:95%;margin-top:4px;display:flex;flex-direction:column;gap:5px;}',
-    '.wsugg-label{font-size:11px;color:#9ca3af;padding-right:2px;margin-bottom:2px;}',
-    '.ai-suggestion{display:block;width:100%;padding:9px 13px;border-radius:10px;',
-    'background:#eef6ff;border:1px solid #bfdbfe;cursor:pointer;text-align:right;',
-    'font-size:12px;font-family:inherit;color:#1d4ed8;',
-    'transition:background .15s,transform .12s,box-shadow .15s;',
-    'animation:wmIn .22s ease;}',
-    '.ai-suggestion:hover{background:#dbeafe;transform:translateX(-2px);',
-    'box-shadow:0 0 8px rgba(37,99,235,.25);}',
-    '.ai-suggestion:active{transform:scale(.97);}',
-    '.ai-suggestion.used{opacity:.4;pointer-events:none;}',
-    /* fade-in for messages */
-    '@keyframes wFadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}',
-    '.wm-fadein{animation:wFadeUp .28s ease both;}',
-    /* improved typing dots */
-    '@keyframes wdot2{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}'
-  ].join('');
-  document.head.appendChild(style);
-
-  // ── HTML ──
-  var fab = document.createElement('button');
-  fab.id = 'wadi-fab';
-  fab.title = 'مساعد وادي';
-  fab.textContent = '💬';
-  fab.onclick = toggle;
-  document.body.appendChild(fab);
-
-  var chat = document.createElement('div');
-  chat.id = 'wadi-chat';
-  chat.innerHTML = [
-    '<div id="wadi-chat-hdr">',
-      '<span style="font-size:20px">🤖</span>',
-      '<div><div class="wt">مساعد وادي</div><div class="ws">● متاح الحين</div></div>',
-    '</div>',
-    '<div id="wadi-msgs"></div>',
-    '<div id="wadi-chat-ftr">',
-      '<input id="wadi-inp" type="text" placeholder="اكتب سؤالك..." dir="rtl" autocomplete="off">',
-      '<button id="wadi-snd">➤</button>',
-    '</div>'
-  ].join('');
-  document.body.appendChild(chat);
-
-  // ── Events ──
-  document.getElementById('wadi-snd').onclick = send;
-  document.getElementById('wadi-inp').onkeydown = function(e){ if(e.key==='Enter') send(); };
-
-  // ── State ──
-  var open = false, greeted = false;
-
-  // ── Random pick helper ──
-  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-  // ── Personality pools ──
-  var _greetings = [
-    'هلا <b>{name}</b> 👋 شلونك اليوم؟',
-    'هلا وغلا <b>{name}</b> 😄 شو أقدر أسوي لك؟',
-    'أهلين <b>{name}</b> 💪 جاهز أساعدك!',
-    'هلا <b>{name}</b> ⚡ شو عندك اليوم؟',
-  ];
-  var _invoiceReplies = [
-    'شغلك حلو، عندك {count} فاتورة نشطة 🔥 تريد تشوفهن؟',
-    'لقيت {count} فاتورة بالنظام 👌 نروح عليهن؟',
-    'اليوم عندك {count} فواتير، استمر على هذا المستوى 👏',
-    '{count} فاتورة موجودة — تريد أوديك للصفحة؟',
-  ];
-  var _profitReplies = [
-    'الأرباح تحلل بالتفصيل بصفحة التقارير 📊 تبي تشوف؟',
-    'ابي أشوفك تحقق أرباح عالية 💰 روح للتقارير وشوف الأرقام!',
-    'التقارير تعطيك صورة كاملة عن الربح والهامش 📈',
-  ];
-  var _overdueReplies = [
-    '⏰ في ذمم تحتاج متابعة — تريد تشوف القائمة؟',
-    'المتأخرات موجودة بصفحة التحصيل، لا تتأخر عليها 😅',
-    'يلا نتابع الذمم — اضغط وشوف مين متأخر 👇',
-  ];
-  var _expenseReplies = [
-    '💸 المصروفات مسجلة كلها — تبي تراجعها؟',
-    'سجلت مصروفاتك بالنظام، تريد تشوف التفاصيل؟',
-    'المصروفات موجودة — نروح عليها؟ 📋',
-  ];
-  var _clientReplies = [
-    '👥 قاعدة عملائك جاهزة — تبي تشوف كشف حساب أحد؟',
-    'العملاء كلهم موجودين بالنظام 😊 نروح؟',
-    'قاعدة الزبائن منظمة — تريد تطلع عليها؟',
-  ];
-  var _casualReplies = [
-    'واضح تعبان اليوم 😄 يلا شد حيلك!',
-    'يلا شد حيلك 💪 نظامك صار مرتب ترى 😉',
-    'هيه ابو الشغل 😄 شو تبي؟',
-    'لو محتاج مساعدة قولي 🤝',
-    'جرّب تكتب: فاتورة أو ربح أو متأخرات 😊',
-    'أنا هنا لو احتجت شي 👋',
-  ];
-  var _thankReplies = [
-    'العفو ' + '😊' + ' أي شي ثاني؟',
-    'هلا والله! دايماً بخدمتك 🤝',
-    'لا شكر على واجب 😄',
-  ];
-  var _navReplies = ['تفضل 🚀', 'يلا 👇', 'حاضر 💨', 'عالعين 👁️'];
-
-  function getName() {
-    var p = window.currentUserProfile;
-    if (p && p.name) return p.name;
-    var el = document.getElementById('user-name-d');
-    if (el && el.textContent !== '—') return el.textContent.trim();
-    return 'صديقي';
-  }
-
-  // ── Get live invoice count from DOM ──
-  function getInvCount() {
-    var badge = document.querySelector('.table-count');
-    if (badge) {
-      var m = badge.textContent.match(/\d+/);
-      if (m) return m[0];
-    }
-    return null;
-  }
-
-  // ── v66.7: Sound feedback ──
-  function playSound(type) {
-    var urls = {
-      send:  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA' + // tiny silent fallback
-             'AQABAAQAAAD//wAA',
-      reply: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA' +
-             'AQABAAQAAAD//wAA',
-    };
-    // Use Web Audio API for click sound (no file needed)
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var o = ctx.createOscillator();
-      var g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      if (type === 'send') {
-        o.frequency.value = 880; g.gain.setValueAtTime(.06, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .08);
-      } else if (type === 'reply') {
-        o.frequency.value = 660; g.gain.setValueAtTime(.04, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .12);
-      } else {
-        o.frequency.value = 440; g.gain.setValueAtTime(.03, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .05);
-      }
-      o.start(); o.stop(ctx.currentTime + .15);
-    } catch(_) {}
-  }
-
-  function addMsg(html, type, chips) {
-    var msgs = document.getElementById('wadi-msgs');
-    var d = document.createElement('div');
-    d.className = (type === 'u' ? 'wu' : 'wb') + ' wm-fadein';
-    d.innerHTML = html;
-    msgs.appendChild(d);
-    if (chips) {
-      var wrap = document.createElement('div');
-      wrap.className = 'wchips';
-      chips.forEach(function(c) {
-        var btn = document.createElement('button');
-        btn.className = 'wchip';
-        btn.textContent = c;
-        btn.onclick = function(){ reply(c); };
-        wrap.appendChild(btn);
-      });
-      msgs.appendChild(wrap);
-    }
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  // ── Typing indicator ──
-  function showTyping() {
-    var msgs = document.getElementById('wadi-msgs');
-    var d = document.createElement('div');
-    d.className = 'wb'; d.id = 'wadi-typing';
-    d.innerHTML = '<span style="display:inline-flex;gap:5px;align-items:center;padding:2px 0">' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block;animation:wdot2 1.1s infinite .0s both"></span>' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block;animation:wdot2 1.1s infinite .2s both"></span>' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block;animation:wdot2 1.1s infinite .4s both"></span>' +
-      '</span>';
-    // add keyframes once
-    if (!document.getElementById('wdot-style')) {
-      var s = document.createElement('style');
-      s.id = 'wdot-style';
-      s.textContent = '@keyframes wdot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}';
-      document.head.appendChild(s);
-    }
-    msgs.appendChild(d);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-  function hideTyping() {
-    var el = document.getElementById('wadi-typing');
-    if (el) el.remove();
-  }
-
-  // ── Bot reply with realistic typing delay ──
-  // ── Suggestion Engine ──
-  // ── v66.5: Multi-Suggestion Engine ──
-
-  // Map action strings → execution
-  // ── v66.8 Part 1: Action Tracker ──
-  function trackAction(action) {
-    try {
-      var data = JSON.parse(localStorage.getItem('wadi_usage') || '{}');
-      data[action] = (data[action] || 0) + 1;
-      localStorage.setItem('wadi_usage', JSON.stringify(data));
-    } catch(_) {}
-  }
-
-  // Part 2: Get top used actions
-  function getTopActions(limit) {
-    limit = limit || 3;
-    try {
-      var data = JSON.parse(localStorage.getItem('wadi_usage') || '{}');
-      return Object.keys(data)
-        .sort(function(a, b){ return data[b] - data[a]; })
-        .slice(0, limit);
-    } catch(_) { return []; }
-  }
-
-  // Part 3: Map action key → suggestion button
-  function mapActionToSuggestion(action) {
-    var map = {
-      'go_invoices':    { label: '📄 فتح الفواتير',    action: 'go_invoices' },
-      'create_invoice': { label: '➕ إضافة فاتورة',    action: 'create_invoice' },
-      'go_reports':     { label: '📊 تقرير الأرباح',    action: 'go_reports' },
-      'go_receivables': { label: '⏰ الذمم والتحصيل',   action: 'go_receivables' },
-      'go_expenses':    { label: '💸 المصروفات',         action: 'go_expenses' },
-      'go_clients':     { label: '👥 العملاء',           action: 'go_clients' },
-      'go_dashboard':   { label: '🏠 الرئيسية',          action: 'go_dashboard' },
-      'go_admin':       { label: '👑 لوحة الإدارة',      action: 'go_admin' },
-      'create_expense': { label: '➕ مصروف جديد',       action: 'create_expense' },
-      'create_client':  { label: '➕ عميل جديد',        action: 'create_client' },
-      'query_overdue':  { label: '⏰ كم ذمة متأخرة؟',   action: 'query_overdue' },
-      'query_inv':      { label: '📄 كم فاتورة عندي؟',  action: 'query_inv' },
-    };
-    return map[action] || null;
-  }
-
-  // Part 4: Build adaptive suggestions from usage history
-  function getAdaptiveSuggestions() {
-    var top = getTopActions(3);
-    var items = top.map(mapActionToSuggestion).filter(Boolean);
-    return items.length ? { label: '💡 حسب استخدامك:', items: items } : null;
-  }
-
-  function _execSuggAction(action) {
-    var map = {
-      'go_invoices':     function(){ respond('افتح الفواتير'); },
-      'create_invoice':  function(){ respond('سوي فاتورة جديدة'); },
-      'go_reports':      function(){ respond('افتح التقارير'); },
-      'go_receivables':  function(){ respond('افتح الذمم'); },
-      'go_expenses':     function(){ respond('افتح المصروفات'); },
-      'go_clients':      function(){ respond('افتح العملاء'); },
-      'go_dashboard':    function(){ respond('الرئيسية'); },
-      'go_admin':        function(){ respond('الإدارة'); },
-      'create_expense':  function(){ respond('اضف مصروف'); },
-      'create_client':   function(){ respond('اضف عميل جديد'); },
-      'query_overdue':   function(){ respond('كم ذمة متأخرة؟'); },
-      'query_inv':       function(){ respond('كم فاتورة عندي؟'); },
-    };
-    if (map[action]) map[action]();
-  }
-
-  // Suggestion sets per context
-  function getSuggestions(ctx) {
-    if (!ctx) return null;
-    switch(ctx.type) {
-      case 'invoices_overdue':
-        return {
-          label: '💡 شو تبي تسوي؟',
-          items: [
-            { label: '⏰ عرض الذمم المتأخرة',   action: 'go_receivables' },
-            { label: '📊 تقرير الأرباح',          action: 'go_reports' },
-            { label: '🏠 الرئيسية',               action: 'go_dashboard' },
-          ]
-        };
-      case 'no_invoices_today':
-        return {
-          label: '💡 تبي تبدأ بـ؟',
-          items: [
-            { label: '➕ فاتورة جديدة',           action: 'create_invoice' },
-            { label: '📄 عرض الفواتير',            action: 'go_invoices' },
-            { label: '📊 تقرير سريع',              action: 'go_reports' },
-          ]
-        };
-      case 'has_invoices':
-        return {
-          label: '💡 الخطوة الجاية؟',
-          items: [
-            { label: '📄 عرض الفواتير',            action: 'go_invoices' },
-            { label: '➕ فاتورة جديدة',           action: 'create_invoice' },
-            { label: '⏰ تحقق من المتأخرات',       action: 'query_overdue' },
-          ]
-        };
-      case 'high_expenses':
-        return {
-          label: '💡 تبي؟',
-          items: [
-            { label: '💸 عرض المصروفات',           action: 'go_expenses' },
-            { label: '📊 مقارنة بالأرباح',          action: 'go_reports' },
-            { label: '📄 مراجعة الفواتير',          action: 'go_invoices' },
-          ]
-        };
-      case 'good_activity':
-        return {
-          label: '💡 استمر!',
-          items: [
-            { label: '📊 تقرير الأرباح',            action: 'go_reports' },
-            { label: '➕ فاتورة جديدة',             action: 'create_invoice' },
-            { label: '👥 متابعة العملاء',           action: 'go_clients' },
-          ]
-        };
-    }
-    return null;
-  }
-
-  // Render suggestion buttons into DOM
-  function addSuggestions(suggObj) {
-    if (!suggObj || !suggObj.items || !suggObj.items.length) return;
-    var msgs = document.getElementById('wadi-msgs');
-    var wrap = document.createElement('div');
-    wrap.className = 'wsugg-wrap';
-
-    var lbl = document.createElement('div');
-    lbl.className = 'wsugg-label';
-    lbl.textContent = suggObj.label || '💡 اختر:';
-    wrap.appendChild(lbl);
-
-    suggObj.items.forEach(function(s) {
-      var btn = document.createElement('button');
-      btn.className = 'ai-suggestion';
-      btn.textContent = s.label;
-      btn.setAttribute('data-action', s.action);
-      btn.onclick = function() {
-        // disable all buttons in this group
-        wrap.querySelectorAll('.ai-suggestion').forEach(function(b){ b.classList.add('used'); });
-        _execSuggAction(s.action);
-      };
-      wrap.appendChild(btn);
-    });
-
-    msgs.appendChild(wrap);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  // ── botReply — supports ctx for multi-suggestions ──
-  function botReply(html, chips, delay, ctx) {
-    var d = delay !== undefined ? delay : (500 + Math.random() * 700);
-    showTyping();
-    setTimeout(function(){
-      hideTyping();
-      playSound('reply');
-      addMsg(html, 'b', chips);
-      if (ctx) {
-        var suggObj = getSuggestions(ctx);
-        if (suggObj) setTimeout(function(){ addSuggestions(suggObj); }, 500);
-      }
-    }, d);
-  }
-
-  // ── v66.1: Natural Language Keywords ──
-  function hasWord(list, text) {
-    return list.some(function(w){ return text.includes(w); });
-  }
-  var kw = {
-    invoices:    ['فاتورة','فواتير','فاتور'],
-    reports:     ['تقرير','تقارير','ربح','أرباح','profit'],
-    receivables: ['ذمم','متأخر','تحصيل','ذمة'],
-    expenses:    ['مصروف','مصاريف','expense'],
-    clients:     ['عميل','عملاء','زبون','زبائن','client'],
-    dashboard:   ['رئيسية','داشبورد','dashboard','الرئيسي'],
-    admin:       ['ادارة','ادار','اعداد','admin','لوحة الادار','المستخدمين'],
-    go:          ['روح','افتح','اذهب','وديني','اريد','عرض','شوف','وين'],
-    create:      ['سوي','اضف','انشئ','جديد','اريد اضيف','اريد اسوي'],
-    how_many:    ['كم','عدد','كمية','كام'],
-    money:       ['مبلغ','اجمالي','ايرادات','مبيعات','رقم'],
-  };
-
-  // ── Command Parser (v66.1) ──
-  function parseCommand(t) {
-    t = t.toLowerCase();
-    // Data queries — check first (before nav)
-    if (hasWord(kw.how_many, t) && hasWord(kw.invoices, t)) return 'query_inv_count';
-    if (hasWord(kw.how_many, t) && hasWord(kw.clients, t))  return 'query_client_count';
-    if (hasWord(kw.how_many, t) && hasWord(kw.receivables, t)) return 'query_overdue_count';
-    if ((hasWord(kw.how_many, t) || hasWord(kw.money, t)) && hasWord(kw.expenses, t)) return 'query_expenses';
-    // Action commands
-    if (hasWord(kw.create, t) && hasWord(kw.invoices, t))   return 'create_invoice';
-    if (hasWord(kw.create, t) && hasWord(kw.expenses, t))   return 'create_expense';
-    if (hasWord(kw.create, t) && hasWord(kw.clients, t))    return 'create_client';
-    // Navigation commands
-    if (hasWord(kw.go, t) && hasWord(kw.invoices, t))       return 'go_invoices';
-    if (hasWord(kw.go, t) && hasWord(kw.reports, t))        return 'go_reports';
-    if (hasWord(kw.go, t) && hasWord(kw.receivables, t))    return 'go_receivables';
-    if (hasWord(kw.go, t) && hasWord(kw.expenses, t))       return 'go_expenses';
-    if (hasWord(kw.go, t) && hasWord(kw.clients, t))        return 'go_clients';
-    if (hasWord(kw.dashboard, t))                           return 'go_dashboard';
-    if (hasWord(kw.admin, t))                               return 'go_admin';
-    // Bare topic words without action → treat as info
-    if (hasWord(kw.invoices, t))    return 'info_invoices';
-    if (hasWord(kw.reports, t))     return 'info_reports';
-    if (hasWord(kw.receivables, t)) return 'info_receivables';
-    if (hasWord(kw.expenses, t))    return 'info_expenses';
-    if (hasWord(kw.clients, t))     return 'info_clients';
-    return null;
-  }
-
-  // ── Command Executor ──
-  function executeCommand(cmd) {
-    // ── v66.8: Track every executed command ──
-    trackAction(cmd);
-    switch(cmd) {
-      case 'go_invoices':
-        if (!hasPermission('invoices_view')) return '❌ ما عندك صلاحية لعرض الفواتير';
-        setTimeout(function(){ showPage('invoices'); }, 600);
-        return pick(['حاضر 👁️ دا أوديك للفواتير', 'يلا نشوف الفواتير 🧾', 'عالعين، رايحين للفواتير 🚀']);
-      case 'go_reports':
-        if (!hasPermission('reports')) return '❌ ما عندك صلاحية للتقارير';
-        setTimeout(function(){ showPage('profit'); }, 600);
-        return pick(['يلا نشوف الأرباح 📊', 'رايحين للتقارير، تمسك 🔥', 'تفضل، التقارير جاهزة 📈']);
-      case 'go_receivables':
-        if (!hasPermission('payments')) return '❌ ما عندك صلاحية للذمم';
-        setTimeout(function(){ showPage('receivables'); }, 600);
-        return pick(['رايحين للذمم ⏰', 'يلا نتابع المتأخرات 💨', 'حاضر، الذمم جاهزة 👇']);
-      case 'go_expenses':
-        if (!hasPermission('expenses')) return '❌ ما عندك صلاحية للمصروفات';
-        setTimeout(function(){ showPage('expenses'); }, 600);
-        return pick(['يلا نشوف المصروفات 💸', 'رايحين للمصروفات 📋', 'تفضل 👇']);
-      case 'go_clients':
-        if (!hasPermission('clients_view')) return '❌ ما عندك صلاحية لعرض العملاء';
-        setTimeout(function(){ showPage('clients'); }, 600);
-        return pick(['يلا نشوف العملاء 👥', 'رايحين لقاعدة العملاء 🚀', 'تفضل، العملاء جاهزين 👇']);
-      case 'go_dashboard':
-        setTimeout(function(){ showPage('dashboard'); }, 600);
-        return pick(['رجعناك للرئيسية 👌', 'تفضل الرئيسية 🏠', 'يلا للداشبورد 📊']);
-      case 'go_admin':
-        if (!hasPermission('admin_panel')) return '❌ ما عندك صلاحية للوحة الإدارة';
-        setTimeout(function(){ showPage('admin'); }, 600);
-        return pick(['تفضل 🚀 دخلتك للإدارة', 'رايحين للوحة الإدارة 👑', 'حاضر، الإدارة جاهزة 💨']);
-      case 'create_invoice':
-        if (!hasPermission('invoices_create')) return '❌ ما عندك صلاحية لإنشاء فاتورة';
-        setTimeout(function(){
-          if (window._currentPage !== 'invoices') showPage('invoices');
-          setTimeout(function(){ if(typeof openInvoiceModal==='function') openInvoiceModal(); }, 500);
-        }, 600);
-        return pick(['تمام 🔥 افتحت لك إضافة فاتورة', 'يلا نسوي فاتورة جديدة ✨', 'جاهز، افتحت لك النموذج 📝']);
-      case 'create_expense':
-        if (!hasPermission('expenses')) return '❌ ما عندك صلاحية لإضافة مصروف';
-        setTimeout(function(){
-          if (window._currentPage !== 'expenses') showPage('expenses');
-          setTimeout(function(){ if(typeof openExpenseModal==='function') openExpenseModal(); }, 500);
-        }, 600);
-        return pick(['افتحت لك إضافة مصروف 💸', 'يلا نسجل المصروف 📋', 'جاهز، النموذج مفتوح 👇']);
-      case 'create_client':
-        if (!hasPermission('clients_edit')) return '❌ ما عندك صلاحية لإضافة عميل';
-        setTimeout(function(){
-          if (window._currentPage !== 'clients') showPage('clients');
-          setTimeout(function(){ if(typeof openClientModal==='function') openClientModal(); }, 500);
-        }, 600);
-        return pick(['افتحت لك إضافة عميل جديد 👥', 'يلا نضيف العميل ✨', 'جاهز، النموذج مفتوح 📝']);
-      // ── v66.3 Data queries ──
-      case 'query_inv_count': {
-        var invRows = document.querySelectorAll('[data-invoice-id]').length;
-        var invTotal = '';
-        var kpiCards = document.querySelectorAll('.kpi-card');
-        kpiCards.forEach(function(c){
-          if(c.querySelector('.kpi-label') && c.querySelector('.kpi-label').textContent.includes('إجمالي المبيعات'))
-            invTotal = c.querySelector('.kpi-value') ? c.querySelector('.kpi-value').textContent.trim() : '';
-        });
-        var cnt = invRows || getInvCount() || '؟';
-        var totalPart = invTotal ? ' بإجمالي ' + invTotal + ' د.ع' : '';
-        return {
-          text: pick([
-            'عندك <b>' + cnt + '</b> فاتورة نشطة' + totalPart + ' 📊',
-            'لقيت <b>' + cnt + '</b> فاتورة بالنظام الحين' + totalPart + ' 🧾',
-            'الفواتير النشطة: <b>' + cnt + '</b>' + totalPart + ' 👌',
-          ]),
-          ctx: { type: cnt > 0 ? 'has_invoices' : 'no_invoices_today' }
-        };
-      }
-      case 'query_client_count': {
-        var clientRows = document.querySelectorAll('[data-client-id], .client-row').length;
-        var cnt2 = clientRows || '؟';
-        return pick([
-          'عندك <b>' + cnt2 + '</b> عميل بالنظام 👥',
-          'قاعدة العملاء تحتوي <b>' + cnt2 + '</b> عميل 📋',
-        ]);
-      }
-      case 'query_overdue_count': {
-        var overdueEl = document.getElementById('overdue-badge');
-        var overdueN = overdueEl ? (overdueEl.textContent.trim() || '0') : '؟';
-        if (overdueN === '0' || overdueN === '') {
-          return { text: pick(['ما في متأخرات الحين ✅ كلشي تمام!', 'الذمم نظيفة، ما في متأخرات 🎉']) };
-        }
-        return {
-          text: pick([
-            'عندك <b>' + overdueN + '</b> فاتورة متأخرة بالتحصيل ⏰',
-            'لازم تتابع <b>' + overdueN + '</b> ذمة متأخرة 💨',
-          ]),
-          ctx: { type: 'invoices_overdue' }
-        };
-      }
-      case 'query_expenses': {
-        var expKpi = '';
-        document.querySelectorAll('.kpi-card').forEach(function(c){
-          if(c.querySelector('.kpi-label') && c.querySelector('.kpi-label').textContent.includes('مصروف'))
-            expKpi = c.querySelector('.kpi-value') ? c.querySelector('.kpi-value').textContent.trim() : '';
-        });
-        var expText = expKpi
-          ? pick(['إجمالي المصروفات <b>' + expKpi + '</b> د.ع 💸', 'المصروفات وصلت <b>' + expKpi + '</b> د.ع 📋'])
-          : pick(['المصروفات مسجلة — روح لصفحة المصروفات للتفاصيل 💸', 'افتح صفحة المصروفات وشوف الأرقام 📋']);
-        return { text: expText, ctx: { type: 'high_expenses' } };
-      }
-      // ── Info cases (bare topic) ──
-      case 'info_invoices': {
-        var cnt3 = getInvCount();
-        return pick(_invoiceReplies).replace('{count}', cnt3 || '');
-      }
-      case 'info_reports':     return pick(_profitReplies);
-      case 'info_receivables': return pick(_overdueReplies);
-      case 'info_expenses':    return pick(_expenseReplies);
-      case 'info_clients':     return pick(_clientReplies);
-      default:
-        return null;
-    }
-  }
-
-  function respond(m) {
-    var orig = m;
-    m = m.toLowerCase();
-
-    // ── Command + data detection ──
-    var cmd = parseCommand(orig);
-    if (cmd) {
-      var cmdResult = executeCommand(cmd);
-      if (cmdResult) {
-        // cmdResult can be string or {text, ctx}
-        if (typeof cmdResult === 'object' && cmdResult.text) {
-          botReply(cmdResult.text, null, undefined, cmdResult.ctx || null);
-        } else {
-          botReply(cmdResult);
-        }
-        return;
-      }
-    }
-
-    // ── Conversational fallbacks ──
-    if (m.includes('هلا')||m.includes('سلام')||m.includes('مرحبا')||m.includes('هاي')||m.includes('أهلا')) {
-      botReply(pick(_greetings).replace('{name}', getName()), ['كم فاتورة عندي؟','في متأخرات؟','سوي فاتورة جديدة']);
-    } else if (m.includes('شكر')||m.includes('يسلم')||m.includes('مشكور')||m.includes('ثانكس')) {
-      botReply(pick(_thankReplies));
-    } else if (m.includes('لا شكراً')||m.includes('لا، شكراً')||m.includes('ما أبي')) {
-      botReply('زين 😊 لو احتجت شي أنا هنا!');
-    } else if (m.includes('مساعدة')||m.includes('ايش تقدر')||m.includes('شو تعرف')) {
-      botReply('أقدر أساعدك بـ:<br>' +
-        '• <b>عرض أي صفحة</b> — "افتح الفواتير"<br>' +
-        '• <b>إضافة بيانات</b> — "سوي فاتورة جديدة"<br>' +
-        '• <b>أرقام فورية</b> — "كم فاتورة عندي؟"<br>' +
-        '• <b>متأخرات</b> — "كم ذمة متأخرة؟" ⚡',
-        ['كم فاتورة عندي؟','في متأخرات؟','افتح التقارير']);
-    } else {
-      botReply(pick(_casualReplies));
-    }
-  }
-
-  // ── v66.6: Proactive Summary ──
-  function _getProactiveSummary() {
-    // Invoice count
-    var invCount = document.querySelectorAll('[data-invoice-id]').length || 0;
-    if (!invCount) {
-      var badge = document.querySelector('.table-count');
-      if (badge) { var m = badge.textContent.match(/\d+/); if (m) invCount = +m[0]; }
-    }
-    // Overdue count
-    var overdueEl = document.getElementById('overdue-badge');
-    var overdueCount = overdueEl ? (+overdueEl.textContent.trim() || 0) : 0;
-    // Total sales from KPI
-    var totalSales = '';
-    document.querySelectorAll('.kpi-card').forEach(function(c) {
-      var lbl = c.querySelector('.kpi-label');
-      var val = c.querySelector('.kpi-value');
-      if (lbl && val && lbl.textContent.includes('إجمالي المبيعات'))
-        totalSales = val.textContent.trim();
-    });
-    return { invCount: invCount, overdueCount: overdueCount, totalSales: totalSales };
-  }
-
-  function _showProactiveMsg() {
-    // Show once per session only
-    if (sessionStorage.getItem('wadi_proactive_shown')) return;
-    sessionStorage.setItem('wadi_proactive_shown', '1');
-
-    var name = getName();
-    var data = _getProactiveSummary();
-    var hour = new Date().getHours();
-    var greeting = hour < 12 ? 'صباح الخير' : hour < 17 ? 'مساء الخير' : 'مساء النور';
-
-    // Build summary message
-    var lines = [greeting + ' <b>' + name + '</b> 👋'];
-    if (data.invCount > 0)
-      lines.push('📄 عندك <b>' + data.invCount + '</b> فاتورة' + (data.totalSales ? ' بإجمالي ' + data.totalSales + ' د.ع' : ''));
-    if (data.overdueCount > 0)
-      lines.push('⏰ <b style="color:#dc2626">' + data.overdueCount + '</b> فاتورة متأخرة تحتاج متابعة');
-    else
-      lines.push('✅ ما في متأخرات، كلشي تمام!');
-
-    var msgHtml = lines.join('<br>');
-
-    // ── v66.8: prefer adaptive suggestions ──
-    var adaptive2 = getAdaptiveSuggestions();
-    var ctx;
-    if (!adaptive2) {
-      ctx = data.overdueCount > 0 ? { type: 'invoices_overdue' }
-          : data.invCount > 0    ? { type: 'has_invoices' }
-          : { type: 'no_invoices_today' };
-    }
-
-    if (!open) {
-      open = true;
-      fab.classList.add('wopen');
-      chat.classList.add('wopen');
-      greeted = true;
-    }
-    botReply(msgHtml, null, 800, ctx);
-    if (adaptive2) setTimeout(function(){ addSuggestions(adaptive2); }, 1500);
-  }
-
-  // ── v66.7 Part 1: Daily Insight ──
-  function _showDailyInsight(data) {
-    var hour = new Date().getHours();
-    var timeGreet = hour < 12 ? 'صباح الخير' : hour < 17 ? 'مساء الخير' : 'مساء النور';
-    var name = getName();
-
-    var lines = ['<b>' + timeGreet + ' ' + name + '</b> ⚡ ملخص اليوم:'];
-    if (data.invCount > 0)
-      lines.push('📄 <b>' + data.invCount + '</b> فاتورة' + (data.totalSales ? ' · ' + data.totalSales + ' د.ع' : ''));
-    else
-      lines.push('📄 ما في فواتير اليوم بعد');
-    if (data.overdueCount > 0)
-      lines.push('⏰ <b style="color:#dc2626">' + data.overdueCount + '</b> متأخرة تحتاج متابعة 👀');
-    else
-      lines.push('✅ كلشي نظيف، ما في متأخرات 🔥');
-
-    // ── v66.8: add adaptive hint ──
-    var adaptive = getAdaptiveSuggestions();
-    if (adaptive) lines.push('<span style="font-size:11px;color:#6b7280">💡 حسب استخدامك — اختر من الأزرار أدناه</span>');
-
-    var msgHtml = lines.join('<br>');
-    var ctx = adaptive ? null  // adaptive overrides context suggestions
-            : data.overdueCount > 0 ? {type:'invoices_overdue'}
-            : data.invCount > 0    ? {type:'has_invoices'}
-            : {type:'no_invoices_today'};
-
-    if (!open) {
-      open = true;
-      fab.classList.add('wopen');
-      chat.classList.add('wopen');
-      greeted = true;
-    }
-    botReply(msgHtml, null, 900, ctx);
-    // Show adaptive suggestions after message
-    if (adaptive) setTimeout(function(){ addSuggestions(adaptive); }, 1600);
-  }
-
-  // ── Expose proactive trigger for renderDashboard hook ──
-  window._wadiProactive = function() {
-    var todayKey = 'wadi_daily_' + new Date().toDateString();
-    var isNewDay = !localStorage.getItem(todayKey);
-    var isFirstSession = !sessionStorage.getItem('wadi_proactive_shown');
-
-    if (!isFirstSession && !isNewDay) return; // already shown today
-
-    sessionStorage.setItem('wadi_proactive_shown', '1');
-    if (isNewDay) localStorage.setItem(todayKey, '1');
-
-    setTimeout(function() {
-      var data = _getProactiveSummary();
-      if (isNewDay) {
-        _showDailyInsight(data);
-      } else {
-        _showProactiveMsg();
-      }
-    }, 1800);
-  };
-
-  function toggle() {
-    open = !open;
-    fab.classList.toggle('wopen', open);
-    chat.classList.toggle('wopen', open);
-    if (open && !greeted) {
-      greeted = true;
-      setTimeout(function(){
-        var greeting = pick(_greetings).replace('{name}', getName());
-        botReply(greeting, ['فاتورة','ربح','متأخرات'], 400);
-      }, 200);
-    }
-    if (open) setTimeout(function(){ var i=document.getElementById('wadi-inp'); if(i)i.focus(); }, 300);
-  }
-
-  function send() {
-    var inp = document.getElementById('wadi-inp');
-    var msg = inp ? inp.value.trim() : '';
-    if (!msg) return;
-    inp.value = '';
-    playSound('send');
-    addMsg(msg, 'u');
-    respond(msg);
-  }
-
-  function reply(text) { addMsg(text, 'u'); respond(text); }
-
-  // Expose
-  window.wadiToggle = toggle;
-  window.wadiSend = send;
-  window.wadiReply = reply;
-
-})();
-
 </script>
-<div id="floating-scroll"><div id="floating-scroll-inner"></div></div>    <div>
-      <div class="wc-title">مساعد وادي</div>
-      <div class="wc-status">● متاح الحين</div>
-    </div>
-  </div>
-  <div id="wadi-messages"></div>
-  <div id="wadi-chat-footer">
-    <input id="wadi-input" type="text" placeholder="اكتب سؤالك..." dir="rtl" autocomplete="off"
-      onkeydown="if(event.key==='Enter')wadiSend()">
-    <button id="wadi-send" onclick="wadiSend()" title="إرسال">➤</button>
-  </div>
-</div>
-
+<div id="floating-scroll"><div id="floating-scroll-inner"></div></div>
 <!-- WhatsApp Send Modal — قبل </body> مباشرة · بدون onclick inline -->
 <div id="wa-modal-overlay">
   <div id="wa-modal">
@@ -11965,6 +11041,5 @@ async function _copyPublicLink(invId){
     </div>
   </div>
 </div>
-
 </body>
 </html>
