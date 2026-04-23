@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v59.8">
+<meta name="app-version" content="v67.15">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -6520,7 +6520,7 @@ async function saveInvoice(existingId, goToLines=false){
       created_date:new Date().toISOString().slice(0,10),
       ...(invType==='simple'?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
-    // ── PRE-CHECK: رقم الفاتورة مكرر؟ (فقط عند إنشاء جديد) ──
+    // ── PRE-CHECK: رقم فاتورة مكرر؟ (فقط عند إنشاء جديد) ──
     if(!existingId){
       const{data:dupCheck}=await sb.from('invoices')
         .select('id,is_deleted')
@@ -6529,13 +6529,11 @@ async function saveInvoice(existingId, goToLines=false){
       if(dupCheck){
         restore();
         if(dupCheck.is_deleted){
-          // CASE 1 — موجودة ومحذوفة → عرض خيار استرجاع
+          // CASE 1 — موجودة ومحذوفة → سؤال استرجاع
           const confirmed=await _showDupDeletedModal(id);
-          if(confirmed){
-            await _restoreDeletedInvoice(id);
-          }
+          if(confirmed){ await _restoreDeletedInvoice(id); }
         } else {
-          // CASE 2 — موجودة وغير محذوفة → رسالة واضحة بدون خيارات
+          // CASE 2 — موجودة ونشطة → رسالة بدون خيارات
           _showDupActiveModal(id);
         }
         return;
@@ -6614,155 +6612,50 @@ async function saveInvoice(existingId, goToLines=false){
   }
 }
 
-// ════════════════════════════════════════
-// 🔁 DUPLICATE INVOICE HANDLERS — v59.8
-// ════════════════════════════════════════
-
-// CASE 1 modal — فاتورة محذوفة → سؤال استرجاع
-function _showDupDeletedModal(invId){
-  return new Promise(function(resolve){
-    // إزالة أي modal سابق
-    var old=document.getElementById('dup-modal-overlay');
-    if(old) old.remove();
-
-    var overlay=document.createElement('div');
-    overlay.id='dup-modal-overlay';
-    overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.32);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease';
-
-    overlay.innerHTML=`
-      <div style="background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:400px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,.18);animation:modalSlideUp .25s cubic-bezier(.16,1,.3,1) both;direction:rtl">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-          <div style="width:40px;height:40px;border-radius:50%;background:#fef9c3;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚠️</div>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:#111">رقم مستخدم سابقاً</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:2px">الفاتورة <span style="font-family:monospace;font-weight:700;color:#2563eb">${invId}</span> موجودة ومحذوفة</div>
-          </div>
-        </div>
-        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:11px 13px;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:18px">
-          هذا الرقم استخدمته فاتورة محذوفة سابقاً.<br>
-          تقدر <b>تسترجع الفاتورة القديمة</b> بدل ما تعيد الإدخال.
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="dup-cancel" style="padding:8px 18px;border-radius:8px;border:1.5px solid #e9e9e7;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">إلغاء</button>
-          <button id="dup-restore" style="padding:8px 20px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px">
-            <span>♻️</span> استرجاع الفاتورة
-          </button>
-        </div>
-      </div>`;
-
-    document.body.appendChild(overlay);
-
-    function _resolve(val){
-      overlay.style.opacity='0';
-      overlay.style.transition='opacity .15s';
-      setTimeout(function(){ overlay.remove(); resolve(val); }, 150);
-    }
-    document.getElementById('dup-cancel').onclick=function(){ _resolve(false); };
-    document.getElementById('dup-restore').onclick=function(){ _resolve(true); };
-    overlay.addEventListener('click',function(e){ if(e.target===overlay) _resolve(false); });
-  });
-}
-
-// CASE 2 modal — فاتورة نشطة → رسالة فقط
-function _showDupActiveModal(invId){
-  var old=document.getElementById('dup-modal-overlay');
-  if(old) old.remove();
-
-  var overlay=document.createElement('div');
-  overlay.id='dup-modal-overlay';
-  overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.32);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease';
-
-  overlay.innerHTML=`
-    <div style="background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:380px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,.18);animation:modalSlideUp .25s cubic-bezier(.16,1,.3,1) both;direction:rtl">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="width:40px;height:40px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚫</div>
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#111">رقم الفاتورة موجود</div>
-          <div style="font-size:12px;color:#6b7280;margin-top:2px">الفاتورة <span style="font-family:monospace;font-weight:700;color:#dc2626">${invId}</span> موجودة بالفعل</div>
-        </div>
-      </div>
-      <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:11px 13px;font-size:13px;color:#991b1b;line-height:1.6;margin-bottom:18px">
-        هذا الرقم مستخدم لفاتورة نشطة حالياً.<br>
-        اختر رقماً مختلفاً أو ابحث عن الفاتورة الموجودة.
-      </div>
-      <div style="display:flex;justify-content:flex-end">
-        <button id="dup-ok" style="padding:8px 22px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">حسناً</button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  function _close(){
-    overlay.style.opacity='0';
-    overlay.style.transition='opacity .15s';
-    setTimeout(function(){ overlay.remove(); }, 150);
-    // فوكس على حقل الرقم
-    var fid=document.getElementById('f-id');
-    if(fid){ fid.focus(); fid.select(); }
-  }
-  document.getElementById('dup-ok').onclick=_close;
-  overlay.addEventListener('click',function(e){ if(e.target===overlay) _close(); });
-}
-
-// Restore deleted invoice by ID
-async function _restoreDeletedInvoice(invId){
-  try{
-    showToast('جاري الاسترجاع...','info');
-    // 1. flip is_deleted
-    var{error:e1}=await sb.from('invoices')
-      .update({is_deleted:false,deleted_at:null})
-      .eq('id',invId);
-    if(e1) throw e1;
-    // 2. استرجاع البنود من snapshot (upsert لو موجودة بعد)
-    var{data:snapLines}=await sb.from('invoice_lines').select('*').eq('invoice_id',invId);
-    if(snapLines&&snapLines.length>0){
-      await sb.from('invoice_lines').upsert(snapLines,{onConflict:'id'});
-    }
-    // 3. تحديث الواجهة
-    clearCache();
-    closeModal();
-    showToast('تم استرجاع الفاتورة '+invId+' بنجاح ✓','success');
-    addNotif('♻️','تم استرجاع الفاتورة '+invId,'success');
-    renderInvoices();
-  }catch(e){
-    handleError(e,'فشل الاسترجاع');
-  }
-}
-
 async function delInvoice(id){
   if(!hasPermission('invoices_delete')) return;
   const ok=await confirmDelete(`حذف الفاتورة ${id}؟`);
   if(!ok) return;
   console.log('[delInvoice] بدء حذف الفاتورة — ID:', id);
   try {
-    // 0. snapshot قبل الحذف (للـ undo + audit)
-    const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
-    const{data:linesSnap}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
-    console.log('[delInvoice] snapshot:', invSnap ? 'موجود' : 'مفقود', '| lines:', (linesSnap||[]).length);
+    // STEP 1 — fetch invoice_lines FIRST (mandatory — abort if fetch fails)
+    const{data:linesSnap, error:linesErr}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
+    if(linesErr){
+      console.error('[delInvoice] فشل جلب invoice_lines — إيقاف الحذف:', linesErr);
+      showToast('خطأ في جلب بنود الفاتورة — لم يتم الحذف', 'error');
+      return;
+    }
+    console.log('[delInvoice] STEP 1 lines fetched:', (linesSnap||[]).length);
 
-    // 1. audit_logs — fire-and-forget
-    _logAction('delete_invoices',{
+    // STEP 2 — fetch invoice snapshot
+    const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
+    console.log('[delInvoice] STEP 2 invoice snapshot:', invSnap ? 'موجود' : 'مفقود');
+
+    // STEP 2b — store snapshot in audit_logs (DB — not memory, not window vars)
+    await _logAction('delete_invoices',{
       count:1, ids:[id],
+      invoice_id: id,
       snapshot:{
         invoices: invSnap ? [invSnap] : [],
         lines: Array.isArray(linesSnap) ? linesSnap : []
       }
     });
+    console.log('[delInvoice] STEP 2b snapshot stored in audit_logs');
 
-    // 2. حذف invoice_lines أولاً — hard delete (جدول بدون is_deleted)
+    // STEP 3 — hard delete invoice_lines
     if(Array.isArray(linesSnap) && linesSnap.length > 0){
       const{data:deletedLines, error:lErr}=await sb.from('invoice_lines')
         .delete()
         .eq('invoice_id', id)
         .select();
-      console.log('[delInvoice] invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', lErr);
+      console.log('[delInvoice] STEP 3 invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', lErr);
       if(lErr){
         console.error('[delInvoice] فشل حذف invoice_lines:', lErr.code, lErr.message);
         throw lErr;
       }
     }
 
-    // 3. soft delete invoice — .select() لضمان رجوع البيانات والتأكد من التنفيذ
+    // STEP 4 — soft delete invoice
     const{data:updated, error}=await sb
       .from('invoices')
       .update({ is_deleted: true, deleted_at: new Date().toISOString() })
@@ -6872,6 +6765,180 @@ async function _undoDelete() {
   } catch (e) {
     // فشل — لا نُنظّف _lastDeleted حتى يقدر المستخدم يحاول مرة ثانية
     handleError(e, 'خطأ في الاسترجاع');
+  }
+}
+
+// ════════════════════════════════════════
+// 🔁 DUPLICATE INVOICE SMART FLOW — v67.15
+// ════════════════════════════════════════
+
+// CASE 1 modal — فاتورة محذوفة → سؤال استرجاع
+function _showDupDeletedModal(invId){
+  return new Promise(function(resolve){
+    var old=document.getElementById('dup-modal-overlay');
+    if(old) old.remove();
+    var overlay=document.createElement('div');
+    overlay.id='dup-modal-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.32);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML=`
+      <div style="background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:400px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,.18);animation:modalSlideUp .25s cubic-bezier(.16,1,.3,1) both;direction:rtl">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="width:40px;height:40px;border-radius:50%;background:#fef9c3;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚠️</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#111">رقم مستخدم سابقاً</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:2px">الفاتورة <span style="font-family:monospace;font-weight:700;color:#2563eb">${invId}</span> موجودة ومحذوفة</div>
+          </div>
+        </div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:11px 13px;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:18px">
+          هذا الرقم استخدمته فاتورة محذوفة سابقاً.<br>
+          تقدر <b>تسترجع الفاتورة القديمة</b> بدل ما تعيد الإدخال.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="dup-cancel" style="padding:8px 18px;border-radius:8px;border:1.5px solid #e9e9e7;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">إلغاء</button>
+          <button id="dup-restore" style="padding:8px 20px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px">
+            <span>♻️</span> استرجاع الفاتورة
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    function _resolve(val){
+      overlay.style.opacity='0'; overlay.style.transition='opacity .15s';
+      setTimeout(function(){ overlay.remove(); resolve(val); },150);
+    }
+    document.getElementById('dup-cancel').onclick=function(){ _resolve(false); };
+    document.getElementById('dup-restore').onclick=function(){ _resolve(true); };
+    overlay.addEventListener('click',function(e){ if(e.target===overlay) _resolve(false); });
+  });
+}
+
+// CASE 2 modal — فاتورة نشطة → رسالة فقط
+function _showDupActiveModal(invId){
+  var old=document.getElementById('dup-modal-overlay');
+  if(old) old.remove();
+  var overlay=document.createElement('div');
+  overlay.id='dup-modal-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.32);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:380px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,.18);animation:modalSlideUp .25s cubic-bezier(.16,1,.3,1) both;direction:rtl">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚫</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#111">رقم الفاتورة موجود</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px">الفاتورة <span style="font-family:monospace;font-weight:700;color:#dc2626">${invId}</span> موجودة بالفعل</div>
+        </div>
+      </div>
+      <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:11px 13px;font-size:13px;color:#991b1b;line-height:1.6;margin-bottom:18px">
+        هذا الرقم مستخدم لفاتورة نشطة حالياً.<br>
+        اختر رقماً مختلفاً أو ابحث عن الفاتورة الموجودة.
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button id="dup-ok" style="padding:8px 22px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">حسناً</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  function _close(){
+    overlay.style.opacity='0'; overlay.style.transition='opacity .15s';
+    setTimeout(function(){ overlay.remove(); },150);
+    var fid=document.getElementById('f-id'); if(fid){ fid.focus(); fid.select(); }
+  }
+  document.getElementById('dup-ok').onclick=_close;
+  overlay.addEventListener('click',function(e){ if(e.target===overlay) _close(); });
+}
+
+// RESTORE deleted invoice — reads lines snapshot from audit_logs (DB, not memory)
+async function _restoreDeletedInvoice(invId){
+  try{
+    showToast('جاري الاسترجاع...','info');
+
+    // STEP 1 — flip is_deleted on invoice
+    var{error:e1}=await sb.from('invoices')
+      .update({is_deleted:false, deleted_at:null})
+      .eq('id', invId);
+    if(e1) throw e1;
+    console.log('[restore] invoice flipped is_deleted=false ✓');
+
+    // STEP 2 — fetch lines snapshot from audit_logs (DB — persistent across refresh)
+    var linesRestored = 0;
+    try{
+      var{data:auditRows, error:ae}=await sb.from('audit_logs')
+        .select('id,details')
+        .eq('action_type','delete_invoices')
+        .order('id',{ascending:false})
+        .limit(50);
+
+      if(ae) throw ae;
+
+      // البحث عن أحدث snapshot يحتوي على هذه الفاتورة
+      var snapLines = null;
+      if(Array.isArray(auditRows)){
+        for(var i=0;i<auditRows.length;i++){
+          var det={};
+          try{ det=typeof auditRows[i].details==='string'?JSON.parse(auditRows[i].details):(auditRows[i].details||{}); }catch(_){}
+          var snap=det.snapshot;
+          // تطابق invoice_id مباشرة أو ضمن invoices[]
+          var matchId = det.invoice_id===invId ||
+            (snap && Array.isArray(snap.invoices) && snap.invoices.some(function(iv){ return iv.id===invId; }));
+          if(matchId && snap && Array.isArray(snap.lines)){
+            snapLines=snap.lines;
+            console.log('[restore] snapshot found in audit_logs row:', auditRows[i].id, '| lines:', snapLines.length);
+            break;
+          }
+        }
+      }
+
+      if(snapLines===null){
+        // لا يوجد snapshot — استرجاع الفاتورة فقط مع تحذير
+        console.warn('[restore] no snapshot found for', invId, '— invoice restored without lines');
+        clearCache(); closeModal();
+        showToast('تم استرجاع الفاتورة بدون البنود (لا يوجد نسخة محفوظة)', 'warning');
+        addNotif('♻️','تم استرجاع الفاتورة '+invId+' (بدون بنود)','warning');
+        renderInvoices();
+        return;
+      }
+
+      // STEP 3 — restore lines (skip if empty snapshot)
+      if(snapLines.length===0){
+        console.log('[restore] snapshot empty — no lines to restore');
+      } else {
+        // تنظيف الـ snapshot: فقط الأعمدة الصحيحة، بدون تكرار
+        var cleanLines=snapLines.map(function(l){
+          return {
+            id:           l.id,
+            invoice_id:   invId,  // تأكيد invoice_id الصحيح
+            description:  l.description||'',
+            qty:          l.qty||0,
+            unit_price:   l.unit_price||0,
+            cost_unit:    l.cost_unit||0,
+            unit:         l.unit||'',
+            notes:        l.notes||null
+          };
+        });
+        var{error:e2}=await sb.from('invoice_lines').upsert(cleanLines,{onConflict:'id'});
+        if(e2){
+          console.error('[restore] upsert lines error:', e2);
+          showToast('تم استرجاع الفاتورة — لكن فشل استرجاع البنود: '+e2.message,'warning');
+        } else {
+          linesRestored=cleanLines.length;
+          console.log('[restore] lines upserted:', linesRestored, '✓');
+        }
+      }
+    } catch(snapErr){
+      console.error('[restore] snapshot fetch error (non-fatal):', snapErr);
+      showToast('تم استرجاع الفاتورة بدون البنود (خطأ في جلب الـ snapshot)', 'warning');
+    }
+
+    // STEP 4 — UI update
+    clearCache(); closeModal();
+    var msg=linesRestored>0
+      ? 'تم استرجاع الفاتورة '+invId+' مع '+linesRestored+' بنود ✓'
+      : 'تم استرجاع الفاتورة '+invId+' ✓';
+    showToast(msg,'success');
+    addNotif('♻️',msg,'success');
+    renderInvoices();
+
+  }catch(e){
+    console.error('[restore] fatal error:', e);
+    handleError(e,'فشل الاسترجاع');
   }
 }
 
@@ -8302,7 +8369,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.14';
+const APP_VERSION = 'v67.15';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
