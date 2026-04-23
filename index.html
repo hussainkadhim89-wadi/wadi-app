@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.9">
+<meta name="app-version" content="v67.10">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════════════
-   🎨 DESIGN TOKENS — v67.9
+   🎨 DESIGN TOKENS — v67.10
    Single source of truth for all CSS vars
    ══════════════════════════════════════════
 
@@ -99,7 +99,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.9
+   ✨ ULTRA PREMIUM UX — v67.10
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -546,7 +546,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.9
+   🔥 ULTRA PREMIUM SIDEBAR — v67.10
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1754,7 +1754,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.9 Polish
+   ✨ ULTRA PREMIUM UX — v67.10 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -5438,7 +5438,7 @@ async function renderActivity() {
     // Fields to NEVER show in any modal
     // Fields that must NEVER appear in any modal
     // ══════════════════════════════════════════════════════════
-    // 🗂️ MODAL DATA ENGINE — v67.9
+    // 🗂️ MODAL DATA ENGINE — v67.10
     // Handles field visibility, labelling, and value formatting
     // ══════════════════════════════════════════════════════════
 
@@ -6483,12 +6483,14 @@ async function saveInvoice(existingId, goToLines=false){
       :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
     // ── audit trail → logInvoiceAction ──
-    logInvoiceAction(
-      existingId?'update':'create',
-      _savedData.id||existingId,
-      _beforeSnap||null,
-      _savedData
-    );
+    if(typeof logInvoiceAction === 'function'){
+      logInvoiceAction(
+        existingId?'update':'create',
+        _savedData.id||existingId,
+        _beforeSnap||null,
+        _savedData
+      );
+    }
     if(!existingId){
       const{data:cl2}=await sb.from('clients').select('credit_days').eq('id',clientId).single();
       const creditDays=cl2?.credit_days||60;
@@ -6547,26 +6549,55 @@ async function delInvoice(id){
   if(!hasPermission('invoices_delete')) return;
   const ok=await confirmDelete(`حذف الفاتورة ${id}؟`);
   if(!ok) return;
-  // 0. snapshot قبل الحذف
-  const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
-  const{data:linesSnap}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
-  // 1. audit_logs — fire-and-forget
-  _logAction('delete_invoices',{
-    count:1,ids:[id],
-    snapshot:{
-      invoices:invSnap?[invSnap]:[],
-      lines:Array.isArray(linesSnap)?linesSnap:[]
+  console.log('[delInvoice] بدء حذف الفاتورة — ID:', id);
+  try {
+    // 0. snapshot قبل الحذف (للـ undo + audit)
+    const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
+    const{data:linesSnap}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
+    console.log('[delInvoice] snapshot:', invSnap ? 'موجود' : 'مفقود', '| lines:', (linesSnap||[]).length);
+
+    // 1. audit_logs — fire-and-forget
+    _logAction('delete_invoices',{
+      count:1, ids:[id],
+      snapshot:{
+        invoices: invSnap ? [invSnap] : [],
+        lines: Array.isArray(linesSnap) ? linesSnap : []
+      }
+    });
+
+    // 2. soft delete — .select() لضمان رجوع البيانات والتأكد من التنفيذ
+    const{data:updated, error}=await sb
+      .from('invoices')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .select();
+
+    console.log('[delInvoice] نتيجة الـ update — data:', updated, '| error:', error);
+
+    if(error){
+      console.error('[delInvoice] فشل الـ update:', error.code, error.message, error.details, error.hint);
+      showToast('خطأ في الحذف: ' + (error.message||error.code||'unknown'), 'error');
+      return;
     }
-  });
-  // 2. soft delete — لا نحذف السجل
-  const{error}=await sb.from('invoices').update({
-    is_deleted:true,
-    deleted_at:new Date().toISOString()
-  }).eq('id',id);
-  if(error){showToast('خطأ في الحذف','error');return;}
-  // 3. invoice_history — fire-and-forget
-  logInvoiceAction('delete', id, invSnap, null);
-  clearCache();showToast('تم الحذف','success');renderInvoices();
+    if(!updated || updated.length === 0){
+      console.error('[delInvoice] الـ update لم يؤثر على أي صف — تحقق من RLS policy');
+      showToast('لم يتم الحذف — تحقق من الصلاحيات', 'error');
+      return;
+    }
+
+    // 3. invoice_history — fire-and-forget (guard: function might not exist in all versions)
+    if(typeof logInvoiceAction === 'function'){
+      logInvoiceAction('delete', id, invSnap, null);
+    }
+
+    console.log('[delInvoice] ✅ تم الحذف بنجاح — is_deleted=true على', updated.length, 'صف');
+    clearCache();
+    showToast('تم الحذف', 'success');
+    renderInvoices();
+  } catch(e) {
+    console.error('[delInvoice] خطأ غير متوقع:', e);
+    handleError(e, 'خطأ في حذف الفاتورة');
+  }
 }
 
 // Line Modal
@@ -7411,20 +7442,32 @@ async function bulkDeleteInvoices(){
         lines: Array.isArray(linesSnap) ? linesSnap : []
       }
     });
+    console.log('[bulkDelete] بدء الحذف الجماعي — IDs:', selectedIds);
     // 2. soft delete invoice_lines — لا نحذف، نعلّم فقط
-    const{error:e1}=await sb.from('invoice_lines')
+    const{data:updatedLines, error:e1}=await sb.from('invoice_lines')
       .update({ is_deleted: true })
-      .in('invoice_id', selectedIds);
+      .in('invoice_id', selectedIds)
+      .select();
+    console.log('[bulkDelete] invoice_lines update — rows:', (updatedLines||[]).length, '| error:', e1);
     if(e1) throw e1;
+
     // 3. soft delete invoices — لا نحذف، نعلّم فقط
-    const{error:e2}=await sb.from('invoices')
+    const{data:updatedInvs, error:e2}=await sb.from('invoices')
       .update({ is_deleted: true, deleted_at: new Date().toISOString() })
-      .in('id', selectedIds);
+      .in('id', selectedIds)
+      .select();
+    console.log('[bulkDelete] invoices update — rows:', (updatedInvs||[]).length, '| error:', e2);
     if(e2) throw e2;
+    if(!updatedInvs || updatedInvs.length === 0){
+      throw new Error('[bulkDelete] الـ update لم يؤثر على أي صف — تحقق من RLS policy');
+    }
+
     // 4. تسجيل في invoice_history — fire-and-forget لكل فاتورة
-    (Array.isArray(invSnap)?invSnap:[]).forEach(function(inv){
-      logInvoiceAction('delete', inv.id, inv, null);
-    });
+    if(typeof logInvoiceAction === 'function'){
+      (Array.isArray(invSnap)?invSnap:[]).forEach(function(inv){
+        logInvoiceAction('delete', inv.id, inv, null);
+      });
+    }
     _selectedInvIds.clear();
     _showUndoToast(selectedIds.length);
     renderInvoices();
@@ -8050,7 +8093,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.9';
+const APP_VERSION = 'v67.10';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -8154,7 +8197,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.9
+// 🔥 ULTRA PREMIUM NAV JS — v67.10
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
