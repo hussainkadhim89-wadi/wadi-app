@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.15">
+<meta name="app-version" content="v67.16">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -6531,7 +6531,7 @@ async function saveInvoice(existingId, goToLines=false){
         if(dupCheck.is_deleted){
           // CASE 1 — موجودة ومحذوفة → سؤال استرجاع
           const confirmed=await _showDupDeletedModal(id);
-          if(confirmed){ await _restoreDeletedInvoice(id); }
+          if(confirmed){ await _restoreFromAuditById(id); }
         } else {
           // CASE 2 — موجودة ونشطة → رسالة بدون خيارات
           _showDupActiveModal(id);
@@ -6845,99 +6845,59 @@ function _showDupActiveModal(invId){
   overlay.addEventListener('click',function(e){ if(e.target===overlay) _close(); });
 }
 
-// RESTORE deleted invoice — reads lines snapshot from audit_logs (DB, not memory)
-async function _restoreDeletedInvoice(invId){
+// ════════════════════════════════════════
+// ♻️ RESTORE BY ID — v67.16
+// Single entry point for duplicate-flow restore.
+// Fetches the matching audit_logs row then delegates
+// entirely to _restoreFromAudit (the ONE restore implementation).
+// ════════════════════════════════════════
+async function _restoreFromAuditById(invId){
   try{
     showToast('جاري الاسترجاع...','info');
 
-    // STEP 1 — flip is_deleted on invoice
-    var{error:e1}=await sb.from('invoices')
-      .update({is_deleted:false, deleted_at:null})
-      .eq('id', invId);
-    if(e1) throw e1;
-    console.log('[restore] invoice flipped is_deleted=false ✓');
+    // STEP 1 — locate the most recent audit snapshot that contains this invoice
+    var{data:auditRows,error:ae}=await sb.from('audit_logs')
+      .select('id,details')
+      .eq('action_type','delete_invoices')
+      .order('id',{ascending:false})
+      .limit(50);
+    if(ae) throw ae;
 
-    // STEP 2 — fetch lines snapshot from audit_logs (DB — persistent across refresh)
-    var linesRestored = 0;
-    try{
-      var{data:auditRows, error:ae}=await sb.from('audit_logs')
-        .select('id,details')
-        .eq('action_type','delete_invoices')
-        .order('id',{ascending:false})
-        .limit(50);
-
-      if(ae) throw ae;
-
-      // البحث عن أحدث snapshot يحتوي على هذه الفاتورة
-      var snapLines = null;
-      if(Array.isArray(auditRows)){
-        for(var i=0;i<auditRows.length;i++){
-          var det={};
-          try{ det=typeof auditRows[i].details==='string'?JSON.parse(auditRows[i].details):(auditRows[i].details||{}); }catch(_){}
-          var snap=det.snapshot;
-          // تطابق invoice_id مباشرة أو ضمن invoices[]
-          var matchId = det.invoice_id===invId ||
-            (snap && Array.isArray(snap.invoices) && snap.invoices.some(function(iv){ return iv.id===invId; }));
-          if(matchId && snap && Array.isArray(snap.lines)){
-            snapLines=snap.lines;
-            console.log('[restore] snapshot found in audit_logs row:', auditRows[i].id, '| lines:', snapLines.length);
-            break;
-          }
+    var matchedLog=null;
+    if(Array.isArray(auditRows)){
+      for(var i=0;i<auditRows.length;i++){
+        var det={};
+        try{ det=typeof auditRows[i].details==='string'?JSON.parse(auditRows[i].details):(auditRows[i].details||{}); }catch(_){}
+        var snap=det.snapshot;
+        var matched=det.invoice_id===invId||
+          (snap&&Array.isArray(snap.invoices)&&snap.invoices.some(function(iv){return iv.id===invId;}));
+        if(matched&&snap&&Array.isArray(snap.invoices)){
+          matchedLog=auditRows[i];
+          console.log('[_restoreFromAuditById] matched audit row:',auditRows[i].id,'for invoice:',invId);
+          break;
         }
       }
-
-      if(snapLines===null){
-        // لا يوجد snapshot — استرجاع الفاتورة فقط مع تحذير
-        console.warn('[restore] no snapshot found for', invId, '— invoice restored without lines');
-        clearCache(); closeModal();
-        showToast('تم استرجاع الفاتورة بدون البنود (لا يوجد نسخة محفوظة)', 'warning');
-        addNotif('♻️','تم استرجاع الفاتورة '+invId+' (بدون بنود)','warning');
-        renderInvoices();
-        return;
-      }
-
-      // STEP 3 — restore lines (skip if empty snapshot)
-      if(snapLines.length===0){
-        console.log('[restore] snapshot empty — no lines to restore');
-      } else {
-        // تنظيف الـ snapshot: فقط الأعمدة الصحيحة، بدون تكرار
-        var cleanLines=snapLines.map(function(l){
-          return {
-            id:           l.id,
-            invoice_id:   invId,  // تأكيد invoice_id الصحيح
-            description:  l.description||'',
-            qty:          l.qty||0,
-            unit_price:   l.unit_price||0,
-            cost_unit:    l.cost_unit||0,
-            unit:         l.unit||'',
-            notes:        l.notes||null
-          };
-        });
-        var{error:e2}=await sb.from('invoice_lines').upsert(cleanLines,{onConflict:'id'});
-        if(e2){
-          console.error('[restore] upsert lines error:', e2);
-          showToast('تم استرجاع الفاتورة — لكن فشل استرجاع البنود: '+e2.message,'warning');
-        } else {
-          linesRestored=cleanLines.length;
-          console.log('[restore] lines upserted:', linesRestored, '✓');
-        }
-      }
-    } catch(snapErr){
-      console.error('[restore] snapshot fetch error (non-fatal):', snapErr);
-      showToast('تم استرجاع الفاتورة بدون البنود (خطأ في جلب الـ snapshot)', 'warning');
     }
 
-    // STEP 4 — UI update
-    clearCache(); closeModal();
-    var msg=linesRestored>0
-      ? 'تم استرجاع الفاتورة '+invId+' مع '+linesRestored+' بنود ✓'
-      : 'تم استرجاع الفاتورة '+invId+' ✓';
-    showToast(msg,'success');
-    addNotif('♻️',msg,'success');
-    renderInvoices();
+    if(!matchedLog){
+      // No snapshot — restore invoice only + warning (no crash)
+      console.warn('[_restoreFromAuditById] no audit snapshot for',invId,'— restoring invoice header only');
+      var{error:e1}=await sb.from('invoices')
+        .update({is_deleted:false,deleted_at:null})
+        .eq('id',invId);
+      if(e1) throw e1;
+      clearCache(); closeModal();
+      showToast('تم استرجاع الفاتورة بدون البنود (لا توجد نسخة محفوظة)','warning');
+      addNotif('♻️','تم استرجاع الفاتورة '+invId+' (بدون بنود)','warning');
+      renderInvoices();
+      return;
+    }
+
+    // STEP 2 — delegate entirely to the canonical _restoreFromAudit
+    await _restoreFromAudit(matchedLog, null);
 
   }catch(e){
-    console.error('[restore] fatal error:', e);
+    console.error('[_restoreFromAuditById] fatal:',e);
     handleError(e,'فشل الاسترجاع');
   }
 }
