@@ -40,7 +40,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v44.67
+   ✨ ULTRA PREMIUM UX — v67.1
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -466,7 +466,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v44.67
+   🔥 ULTRA PREMIUM SIDEBAR — v67.1
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1672,7 +1672,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v44.67 Polish
+   ✨ ULTRA PREMIUM UX — v67.1 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -2310,6 +2310,7 @@ input:focus,select:focus,textarea:focus{
 <script src="js/config.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/audit.js"></script>
 <script>
 // ← sb, rt, currentUser → js/config.js
 // ════════════════════════════════════════
@@ -5835,8 +5836,23 @@ async function saveInvoice(existingId, goToLines=false){
       created_date:new Date().toISOString().slice(0,10),
       ...(invType==='simple'?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
-    const{error}=existingId?await sb.from('invoices').update(payload).eq('id',existingId):await sb.from('invoices').insert(payload);
+    // ── snapshot قبل التعديل (للـ audit) ──
+    let _beforeSnap = null;
+    if(existingId){
+      const{data:_bs}=await sb.from('invoices').select('*').eq('id',existingId).single();
+      _beforeSnap=_bs||null;
+    }
+    const{data:_savedData,error}=existingId
+      ?await sb.from('invoices').update(payload).eq('id',existingId).select().single()
+      :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
+    // ── audit trail → logInvoiceAction ──
+    logInvoiceAction(
+      existingId?'update':'create',
+      _savedData.id||existingId,
+      _beforeSnap||null,
+      _savedData
+    );
     if(!existingId){
       const{data:cl2}=await sb.from('clients').select('credit_days').eq('id',clientId).single();
       const creditDays=cl2?.credit_days||60;
@@ -5892,25 +5908,28 @@ async function saveInvoice(existingId, goToLines=false){
 }
 
 async function delInvoice(id){
-  if(!hasPermission('invoices_delete')) return; // guard
-  const ok=await confirmDelete(`حذف الفاتورة ${id}؟ سيتم حذف كل بنودها أيضاً`);
+  if(!hasPermission('invoices_delete')) return;
+  const ok=await confirmDelete(`حذف الفاتورة ${id}؟`);
   if(!ok) return;
   // 0. snapshot قبل الحذف
-  const invSnap   = await sb.from('invoices').select('*').eq('id',id);
-  const linesSnap = await sb.from('invoice_lines').select('*').eq('invoice_id',id);
-  // 1. تسجيل مع snapshot — fire-and-forget، نفس هيكل bulk
-  _logAction('delete_invoices', {
-    count: 1,
-    ids: [id],
-    snapshot: {
-      invoices: Array.isArray(invSnap.data)   ? invSnap.data   : [],
-      lines:    Array.isArray(linesSnap.data) ? linesSnap.data : []
+  const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
+  const{data:linesSnap}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
+  // 1. audit_logs — fire-and-forget
+  _logAction('delete_invoices',{
+    count:1,ids:[id],
+    snapshot:{
+      invoices:invSnap?[invSnap]:[],
+      lines:Array.isArray(linesSnap)?linesSnap:[]
     }
   });
-  // 2. حذف البنود ثم الفاتورة
-  await sb.from('invoice_lines').delete().eq('invoice_id',id);
-  const{error}=await sb.from('invoices').delete().eq('id',id);
+  // 2. soft delete — لا نحذف السجل
+  const{error}=await sb.from('invoices').update({
+    is_deleted:true,
+    deleted_at:new Date().toISOString()
+  }).eq('id',id);
   if(error){showToast('خطأ في الحذف','error');return;}
+  // 3. invoice_history — fire-and-forget
+  logInvoiceAction('delete', id, invSnap, null);
   clearCache();showToast('تم الحذف','success');renderInvoices();
 }
 
@@ -7374,7 +7393,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v66.8';
+const APP_VERSION = 'v67.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7478,7 +7497,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v44.28
+// 🔥 ULTRA PREMIUM NAV JS — v67.1
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
@@ -11397,7 +11416,7 @@ async function _copyPublicLink(invId){
   // ── v66.5: Multi-Suggestion Engine ──
 
   // Map action strings → execution
-  // ── v66.8 Part 1: Action Tracker ──
+  // ── v67.1 Part 1: Action Tracker ──
   function trackAction(action) {
     try {
       var data = JSON.parse(localStorage.getItem('wadi_usage') || '{}');
@@ -11607,7 +11626,7 @@ async function _copyPublicLink(invId){
 
   // ── Command Executor ──
   function executeCommand(cmd) {
-    // ── v66.8: Track every executed command ──
+    // ── v67.1: Track every executed command ──
     trackAction(cmd);
     switch(cmd) {
       case 'go_invoices':
@@ -11806,7 +11825,7 @@ async function _copyPublicLink(invId){
 
     var msgHtml = lines.join('<br>');
 
-    // ── v66.8: prefer adaptive suggestions ──
+    // ── v67.1: prefer adaptive suggestions ──
     var adaptive2 = getAdaptiveSuggestions();
     var ctx;
     if (!adaptive2) {
@@ -11841,7 +11860,7 @@ async function _copyPublicLink(invId){
     else
       lines.push('✅ كلشي نظيف، ما في متأخرات 🔥');
 
-    // ── v66.8: add adaptive hint ──
+    // ── v67.1: add adaptive hint ──
     var adaptive = getAdaptiveSuggestions();
     if (adaptive) lines.push('<span style="font-size:11px;color:#6b7280">💡 حسب استخدامك — اختر من الأزرار أدناه</span>');
 
