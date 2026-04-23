@@ -40,7 +40,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.3
+   ✨ ULTRA PREMIUM UX — v67.2
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -466,7 +466,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.3
+   🔥 ULTRA PREMIUM SIDEBAR — v67.2
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1672,7 +1672,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.3 Polish
+   ✨ ULTRA PREMIUM UX — v67.2 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -2180,7 +2180,6 @@ input:focus,select:focus,textarea:focus{
         <div class="nav-group-items" id="grp-system">
           <div class="nav-item" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>الإعدادات</div>
           <div class="nav-item" id="nav-activity" onclick="showPage('activity')"><span class="nav-icon">📋</span>سجل النشاط</div>
-          <div class="nav-item" id="nav-login_log" onclick="showPage('login_log')"><span class="nav-icon">🔐</span>سجل الدخول</div>
           <div class="nav-item" id="nav-admin" onclick="showPage('admin')"><span class="nav-icon">👑</span>لوحة الإدارة</div>
         </div>
       </div>
@@ -3037,7 +3036,6 @@ function _applyNavPermissions() {
     ['nav-clients',        'clients_view'],
     ['nav-reports',        'reports'],
     ['nav-activity',       'admin_panel'],
-    ['nav-login_log',      'admin_panel'],
     ['nav-admin',          'admin_panel'],
     ['nav-dashboard',      null],
     ['nav-settings',       null],
@@ -3147,7 +3145,6 @@ const pageInfo={
   reports:['📈 التقارير','التقارير المالية الشاملة','<button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ PDF</button>'],
   settings:['⚙️ الإعدادات','إعدادات النظام',''],
   activity:['📋 سجل النشاط','تاريخ العمليات',''],
-  login_log:['🔐 سجل الدخول','سجل تسجيلات الدخول',''],
   admin:['👑 لوحة الإدارة','إدارة المستخدمين والصلاحيات',''],
 };
 
@@ -3211,7 +3208,6 @@ const _pagePermMap = {
   clients:        'clients_view',
   reports:        'reports',
   activity:       'admin_panel',
-  login_log:      'admin_panel',
   admin:          'admin_panel',
   settings:       null,   // always allowed
   dashboard:      null,
@@ -3251,7 +3247,7 @@ function showPage(page, arg){
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
     clients:renderClientsWithRisk,credits:renderCredits,reports:renderReports,settings:renderSettings,
-    invoice_center:renderInvoiceCenter,activity:renderActivity,admin:renderAdminPanel,login_log:renderLoginLog};
+    invoice_center:renderInvoiceCenter,activity:renderActivity,admin:renderAdminPanel};
   if(fn[page]) fn[page](arg).then?.(()=>_restoreScroll(page)) || setTimeout(()=>_restoreScroll(page),200);
 }
 
@@ -5119,385 +5115,231 @@ async function renderSettings(){
 // ════════════════════════════════════════
 // 📋 ACTIVITY PAGE — v60.13
 // ════════════════════════════════════════
-// ── diff helper ──
-function diffObjects(before, after){
-  const changes = [];
-  const skip = ['id','created_at','updated_at'];
-  for(const key in after){
-    if(skip.includes(key)) continue;
-    if(JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key])){
-      changes.push({ field: key, before: before?.[key], after: after?.[key] });
-    }
-  }
-  return changes;
-}
-
 async function renderActivity() {
+  // ── حفظ قيم الفلتر والبحث قبل setLoading (تمسح الـ DOM) ──
   var _savedFilter = document.getElementById('activityFilter')?.value || 'all';
   var _savedSearch = document.getElementById('activitySearch')?.value || '';
-  var _savedUser   = document.getElementById('activityUserFilter')?.value || 'all';
-  var _savedDate   = document.getElementById('activityDateFilter')?.value || '';
 
   setLoading('جاري تحميل سجل النشاط...');
   try {
-    // ── جلب audit_logs ──
-    const { data: auditData, error: auditError } = await sb
+    const { data, error } = await sb
       .from('audit_logs')
       .select('id,action_type,details,created_at,user_id')
       .order('created_at', { ascending: false })
-      .limit(100);
-    if (auditError) throw auditError;
+      .limit(50);
+    if (error) throw error;
 
-    // ── جلب invoice_history ──
-    const { data: histData } = await sb
-      .from('invoice_history')
-      .select('id,invoice_id,action,before,after,user_id,created_at')
-      .order('created_at', { ascending: false })
-      .limit(100);
+    const rows = (data || []);
 
-    // ── Batch fetch profiles ──
+    // ── Batch fetch profiles for human-readable names ──
     var _allUserIds = [];
-    (auditData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
-    (histData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
-    var _uniqueIds = _allUserIds.filter(function(v,i,a){ return a.indexOf(v)===i; });
+    rows.forEach(function(l) {
+      if (l.user_id) _allUserIds.push(l.user_id);
+      var d = {};
+      try { d = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch(_) {}
+      if (d.target_user_id) _allUserIds.push(d.target_user_id);
+    });
+    var _uniqueIds = _allUserIds.filter(function(v, i, a) { return a.indexOf(v) === i; });
     var userMap = {};
     if (_uniqueIds.length > 0) {
       var { data: _profiles } = await sb.from('profiles').select('id,name,email');
-      (_profiles||[]).forEach(function(u){ userMap[u.id]=u; });
-    }
-
-    var userOptions = Object.values(userMap);
-
-    function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
-    function _formatDate(ts){
-      if(!ts) return '—';
-      try { return new Date(ts).toLocaleString('ar-IQ',{dateStyle:'short',timeStyle:'short'}); }
-      catch(_){ return ts; }
+      (_profiles || []).forEach(function(u) { userMap[u.id] = u; });
     }
 
     function _formatAction(row) {
-      var type=row.action_type||''; var details={};
-      try { details=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
-      var adminName=_userName(row.user_id);
-      var targetUser=userMap[details.target_user_id]||null;
-      var targetName=(targetUser&&(targetUser.name||targetUser.email))||details.username||'مستخدم محذوف';
-      if(type==='delete_invoices'){ var ids=(details.ids||[]); return '🧾 '+adminName+' حذف الفاتورة '+(ids.length?ids.join('، '):'—'); }
-      if(type==='delete_invoice')  return '🧾 حذف فاتورة: '+(details.id||'—');
-      if(type==='undo_delete'){ var ids2=(details.ids||[]); return '↩️ استرجاع: '+(ids2.length?ids2.join('، '):'—'); }
-      if(type==='create_user') return '👤 '+adminName+' أنشأ المستخدم '+(details.username||'—');
-      if(type==='delete_user') return '🗑️ '+adminName+' حذف المستخدم '+targetName;
-      if(type==='update_role') return '🔄 '+adminName+' غيّر دور '+targetName+' إلى '+(details.new_role||'—');
-      if(type==='update_permissions') return '🔑 '+adminName+' عدّل صلاحيات '+targetName;
-      if(type==='set_password') return '🔒 '+adminName+' غيّر كلمة مرور '+targetName;
+      var type    = row.action_type || '';
+      var details = {};
+      try { details = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
+      var count = details.count ?? '—';
+
+      // ── Invoice actions ──
+      if (type === 'delete_invoices') {
+        var ids = Array.isArray(details.ids) ? details.ids : [];
+        var _invAdmin = userMap[row.user_id] || null;
+        var _invAdminName = (_invAdmin && (_invAdmin.name || _invAdmin.email)) || 'مجهول';
+        var label = ids.length > 0 ? ids.join('، ') : (details.count || '—') + ' فواتير';
+        return '🧾 ' + _invAdminName + ' حذف الفاتورة ' + label;
+      }
+      if (type === 'delete_invoice')  return '🧾 حذف فاتورة: ' + (details.id || '—');
+      if (type === 'undo_delete') {
+        var ids = Array.isArray(details.ids) ? details.ids : [];
+        var label = ids.length > 0 ? ids.join('، ') : count + ' فواتير';
+        return '↩️ استرجاع: ' + label;
+      }
+
+      // ── Admin User actions ──
+      var adminUser   = userMap[row.user_id] || null;
+      var targetUser  = userMap[details.target_user_id] || null;
+      var adminName   = (adminUser  && (adminUser.name  || adminUser.email))  || 'مجهول';
+      var targetName  = (targetUser && (targetUser.name || targetUser.email)) || details.username || 'مستخدم محذوف';
+      if (type === 'create_user')
+        return '👤 ' + adminName + ' أنشأ المستخدم ' + (details.username || '—');
+      if (type === 'delete_user')
+        return '🗑️ ' + adminName + ' حذف المستخدم ' + targetName;
+      if (type === 'update_role')
+        return '🔄 ' + adminName + ' غيّر دور ' + targetName + ' إلى ' + (details.new_role || '—');
+      if (type === 'update_permissions')
+        return '🔑 ' + adminName + ' عدّل صلاحيات ' + targetName;
+      if (type === 'set_password')
+        return '🔒 ' + adminName + ' غيّر كلمة مرور ' + targetName;
+
       return type;
     }
 
-    function _histLabel(row){
-      var a=row.action==='create'?'➕ إنشاء':row.action==='update'?'✏️ تعديل':'🗑️ حذف';
-      return a+' فاتورة '+( row.invoice_id||'—');
+    function _formatDate(ts) {
+      if (!ts) return '—';
+      try { return new Date(ts).toLocaleString('ar-IQ', { dateStyle: 'short', timeStyle: 'short' }); }
+      catch(_) { return ts; }
     }
 
-    function _actionColor(action){
-      if(action==='create') return '#16a34a';
-      if(action==='update') return '#ea580c';
-      if(action==='delete') return '#dc2626';
-      return 'var(--text3)';
+    // ── Filter + Search logic ──
+    var filtered = rows;
+    if (_savedFilter && _savedFilter !== 'all') {
+      filtered = filtered.filter(function(l) { return l.action_type === _savedFilter; });
     }
-
-    // ── فلترة audit_logs ──
-    var auditRows = auditData||[];
-    if(_savedFilter!=='all') auditRows=auditRows.filter(function(l){ return l.action_type===_savedFilter; });
-    if(_savedUser!=='all')   auditRows=auditRows.filter(function(l){ return l.user_id===_savedUser; });
-    if(_savedDate)           auditRows=auditRows.filter(function(l){ return (l.created_at||'').startsWith(_savedDate); });
-    if(_savedSearch){
-      var _s=_savedSearch.toLowerCase();
-      auditRows=auditRows.filter(function(l){ return _formatAction(l).toLowerCase().includes(_s); });
-    }
-
-    // ── فلترة invoice_history ──
-    var histRows = histData||[];
-    if(_savedUser!=='all') histRows=histRows.filter(function(l){ return l.user_id===_savedUser; });
-    if(_savedDate)         histRows=histRows.filter(function(l){ return (l.created_at||'').startsWith(_savedDate); });
-    if(_savedSearch){
-      var _s2=_savedSearch.toLowerCase();
-      histRows=histRows.filter(function(l){ return _histLabel(l).toLowerCase().includes(_s2); });
-    }
-    // فلتر نوع العملية على invoice_history
-    if(_savedFilter==='invoice_create') histRows=histRows.filter(function(l){ return l.action==='create'; });
-    else if(_savedFilter==='invoice_update') histRows=histRows.filter(function(l){ return l.action==='update'; });
-    else if(_savedFilter==='invoice_delete') histRows=histRows.filter(function(l){ return l.action==='delete'; });
-    else if(_savedFilter!=='all'&&!['invoice_create','invoice_update','invoice_delete'].includes(_savedFilter)) histRows=[];
-
-    // ── Modal تفاصيل التغيير ──
-    function _openDiffModal(row){
-      var before=row.before||{};
-      var after=row.after||{};
-      var changes=diffObjects(before,after);
-      var color=_actionColor(row.action);
-      var actionLabel=row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف';
-
-      var overlay=document.createElement('div');
-      overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;';
-
-      var modal=document.createElement('div');
-      modal.style.cssText='background:#fff;border-radius:12px;width:100%;max-width:560px;max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.18);';
-
-      var hd=document.createElement('div');
-      hd.style.cssText='padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;';
-      var htitle=document.createElement('span');
-      htitle.style.cssText='font-size:15px;font-weight:700;color:'+color;
-      htitle.textContent='تفاصيل '+actionLabel+' — فاتورة '+(row.invoice_id||'—');
-      var closeBtn=document.createElement('button');
-      closeBtn.textContent='✕';
-      closeBtn.style.cssText='background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:0 4px;';
-      closeBtn.onclick=function(){ document.body.removeChild(overlay); };
-      hd.appendChild(htitle); hd.appendChild(closeBtn);
-      modal.appendChild(hd);
-
-      var body=document.createElement('div');
-      body.style.cssText='padding:20px 22px;';
-
-      // معلومات أساسية
-      var info=document.createElement('div');
-      info.style.cssText='margin-bottom:14px;font-size:12px;color:var(--text3);display:flex;gap:16px;flex-wrap:wrap;';
-      info.innerHTML='<span>👤 '+_userName(row.user_id)+'</span><span>🕒 '+_formatDate(row.created_at)+'</span>';
-      body.appendChild(info);
-
-      if(row.action==='create'){
-        // عرض بيانات الإنشاء
-        var tbl=document.createElement('table');
-        tbl.style.cssText='width:100%;border-collapse:collapse;font-size:13px;';
-        Object.entries(after).forEach(function(kv){
-          if(['id','created_at','updated_at'].includes(kv[0])) return;
-          var tr=document.createElement('tr');
-          tr.innerHTML='<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);width:40%">'+kv[0]+'</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500;color:#16a34a">'+kv[1]+'</td>';
-          tbl.appendChild(tr);
-        });
-        body.appendChild(tbl);
-      } else if(row.action==='delete'){
-        var note=document.createElement('div');
-        note.style.cssText='color:#dc2626;font-size:13px;font-weight:600;padding:10px;background:#fff5f5;border-radius:8px;';
-        note.textContent='تم حذف هذه الفاتورة (soft delete)';
-        body.appendChild(note);
-        var tbl2=document.createElement('table');
-        tbl2.style.cssText='width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;';
-        Object.entries(before).forEach(function(kv){
-          if(['id','created_at','updated_at'].includes(kv[0])) return;
-          var tr=document.createElement('tr');
-          tr.innerHTML='<td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);width:40%">'+kv[0]+'</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">'+kv[1]+'</td>';
-          tbl2.appendChild(tr);
-        });
-        body.appendChild(tbl2);
-      } else {
-        // update — عرض الفروق فقط
-        if(changes.length===0){
-          var noChange=document.createElement('div');
-          noChange.style.cssText='color:var(--text3);font-size:13px;';
-          noChange.textContent='لا توجد تغييرات مسجلة';
-          body.appendChild(noChange);
-        } else {
-          var tbl3=document.createElement('table');
-          tbl3.style.cssText='width:100%;border-collapse:collapse;font-size:13px;';
-          var thead=document.createElement('thead');
-          thead.innerHTML='<tr style="background:var(--bg4)"><th style="padding:7px 8px;text-align:right;font-size:11px;color:var(--text3)">الحقل</th><th style="padding:7px 8px;text-align:right;font-size:11px;color:#dc2626">قبل</th><th style="padding:7px 8px;text-align:right;font-size:11px;color:#16a34a">بعد</th></tr>';
-          tbl3.appendChild(thead);
-          changes.forEach(function(c){
-            var tr=document.createElement('tr');
-            tr.innerHTML='<td style="padding:7px 8px;border-bottom:1px solid var(--border);color:var(--text3)">'+c.field+'</td><td style="padding:7px 8px;border-bottom:1px solid var(--border);color:#dc2626">'+c.before+'</td><td style="padding:7px 8px;border-bottom:1px solid var(--border);color:#16a34a;font-weight:600">'+c.after+'</td>';
-            tbl3.appendChild(tr);
-          });
-          body.appendChild(tbl3);
-        }
-      }
-
-      modal.appendChild(body);
-      overlay.appendChild(modal);
-      overlay.addEventListener('click',function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
-      document.body.appendChild(overlay);
-    }
-
-    // ── بناء الـ UI ──
-    var pc=document.getElementById('page-content');
-    pc.innerHTML='';
-
-    // Filter Bar
-    var filterBar=document.createElement('div');
-    filterBar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;';
-
-    var filterSelect=document.createElement('select');
-    filterSelect.id='activityFilter'; filterSelect.className='form-select';
-    filterSelect.style.cssText='min-width:170px;font-size:13px;';
-    [
-      ['all','الكل'],['create_user','إنشاء مستخدم'],['delete_user','حذف مستخدم'],
-      ['update_role','تغيير دور'],['update_permissions','تعديل صلاحيات'],
-      ['set_password','تغيير كلمة المرور'],['delete_invoices','حذف فواتير (audit)'],
-      ['invoice_create','إنشاء فاتورة'],['invoice_update','تعديل فاتورة'],['invoice_delete','حذف فاتورة'],
-    ].forEach(function(opt){
-      var o=document.createElement('option');
-      o.value=opt[0]; o.textContent=opt[1];
-      if(opt[0]===_savedFilter) o.selected=true;
-      filterSelect.appendChild(o);
-    });
-
-    var userSelect=document.createElement('select');
-    userSelect.id='activityUserFilter'; userSelect.className='form-select';
-    userSelect.style.cssText='min-width:150px;font-size:13px;';
-    var allOpt=document.createElement('option'); allOpt.value='all'; allOpt.textContent='كل المستخدمين';
-    if(_savedUser==='all') allOpt.selected=true;
-    userSelect.appendChild(allOpt);
-    userOptions.forEach(function(u){
-      var o=document.createElement('option'); o.value=u.id; o.textContent=u.name||u.email||u.id;
-      if(u.id===_savedUser) o.selected=true;
-      userSelect.appendChild(o);
-    });
-
-    var dateInput=document.createElement('input');
-    dateInput.id='activityDateFilter'; dateInput.type='date'; dateInput.className='form-input';
-    dateInput.style.cssText='font-size:13px;'; dateInput.value=_savedDate;
-
-    var searchInput=document.createElement('input');
-    searchInput.id='activitySearch'; searchInput.className='form-input';
-    searchInput.placeholder='🔍 بحث...'; searchInput.value=_savedSearch;
-    searchInput.style.cssText='min-width:180px;font-size:13px;';
-
-    filterBar.appendChild(filterSelect);
-    filterBar.appendChild(userSelect);
-    filterBar.appendChild(dateInput);
-    filterBar.appendChild(searchInput);
-    pc.appendChild(filterBar);
-
-    filterSelect.addEventListener('change',renderActivity);
-    userSelect.addEventListener('change',renderActivity);
-    dateInput.addEventListener('change',renderActivity);
-    searchInput.addEventListener('input',renderActivity);
-
-    // ── قسم invoice_history ──
-    if(histRows.length>0){
-      var hcard=document.createElement('div'); hcard.className='table-card'; hcard.style.marginBottom='16px';
-      var hhd=document.createElement('div'); hhd.className='table-header';
-      var htt=document.createElement('div'); htt.className='table-title'; htt.textContent='📜 سجل الفواتير (invoice_history)';
-      var hct=document.createElement('div'); hct.className='table-count'; hct.textContent=histRows.length+' عملية';
-      hhd.appendChild(htt); hhd.appendChild(hct); hcard.appendChild(hhd);
-      var hlist=document.createElement('div');
-      histRows.forEach(function(row){
-        var item=document.createElement('div');
-        item.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;';
-        var color=_actionColor(row.action);
-        var lbl=document.createElement('span');
-        lbl.style.cssText='font-weight:600;color:'+color+';flex:1';
-        lbl.textContent=_histLabel(row);
-        var right=document.createElement('span');
-        right.style.cssText='display:flex;align-items:center;gap:10px;flex-shrink:0';
-        var user=document.createElement('span'); user.style.cssText='font-size:12px;color:var(--text3)'; user.textContent=_userName(row.user_id);
-        var date=document.createElement('span'); date.style.cssText='font-size:12px;color:var(--text3);font-family:var(--mono)'; date.textContent=_formatDate(row.created_at);
-        var detBtn=document.createElement('button');
-        detBtn.textContent='تفاصيل';
-        detBtn.style.cssText='padding:3px 10px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:5px;cursor:pointer;font-family:var(--font);';
-        (function(r){ detBtn.addEventListener('click',function(){ _openDiffModal(r); }); })(row);
-        right.appendChild(user); right.appendChild(date); right.appendChild(detBtn);
-        item.appendChild(lbl); item.appendChild(right); hlist.appendChild(item);
+    if (_savedSearch) {
+      var _s = _savedSearch.toLowerCase();
+      filtered = filtered.filter(function(l) {
+        return _formatAction(l).toLowerCase().includes(_s);
       });
-      hcard.appendChild(hlist); pc.appendChild(hcard);
-    }
-
-    // ── قسم audit_logs ──
-    var card=document.createElement('div'); card.className='table-card';
-    var header=document.createElement('div'); header.className='table-header';
-    var title=document.createElement('div'); title.className='table-title'; title.textContent='📋 سجل النشاط (audit_logs)';
-    var countBadge=document.createElement('div'); countBadge.className='table-count'; countBadge.textContent=auditRows.length+' / '+(auditData||[]).length+' عملية';
-    header.appendChild(title); header.appendChild(countBadge); card.appendChild(header);
-
-    if(auditRows.length===0){
-      var empty=document.createElement('div'); empty.className='empty-state'; empty.textContent='لا توجد نتائج';
-      card.appendChild(empty);
-    } else {
-      var list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;gap:0';
-      function sameIds(a,b){ if(!Array.isArray(a)||!Array.isArray(b)) return false; if(a.length!==b.length) return false; var s=new Set(a); return b.every(function(id){ return s.has(id); }); }
-      auditRows.forEach(function(row){
-        var item=document.createElement('div');
-        item.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;';
-        var label=document.createElement('span'); label.style.cssText='font-weight:500;color:var(--text);flex:1'; label.textContent=_formatAction(row);
-        var right=document.createElement('span'); right.style.cssText='display:flex;align-items:center;gap:10px;flex-shrink:0';
-        var date=document.createElement('span'); date.style.cssText='color:var(--text3);font-size:12px;font-family:var(--mono)'; date.textContent=_formatDate(row.created_at);
-        right.appendChild(date);
-        if(row.action_type==='delete_invoices'){
-          var rowDetails={}; try { rowDetails=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
-          if(rowDetails.snapshot){
-            var ids=rowDetails.ids||[];
-            var isAlreadyRestored=auditRows.some(function(l){ if(l.action_type!=='undo_delete') return false; var ld={}; try{ ld=typeof l.details==='string'?JSON.parse(l.details):(l.details||{}); }catch(_){} return sameIds(ld.ids,ids)&&new Date(l.created_at)>new Date(row.created_at); });
-            if(rowDetails.restored===true||isAlreadyRestored){
-              var doneLabel=document.createElement('span'); doneLabel.textContent='✓ تم'; doneLabel.style.cssText='padding:3px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:5px;'; right.appendChild(doneLabel);
-            } else {
-              var undoBtn=document.createElement('button'); undoBtn.textContent='↩️ استرجاع'; undoBtn.style.cssText='padding:3px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:5px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
-              (function(cr,cb){ cb.addEventListener('click',function(){ _restoreFromAudit(cr,cb); }); })(row,undoBtn);
-              right.appendChild(undoBtn);
-            }
-          }
-        }
-        item.appendChild(label); item.appendChild(right); list.appendChild(item);
-      });
-      card.appendChild(list);
-    }
-    pc.appendChild(card);
-
-  } catch(e) {
-    handleError(e, 'خطأ في تحميل سجل النشاط');
-  }
-}
-
-// ── Login Log Page ──
-async function renderLoginLog() {
-  setLoading('جاري تحميل سجل الدخول...');
-  try {
-    var { data, error } = await sb
-      .from('login_logs')
-      .select('id,email,created_at,user_agent')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) throw error;
-
-    var rows = data || [];
-
-    function _formatDate(ts){
-      if(!ts) return '—';
-      try { return new Date(ts).toLocaleString('ar-IQ',{dateStyle:'short',timeStyle:'short'}); }
-      catch(_){ return ts; }
     }
 
     var pc = document.getElementById('page-content');
     pc.innerHTML = '';
 
-    var card = document.createElement('div'); card.className = 'table-card';
-    var hd = document.createElement('div'); hd.className = 'table-header';
-    var title = document.createElement('div'); title.className = 'table-title'; title.textContent = '🔐 سجل الدخول';
-    var cnt = document.createElement('div'); cnt.className = 'table-count'; cnt.textContent = rows.length + ' تسجيل';
-    hd.appendChild(title); hd.appendChild(cnt); card.appendChild(hd);
+    // ── Filter Bar ──
+    var filterBar = document.createElement('div');
+    filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;';
 
-    if(rows.length === 0){
-      var empty = document.createElement('div'); empty.className = 'empty-state'; empty.textContent = 'لا توجد تسجيلات دخول بعد';
+    var filterSelect = document.createElement('select');
+    filterSelect.id = 'activityFilter';
+    filterSelect.className = 'form-select';
+    filterSelect.style.cssText = 'min-width:170px;font-size:13px;';
+    [
+      ['all',                'الكل'],
+      ['create_user',        'إنشاء مستخدم'],
+      ['delete_user',        'حذف مستخدم'],
+      ['update_role',        'تغيير دور'],
+      ['update_permissions', 'تعديل صلاحيات'],
+      ['set_password',       'تغيير كلمة المرور'],
+      ['delete_invoices',    'حذف فواتير'],
+    ].forEach(function(opt) {
+      var o = document.createElement('option');
+      o.value = opt[0]; o.textContent = opt[1];
+      if (opt[0] === _savedFilter) o.selected = true;
+      filterSelect.appendChild(o);
+    });
+
+    var searchInput = document.createElement('input');
+    searchInput.id = 'activitySearch';
+    searchInput.className = 'form-input';
+    searchInput.placeholder = '🔍 بحث...';
+    searchInput.value = _savedSearch;
+    searchInput.style.cssText = 'min-width:200px;font-size:13px;';
+
+    filterBar.appendChild(filterSelect);
+    filterBar.appendChild(searchInput);
+    pc.appendChild(filterBar);
+
+    // ── events — re-render on change ──
+    filterSelect.addEventListener('change', renderActivity);
+    searchInput.addEventListener('input', renderActivity);
+
+    var card = document.createElement('div');
+    card.className = 'table-card';
+
+    var header = document.createElement('div');
+    header.className = 'table-header';
+    var title = document.createElement('div');
+    title.className = 'table-title';
+    title.textContent = '📋 سجل النشاط';
+    var countBadge = document.createElement('div');
+    countBadge.className = 'table-count';
+    countBadge.textContent = filtered.length + ' / ' + rows.length + ' عملية';
+    header.appendChild(title);
+    header.appendChild(countBadge);
+    card.appendChild(header);
+
+    if (filtered.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = rows.length === 0 ? 'لا توجد عمليات مسجلة بعد' : 'لا توجد نتائج';
       card.appendChild(empty);
     } else {
-      var table = document.createElement('div'); table.className = 'table-wrap';
-      var tbl = document.createElement('table'); tbl.className = 'data-table';
-      var thead = document.createElement('thead');
-      thead.innerHTML = '<tr><th>البريد الإلكتروني</th><th>التاريخ والوقت</th><th>User Agent</th></tr>';
-      tbl.appendChild(thead);
-      var tbody = document.createElement('tbody');
-      rows.forEach(function(row){
-        var tr = document.createElement('tr');
-        var ua = row.user_agent || '—';
-        if(ua.length > 60) ua = ua.substring(0,60) + '...';
-        tr.innerHTML = '<td style="font-weight:600">'+( row.email||'—')+'</td><td style="font-family:var(--mono);font-size:12px">'+_formatDate(row.created_at)+'</td><td style="font-size:11px;color:var(--text3)">'+ua+'</td>';
-        tbody.appendChild(tr);
+      var list = document.createElement('div');
+      list.style.cssText = 'display:flex;flex-direction:column;gap:0';
+
+      // sameIds — مُعرَّف مرة واحدة خارج الـ loop
+      function sameIds(a, b) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        var setA = new Set(a);
+        return b.every(function(id) { return setA.has(id); });
+      }
+
+      filtered.forEach(function(row) {
+        var item = document.createElement('div');
+        item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;';
+
+        var label = document.createElement('span');
+        label.style.cssText = 'font-weight:500;color:var(--text);flex:1';
+        label.textContent = _formatAction(row);
+
+        var right = document.createElement('span');
+        right.style.cssText = 'display:flex;align-items:center;gap:10px;flex-shrink:0';
+
+        var date = document.createElement('span');
+        date.style.cssText = 'color:var(--text3);font-size:12px;font-family:var(--mono)';
+        date.textContent = _formatDate(row.created_at);
+
+        right.appendChild(date);
+
+        // زر Undo — فقط لعمليات delete_invoices التي تحتوي snapshot ولم تُسترجع بعد
+        if (row.action_type === 'delete_invoices') {
+          var rowDetails = {};
+          try { rowDetails = typeof row.details === 'string' ? JSON.parse(row.details) : (row.details || {}); } catch(_) {}
+          if (rowDetails.snapshot) {
+            // تحقق من وجود log استرجاع لاحق لنفس الـ IDs — order-independent
+            var ids = rowDetails.ids || [];
+            var isAlreadyRestored = rows.some(function(l) {
+              if (l.action_type !== 'undo_delete') return false;
+              var ld = {};
+              try { ld = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch(_) {}
+              return sameIds(ld.ids, ids) &&
+                     new Date(l.created_at) > new Date(row.created_at);
+            });
+            if (rowDetails.restored === true || isAlreadyRestored) {
+              // سبق استرجاعها — عرض نص ثابت
+              var doneLabel = document.createElement('span');
+              doneLabel.textContent = '\u2713 تم';
+              doneLabel.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:5px;';
+              right.appendChild(doneLabel);
+            } else {
+              // لم تُسترجع — عرض زر
+              var undoBtn = document.createElement('button');
+              undoBtn.textContent = '\u21a9\ufe0f استرجاع';
+              undoBtn.style.cssText = 'padding:3px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:5px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
+              (function(capturedRow, capturedBtn) {
+                capturedBtn.addEventListener('click', function() {
+                  _restoreFromAudit(capturedRow, capturedBtn);
+                });
+              })(row, undoBtn);
+              right.appendChild(undoBtn);
+            }
+          }
+        }
+
+        item.appendChild(label);
+        item.appendChild(right);
+        list.appendChild(item);
       });
-      tbl.appendChild(tbody);
-      table.appendChild(tbl);
-      card.appendChild(table);
+
+      card.appendChild(list);
     }
 
     pc.appendChild(card);
   } catch(e) {
-    handleError(e, 'خطأ في تحميل سجل الدخول');
+    handleError(e, 'خطأ في تحميل سجل النشاط');
   }
 }
 
@@ -7551,7 +7393,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.3';
+const APP_VERSION = 'v67.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -7655,7 +7497,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.3
+// 🔥 ULTRA PREMIUM NAV JS — v67.2
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
@@ -11574,7 +11416,7 @@ async function _copyPublicLink(invId){
   // ── v66.5: Multi-Suggestion Engine ──
 
   // Map action strings → execution
-  // ── v67.3 Part 1: Action Tracker ──
+  // ── v67.2 Part 1: Action Tracker ──
   function trackAction(action) {
     try {
       var data = JSON.parse(localStorage.getItem('wadi_usage') || '{}');
@@ -11784,7 +11626,7 @@ async function _copyPublicLink(invId){
 
   // ── Command Executor ──
   function executeCommand(cmd) {
-    // ── v67.3: Track every executed command ──
+    // ── v67.2: Track every executed command ──
     trackAction(cmd);
     switch(cmd) {
       case 'go_invoices':
@@ -11983,7 +11825,7 @@ async function _copyPublicLink(invId){
 
     var msgHtml = lines.join('<br>');
 
-    // ── v67.3: prefer adaptive suggestions ──
+    // ── v67.2: prefer adaptive suggestions ──
     var adaptive2 = getAdaptiveSuggestions();
     var ctx;
     if (!adaptive2) {
@@ -12018,7 +11860,7 @@ async function _copyPublicLink(invId){
     else
       lines.push('✅ كلشي نظيف، ما في متأخرات 🔥');
 
-    // ── v67.3: add adaptive hint ──
+    // ── v67.2: add adaptive hint ──
     var adaptive = getAdaptiveSuggestions();
     if (adaptive) lines.push('<span style="font-size:11px;color:#6b7280">💡 حسب استخدامك — اختر من الأزرار أدناه</span>');
 
