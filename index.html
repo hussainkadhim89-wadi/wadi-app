@@ -4,59 +4,106 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.5">
+<meta name="app-version" content="v59.8">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  /* Notion-style Base Colors */
-  --bg:#f7f7f5;--bg2:#ffffff;--bg3:#f9f9f8;--bg4:#f1f1ef;
-  --border:#e9e9e7;--border2:#d9d9d7;
-  /* Single Accent */
-  --accent:#2563eb;--accent2:#1d4ed8;--accent-light:#eff6ff;
-  /* Semantic Colors — خفيفة للتنبيهات فقط */
-  --green:#16a34a;--green-light:var(--green-light);
-  --red:#dc2626;--red-light:#fff5f5;
-  --yellow:#ca8a04;--yellow-light:var(--yellow-light);
-  --orange:#ea580c;--orange-light:var(--orange-light);
-  --purple:#7c3aed;--purple-light:var(--purple-light);
-  --teal:#0891b2;--teal-light:var(--teal-light);
-  /* Row highlight vars — يتغيرون مع dark mode */
-  --row-profit-high:var(--green-light);--row-profit-mid:var(--yellow-light);--row-profit-low:var(--red-light);
-  --row-profit-high-border:var(--row-profit-high-border);--row-profit-low-border:var(--row-profit-low-border);
-  /* Typography */
-  --text:#111111;--text2:#374151;--text3:#6b7280;--text4:#9ca3af;
-  /* Font — Inter أولاً ثم IBM Plex */
-  --font:'Inter','IBM Plex Sans Arabic',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
-  /* Shadows — خفيفة جداً */
-  --shadow:0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:0 2px 8px rgba(0,0,0,.06);
-  --shadow-lg:0 8px 24px rgba(0,0,0,.08);
-  /* Spacing System */
-  --sp-1:8px;--sp-2:16px;--sp-3:24px;--sp-4:32px;
-  /* Border Radius */
-  --radius:10px;--radius-sm:6px;--radius-lg:14px;
+/* ══════════════════════════════════════════
+   🎨 DESIGN TOKENS — v67.14
+   Single source of truth for all CSS vars
+   ══════════════════════════════════════════
+
+   SECTIONS:
+   1. Colors (Base + Semantic)
+   2. Shadows
+   3. Typography
+   4. Spacing + Radius
+   5. Animation
+   6. Layout
+   ══════════════════════════════════════════ */
+:root {
+
+  /* ── 1. Base Colors ── */
+  --bg: #f7f7f5;
+  --bg2: #ffffff;
+  --bg3: #f9f9f8;
+  --bg4: #f1f1ef;
+  --border: #e9e9e7;
+  --border2: #d9d9d7;
+
+  /* ── Accent ── */
+  --accent: #2563eb;
+  --accent2: #1d4ed8;
+  --accent-light: #eff6ff;
+
+  /* ── Semantic Colors (light bg versions fixed — no self-references) ── */
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --red: #dc2626;
+  --red-light: #fff5f5;
+  --yellow: #ca8a04;
+  --yellow-light: #fef9c3;
+  --orange: #ea580c;
+  --orange-light: #fff7ed;
+  --purple: #7c3aed;
+  --purple-light: #f5f3ff;
+  --teal: #0891b2;
+  --teal-light: #ecfeff;
+
+  /* ── Row Highlight (profit tiers) ── */
+  --row-profit-high: #dcfce7;
+  --row-profit-mid: #fef9c3;
+  --row-profit-low: #fff5f5;
+  --row-profit-high-border: #86efac;
+  --row-profit-low-border: #fca5a5;
+
+  /* ── 2. Shadows (single canonical set) ── */
+  --shadow:    0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,.1), 0 4px 8px rgba(0,0,0,.06);
+  --shadow-xl: 0 24px 48px rgba(0,0,0,.14), 0 8px 16px rgba(0,0,0,.08);
+
+  /* ── 3. Typography ── */
+  --text: #111111;
+  --text2: #374151;
+  --text3: #6b7280;
+  --text4: #9ca3af;
+  --font: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  /* ── 4. Spacing + Radius ── */
+  --sp-1: 8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+  --radius:    10px;
+  --radius-sm:  6px;
+  --radius-lg: 14px;
+
+  /* ── 5. Animation ── */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:   150ms;
+  --dur-normal: 220ms;
+  --dur-slow:   320ms;
+
+  /* ── 6. Layout ── */
+  --panel-w:    520px;
+  --panel-l1-w: 460px;
+  --panel-l2-w: 400px;
+  --panel-l2-offset: 32px;
+  --sidebar-mini-w: 52px;
+  --sidebar-full-w: 236px;
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.5
+   ✨ ULTRA PREMIUM UX — v67.14
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
-/* ── Enhanced CSS Variables ── */
-:root {
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,.1),0 4px 8px rgba(0,0,0,.06);
-  --shadow-xl: 0 24px 48px rgba(0,0,0,.14),0 8px 16px rgba(0,0,0,.08);
-  --panel-w: 520px;
-  --ease-out: cubic-bezier(0.16,1,0.3,1);
-  --ease-in-out: cubic-bezier(0.4,0,0.2,1);
-  --dur-fast: 150ms;
-  --dur-normal: 220ms;
-  --dur-slow: 320ms;
-}
+/* ── CSS variables consolidated above ── */
 
 /* ── Slide Panel (Right-to-Left) ── */
 .panel-overlay {
@@ -80,6 +127,7 @@
   transition:transform var(--dur-slow) var(--ease-out);
   z-index:1101;
   border-left:1px solid var(--border);
+  will-change:transform;
 }
 .panel-overlay.open .panel {
   transform:translateX(0);
@@ -116,11 +164,7 @@
   flex-shrink:0;
 }
 /* ── Nested Panels System — L1 + L2 ── */
-:root {
-  --panel-l1-w: 460px;
-  --panel-l2-w: 400px;
-  --panel-l2-offset: 32px; /* إزاحة يمين لإظهار التداخل */
-}
+/* --panel-l1-w, --panel-l2-w, --panel-l2-offset → consolidated in :root above */
 /* L1: أصغر قليلاً لما L2 مفتوح */
 .panel-overlay.l2-open #panel-l1 {
   transform: translateX(var(--panel-l2-offset)) !important;
@@ -235,6 +279,7 @@ body.dark .panel-overlay.l2-open #panel-l1 { filter:brightness(.75) saturate(.8)
   transition:transform var(--dur-normal) var(--ease-out),
              box-shadow var(--dur-normal) var(--ease-out),
              border-color var(--dur-fast) !important;
+  will-change:transform;
 }
 .kpi-card:hover {
   transform:translateY(-3px);
@@ -258,9 +303,10 @@ tr:hover td { background:#f6f8ff !important; }
   transition:background var(--dur-fast) var(--ease-in-out),
              color var(--dur-fast),
              transform var(--dur-fast) !important;
+  will-change:transform;
 }
 .nav-item:hover{transform:translateX(-2px);}
-.nav-item.active{transform:none;}
+.nav-item.active{transform:none;will-change:auto;}
 
 /* ── Form Inputs — Premium focus ── */
 .form-input,.form-select,.form-textarea,
@@ -320,6 +366,7 @@ tr:hover td { background:#f6f8ff !important; }
 .sdrop-item-sub{font-size:11px;color:var(--text3);}
 .sdrop-empty{padding:12px;text-align:center;color:var(--text4);font-size:12px;}
 
+/* ── MODULE 3: ANIMATIONS ── */
 /* ── Micro Interactions ── */
 @keyframes rowFlash{
   0%{background:#dbeafe;}
@@ -382,6 +429,7 @@ tr:hover td { background:#f6f8ff !important; }
 /* ── Toast — spring animation ── */
 #toast{
   transition:transform .28s var(--ease-out),opacity .22s ease !important;
+  will-change:transform,opacity;
 }
 #toast.show{
   transform:translateX(-50%) translateY(0) !important;
@@ -408,6 +456,38 @@ body.dark .btn-primary:hover{box-shadow:0 4px 12px rgba(37,99,235,.4);}
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+
+/* ══════════════════════════════════════════════════════════
+   📦 CSS ARCHITECTURE — SECTION MAP (v67.6)
+   ══════════════════════════════════════════════════════════
+   For future modularization, CSS is organized as follows:
+
+   MODULE 1 — layout.css
+     .layout, .sidebar, .main, .content, .topbar
+
+   MODULE 2 — components.css
+     .btn-*, .badge-*, .form-*, .modal-*, .panel-*
+     .kpi-card, .table-card, .table-wrap
+
+   MODULE 3 — animations.css
+     @keyframes *, transitions, will-change
+     Slide panel, toast, modal, row-flash
+
+   MODULE 4 — ui.css
+     Activity log, login log, date-picker, modals
+     Notification panel, global search
+
+   MODULE 5 — dark.css
+     All body.dark overrides
+
+   MODULE 6 — print.css
+     @media print rules
+
+   NOTE: Currently all modules are inline (single-file app).
+   Extraction is deferred until multi-file build is adopted.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── MODULE 1: LAYOUT ── */
 
 /* LOGIN */
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f7f7f5}
@@ -466,7 +546,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.5
+   🔥 ULTRA PREMIUM SIDEBAR — v67.14
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -660,7 +740,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* ── reduce-motion support — #48 ── */
 
 /* ══ #1 Mini Collapse Mode ══ */
-:root{ --sidebar-mini-w:52px; --sidebar-full-w:236px; }
+/* --sidebar-mini-w, --sidebar-full-w → consolidated in :root above */
 
 .sidebar.mini{
   width:var(--sidebar-mini-w)!important;
@@ -1436,6 +1516,7 @@ thead th{box-shadow:0 1px 0 var(--border)}
 .date-range-bar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px}
 .date-range-bar label{font-size:12px;font-weight:700;color:var(--text3)}
 
+/* ── MODULE 6: PRINT ── */
 /* PRINT CSS - كشف حساب */
 @media print{
   .sidebar,.topbar,.topbar-actions,.hamburger,.btn,.filter-bar,.pagination,#toast,#update-banner,#offline-banner,.nopr{display:none!important}
@@ -1445,6 +1526,7 @@ thead th{box-shadow:0 1px 0 var(--border)}
   .table-card{box-shadow:none!important;border:1px solid #ccc!important}
 }
 
+/* ── MODULE 5: DARK MODE ── */
 /* DARK MODE */
 body.dark{
   --bg:#0f172a;--bg2:#1e293b;--bg3:#1e293b;--bg4:#334155;
@@ -1672,7 +1754,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.5 Polish
+   ✨ ULTRA PREMIUM UX — v67.14 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -2412,6 +2494,54 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
 <script src="js/ui.js"></script>
 <script src="js/audit.js"></script>
 <script>
+// ════════════════════════════════════════
+// 🔌 SUPABASE CLIENT GUARD — v67.14
+// يتأكد من تهيئة الـ client بشكل صحيح
+// يعمل كـ fallback إذا js/config.js لم يُعرّف sb
+// ════════════════════════════════════════
+(function(){
+  var SUPABASE_URL = 'https://lakokpqtksrpiillbuzb.supabase.co';
+  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxha29rcHF0a3NycGlpbGxidXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODUyMzEsImV4cCI6MjA5MTI2MTIzMX0.rl_8rUJwDJwP2LDDIO2KbWzSIYF4KUsjEH8PLBcmHhU';
+
+  // إذا sb مو موجود أو ما عنده .from → أنشئه من جديد
+  if(typeof sb === 'undefined' || typeof sb.from !== 'function'){
+    console.warn('[SUPABASE GUARD] sb غير مهيأ — يتم الإنشاء من index.html');
+    try {
+      // Supabase v2: window.supabase.createClient
+      if(window.supabase && typeof window.supabase.createClient === 'function'){
+        window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('[SUPABASE GUARD] ✅ تم إنشاء sb — supabase.from =', typeof window.sb.from);
+      } else {
+        console.error('[SUPABASE GUARD] ❌ window.supabase.createClient غير موجود — تحقق من CDN');
+      }
+    } catch(e){
+      console.error('[SUPABASE GUARD] ❌ خطأ في إنشاء client:', e);
+    }
+  } else {
+    console.log('[SUPABASE GUARD] ✅ sb موجود من js/config.js — supabase.from =', typeof sb.from);
+  }
+
+  // تحقق نهائي
+  var _sbOk = (typeof sb !== 'undefined') && (typeof sb.from === 'function');
+  console.log('[SUPABASE GUARD] الحالة النهائية — sb.from =', typeof (typeof sb !== 'undefined' ? sb.from : undefined));
+  if(!_sbOk){
+    console.error('[SUPABASE GUARD] 🚨 CRITICAL: sb.from ليس function — كل عمليات قاعدة البيانات ستفشل');
+  }
+})();
+
+
+// ════════════════════════════════════════
+// 🛡️ ACTIVE INVOICES HELPER — v67.14
+// Wrapper يضمن إن كل query للفواتير يفلتر is_deleted=false
+// الاستخدام: activeInvoices(sb.from('invoices').select('...'))
+// ════════════════════════════════════════
+function activeInvoices(q) {
+  return q.eq('is_deleted', false);
+}
+// View-level alias — للتوضيح
+// CREATE VIEW active_invoices AS SELECT * FROM invoices WHERE is_deleted = false;
+// يُستخدم activeInvoices() في JS بدل إنشاء view في DB
+
 // ← sb, rt, currentUser → js/config.js
 // ════════════════════════════════════════
 // 🌐 PUBLIC INVOICE VIEW — v48.5
@@ -3394,10 +3524,10 @@ async function renderDashboard(){
   setLoading('جاري تحميل البيانات...');
   try{
   // تحميل متسلسل بدل Promise.all لتجنب الـ hang
-  const invs=await safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name'));
+  const invs=await safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name').eq('is_deleted',false));
   setLoading('الذمم...');
   const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
-  const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').order('date',{ascending:false}).limit(6));
+  const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').eq('is_deleted',false).order('date',{ascending:false}).limit(6));
   // تعريف nowKey مبكراً (مطلوب للـ BI cache)
   const nowKey=new Date().toISOString().slice(0,7);
   const prevDate=new Date();prevDate.setMonth(prevDate.getMonth()-1);
@@ -3678,7 +3808,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   setLoading();
   try{
   const from=page*PS,to=from+PS-1;
-  let q=sb.from('invoices').select('*',{count:'exact'}).order('date',{ascending:false}).range(from,to);
+  let q=sb.from('invoices').select('*',{count:'exact'}).eq('is_deleted',false).order('date',{ascending:false}).range(from,to);
   if(search)q=q.ilike('id',`%${search}%`);
   if(filterCustomer)q=q.ilike('customer_name',`%${filterCustomer}%`);
   if(filterStage)q=q.eq('stage',filterStage);
@@ -3841,7 +3971,7 @@ async function renderLines(page=0,filterInv=''){
   const rows=data||[];
 
   // جلب قائمة الفواتير للـ Quick Add
-  const{data:invList}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false}).limit(100);
+  const{data:invList}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false}).limit(100);
 
   document.getElementById('page-content').innerHTML=`
   <div class="filter-bar">
@@ -3967,7 +4097,7 @@ async function renderLines(page=0,filterInv=''){
 // ── WORKFLOW ──
 async function renderWorkflow(){
   setLoading();
-  const rows=(await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,stage,next_action,sale_amount').order('date',{ascending:false}))).filter(r=>r.stage&&!r.stage.includes('🏁'));
+  const rows=(await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,stage,next_action,sale_amount').eq('is_deleted',false).order('date',{ascending:false}))).filter(r=>r.stage&&!r.stage.includes('🏁'));
   const stages=['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل'];
   const colors=['gray','blue','yellow','green','orange'];
   document.getElementById('page-content').innerHTML=`
@@ -4008,7 +4138,7 @@ async function updateStage(id,stage){
 // ── PRINT ──
 async function renderPrint(invId){
   if(invId){ await _buildInvoiceA4(invId); return; }
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').order('date',{ascending:false}));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').eq('is_deleted',false).order('date',{ascending:false}));
   document.getElementById('page-content').innerHTML=`
   <div class="table-card" style="max-width:640px">
     <div class="table-header"><div class="table-title">🖨️ طباعة فاتورة — Wadi Style</div></div>
@@ -4033,7 +4163,7 @@ const _WADI_FOOTER='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABLwAAADOCAIAAA
 async function _buildInvoiceA4(id){
   if(!id) return;
   // نبني نفس هيكل renderPrint لكن نضع id محدداً في الـ selector
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').order('date',{ascending:false}));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').eq('is_deleted',false).order('date',{ascending:false}));
   document.getElementById('page-content').innerHTML=`
   <div class="table-card" style="max-width:640px">
     <div class="table-header"><div class="table-title">🖨️ طباعة فاتورة — Wadi Style</div></div>
@@ -4674,7 +4804,7 @@ async function renderCapital(){
 async function renderProfit(){
   setLoading();
   const[invs,exps,wds]=await Promise.all([
-    safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense')),
+    safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),
     safeQuery(()=>sb.from('expenses').select('amount,paid_by')),
     safeQuery(()=>sb.from('withdrawals').select('amount,partner')),
   ]);
@@ -4715,7 +4845,7 @@ async function renderProfit(){
 async function renderCashflow(){
   setLoading();
   const[invs,exps]=await Promise.all([
-    safeQuery(()=>sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense')),
+    safeQuery(()=>sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),
     safeQuery(()=>sb.from('expenses').select('expense_date,amount,invoice_id')),
   ]);
   // بناء map للفواتير لجلب تاريخها
@@ -4977,7 +5107,7 @@ async function renderClientsWithRisk(search=''){
   setTimeout(async()=>{
     // نجيب بيانات بسيطة لحساب الـ ranking
     const[cInvs,cPays,cRecs]=await Promise.all([
-      safeQuery(()=>sb.from('invoices').select('customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense')),
+      safeQuery(()=>sb.from('invoices').select('customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,customer_name')),
       safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,total_amount,due_date')),
     ]);
@@ -5012,7 +5142,7 @@ async function renderClientsWithRisk(search=''){
 async function renderReports(dateFrom='',dateTo='',filterType=''){
   setLoading();
   const[allInvs,exps,pays,recs]=await Promise.all([
-    safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,date,stage,invoice_type,description')),
+    safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,date,stage,invoice_type,description').eq('is_deleted',false)),
     safeQuery(()=>sb.from('expenses').select('amount,expense_type,paid_by')),
     safeQuery(()=>sb.from('payments').select('invoice_id,amount')),
     safeQuery(()=>sb.from('receivables').select('invoice_id,total_amount')),
@@ -5355,67 +5485,83 @@ async function renderActivity() {
 
     // Fields to NEVER show in any modal
     // Fields that must NEVER appear in any modal
+    // ══════════════════════════════════════════════════════════
+    // 🗂️ MODAL DATA ENGINE — v67.14
+    // Handles field visibility, labelling, and value formatting
+    // ══════════════════════════════════════════════════════════
+
+    // Fields that must NEVER appear in any modal (system/internal)
     var _HIDDEN_FIELDS = new Set([
-      'id','user_id','created_by','updated_by','owner_id',
-      'updated_at','deleted_by','soft_deleted','__v',
-      'customer_id'
+      'id', 'user_id', 'created_by', 'updated_by', 'owner_id',
+      'updated_at', 'deleted_by', 'soft_deleted', '__v',
+      'customer_id',          // shown via customer_name instead
+      'is_deleted',           // internal flag
+      'public_link_enabled',  // internal flag
+      'invoice_type',         // shown via type label instead
+      'created_date'          // shown via created_at
     ]);
 
-    // Fields where 0 is a meaningful value (must NOT be hidden)
+    // Fields where 0 is a meaningful business value (must NOT be hidden)
     var _IMPORTANT_ZERO = new Set([
-      'total','cost_amount','sale_amount',
-      'comm_omar_pct','comm_sini_pct','comm_hussain_pct','comm_kapt_pct',
-      'discount','tax','paid_amount','remaining','balance',
-      'quantity','unit_price','net_profit','profit'
+      'total', 'cost_amount', 'sale_amount',
+      'comm_omar_pct', 'comm_sini_pct', 'comm_hussain_pct', 'comm_kapt_pct',
+      'discount', 'tax', 'paid_amount', 'remaining', 'balance',
+      'quantity', 'unit_price', 'net_profit', 'profit', 'subtotal'
     ]);
 
-    // Complete Arabic label map
+    // ── Complete Arabic label map (ALL fields) ──
     var _fieldLabels = {
-      // ── Invoice core ──
-      invoice_id      : 'رقم الفاتورة',
-      invoice_number  : 'رقم الفاتورة',
-      id              : 'المعرّف',
-      date            : 'التاريخ',
-      invoice_date    : 'تاريخ الفاتورة',
-      created_at      : 'تاريخ الإنشاء',
-      updated_at      : 'تاريخ التحديث',
-      deleted_at      : 'تاريخ الحذف',
-      due_date        : 'تاريخ الاستحقاق',
+      // ── Invoice identifiers ──
+      invoice_id       : 'رقم الفاتورة',
+      invoice_number   : 'رقم الفاتورة',
+      id               : 'المعرّف',
+      reference        : 'المرجع',
+      // ── Dates ──
+      date             : 'التاريخ',
+      invoice_date     : 'تاريخ الفاتورة',
+      created_at       : 'تاريخ الإنشاء',
+      created_date     : 'تاريخ الإنشاء',
+      updated_at       : 'تاريخ التحديث',
+      deleted_at       : 'تاريخ الحذف',
+      due_date         : 'تاريخ الاستحقاق',
+      payment_date     : 'تاريخ الدفع',
+      required_delivery: 'تاريخ التسليم المطلوب',
       // ── Customer ──
-      client_id       : 'العميل',
-      customer_id     : 'العميل',
-      customer_name   : 'اسم العميل',
-      name            : 'الاسم',
+      client_id        : 'العميل',
+      customer_id      : 'العميل',
+      customer_name    : 'اسم العميل',
+      name             : 'الاسم',
       // ── Amounts ──
-      sale_amount     : 'سعر البيع',
-      cost_amount     : 'الكلفة',
-      total           : 'المبلغ الإجمالي',
-      subtotal        : 'المجموع الفرعي',
-      amount          : 'المبلغ',
-      paid_amount     : 'المبلغ المدفوع',
-      remaining       : 'المتبقي',
-      balance         : 'الرصيد',
-      discount        : 'الخصم',
-      tax             : 'الضريبة',
-      // ── Commissions ──
-      comm_omar_pct    : 'عمولة عمر',
-      comm_hussain_pct : 'عمولة حسين',
-      comm_sini_pct    : 'عمولة سيني',
-      comm_kapt_pct    : 'عمولة الكابتن',
+      sale_amount      : 'سعر البيع',
+      cost_amount      : 'الكلفة',
+      total            : 'المبلغ الإجمالي',
+      subtotal         : 'المجموع الفرعي',
+      amount           : 'المبلغ',
+      paid_amount      : 'المبلغ المدفوع',
+      remaining        : 'المتبقي',
+      balance          : 'الرصيد',
+      discount         : 'الخصم',
+      tax              : 'الضريبة',
+      // ── Commissions (corrected labels) ──
+      comm_omar_pct    : 'عمولة عمر %',
+      comm_hussain_pct : 'عمولة حسين %',
+      comm_sini_pct    : 'عمولة الصيني %',
+      comm_kapt_pct    : 'عمولة الكابتن %',
       comm_omar        : 'عمولة عمر',
       comm_hussain     : 'عمولة حسين',
-      comm_sini        : 'عمولة سيني',
+      comm_sini        : 'عمولة الصيني',
       comm_kapt        : 'عمولة الكابتن',
       // ── Profit ──
       profit           : 'الربح',
-      profit_pct       : 'نسبة الربح',
+      profit_pct       : 'نسبة الربح %',
       profit_hussain   : 'أرباح حسين',
       profit_nowar     : 'أرباح نوار',
       net_profit       : 'صافي الربح',
-      // ── Status / Stage ──
+      // ── Status / Stage / Type ──
       status           : 'الحالة',
       stage            : 'المرحلة',
-      type             : 'النوع',
+      type             : 'نوع الفاتورة',
+      invoice_type     : 'نوع الفاتورة',
       currency         : 'العملة',
       deleted          : 'محذوف',
       // ── Terms / Notes ──
@@ -5423,31 +5569,29 @@ async function renderActivity() {
       credit_days      : 'أيام الائتمان',
       notes            : 'ملاحظات',
       description      : 'الوصف',
-      reference        : 'المرجع',
-      site             : 'الموقع',
+      next_action      : 'الإجراء التالي',
+      site             : 'الموقع / المشروع',
       // ── PO / Delivery ──
       lpo_number       : 'رقم أمر الشراء',
       order_number     : 'رقم الأمر',
       delivery_to      : 'التسليم إلى',
-      required_delivery: 'تاريخ التسليم المطلوب',
       // ── Payment ──
-      payment_date     : 'تاريخ الدفع',
       payment_method   : 'طريقة الدفع',
       // ── Contact ──
       email            : 'البريد الإلكتروني',
       phone            : 'الهاتف',
       address          : 'العنوان',
-      // ── Items ──
+      // ── Line items ──
       invoice_lines    : 'بنود الفاتورة',
       quantity         : 'الكمية',
       unit_price       : 'سعر الوحدة',
-      product_name     : 'اسم المنتج',
+      product_name     : 'اسم المنتج / الخدمة',
       category         : 'الفئة',
       // ── Expenses ──
       extra_expenses   : 'مصاريف إضافية',
       transport_cost   : 'أجور النقل',
       gift_expense     : 'هدايا / صرفيات',
-      // ── System ──
+      // ── System (for display only where needed) ──
       created_by       : 'أنشأ بواسطة',
       user_id          : 'المستخدم'
     };
@@ -5457,42 +5601,41 @@ async function renderActivity() {
     // ISO date — YYYY-MM-DD
     var _isoDateRx = /^(\d{4})-(\d{2})-(\d{2})/;
 
+    // Return Arabic label, or the raw key if unmapped
     function _fieldLabel(k){ return _fieldLabels[k] || k; }
 
-    // Format date → DD/MM/YYYY (LTR English digits)
+    // Format date value → DD/MM/YYYY (English digits, LTR)
     function _fmtDate(s){
       var m = _isoDateRx.exec(s);
       if(!m) return s;
       return m[3]+'/'+m[2]+'/'+m[1];
     }
 
-    // Format value for display
-    // Returns: formatted string | null (= hide this row)
+    // Format any value for display
+    // Returns: string to show | null (= hide this row entirely)
     function _fmtVal(v, fieldKey){
       if(v === null || v === undefined || v === '') return null;
       if(typeof v === 'boolean') return v ? 'نعم' : 'لا';
       var s = String(v).trim();
       if(s === '') return null;
-      // Zero: hide only if field is NOT in important-zero list
+      if(s === 'null' || s === 'undefined' || s === 'false') return null;
+      // Zero: show only for important numeric fields
       if(s === '0' || s === '0.00' || s === '0.0'){
         return (fieldKey && _IMPORTANT_ZERO.has(fieldKey)) ? '0' : null;
       }
-      // UUID → always hide
+      // UUID → always hide (never show raw IDs)
       if(_uuidRx.test(s)) return null;
-      // ISO date → DD/MM/YYYY (English digits, LTR)
+      // ISO date → DD/MM/YYYY
       if(_isoDateRx.test(s)) return _fmtDate(s);
-      // raw JSON blob → hide
+      // Raw JSON blob → hide
       if((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) return null;
-      // 'null' / 'undefined' strings → hide
-      if(s === 'null' || s === 'undefined') return null;
       return s;
     }
 
-    // Should this field row be shown at all?
+    // Final gate: should this field row be visible?
     function _shouldShow(key, val){
       if(_HIDDEN_FIELDS.has(key)) return false;
-      var fmted = _fmtVal(val, key);
-      return fmted !== null;
+      return _fmtVal(val, key) !== null;
     }
 
     // ── Modal موحد لتفاصيل التغيير ──
@@ -5534,76 +5677,106 @@ async function renderActivity() {
       modal.appendChild(meta);
 
       var body=document.createElement('div');
-      body.style.cssText='padding:20px 22px;flex:1;';
+      body.style.cssText='padding:16px 22px 20px;flex:1;';
 
-      // ── Helper: build a clean field row ──
+      // ── Notion-style field row: label (muted) + value (bold) ──
       function _mkRow(labelText, valueHtml, valueColor){
         if(valueHtml === null || valueHtml === undefined) return null;
         var row=document.createElement('div');
-        row.style.cssText='display:flex;align-items:baseline;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);';
+        row.style.cssText=[
+          'display:flex',
+          'align-items:baseline',
+          'gap:12px',
+          'padding:9px 0',
+          'border-bottom:1px solid #f3f3f2'  // Notion-soft border
+        ].join(';');
         row.innerHTML=
-          '<div style="min-width:130px;max-width:46%;font-size:12px;font-weight:600;color:var(--text3);flex-shrink:0;line-height:1.5;">'+labelText+'</div>'+
-          '<div style="flex:1;font-size:13px;font-weight:700;color:'+(valueColor||'var(--text)')+';direction:ltr;text-align:left;line-height:1.5;word-break:break-word;">'+valueHtml+'</div>';
+          '<div style="min-width:120px;max-width:44%;font-size:11.5px;font-weight:500;'+
+            'color:#9ca3af;flex-shrink:0;line-height:1.6;text-align:right;">'+labelText+'</div>'+
+          '<div style="flex:1;font-size:13px;font-weight:600;'+
+            'color:'+(valueColor||'#111111')+';direction:ltr;text-align:left;'+
+            'line-height:1.6;word-break:break-word;">'+valueHtml+'</div>';
         return row;
       }
 
       if(row.action==='create'){
-        // ── إنشاء: بيانات after فقط ──
+        // ── إنشاء: بيانات after — business fields only ──
         var entries=Object.entries(after).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
         if(entries.length===0){
-          body.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">لا توجد بيانات</div>';
+          body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد بيانات</div>';
         } else {
           entries.forEach(function(kv){
-            var _cr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#16a34a'); if(_cr) body.appendChild(_cr);
+            var _cr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#16a34a');
+            if(_cr) body.appendChild(_cr);
           });
         }
+
       } else if(row.action==='delete'){
-        // ── حذف: note + بيانات before ──
+        // ── حذف: تنبيه + بيانات before ──
         var note=document.createElement('div');
-        note.style.cssText='color:#dc2626;font-size:13px;font-weight:700;padding:10px 14px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;';
+        note.style.cssText=[
+          'color:#dc2626','font-size:12.5px','font-weight:600',
+          'padding:9px 13px','background:#fff5f5',
+          'border:1px solid #fecaca','border-radius:8px',
+          'margin-bottom:14px','display:flex','align-items:center','gap:8px'
+        ].join(';');
         note.innerHTML='🗑️ تم حذف هذه الفاتورة';
         body.appendChild(note);
         var bEntries=Object.entries(before).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
         if(bEntries.length===0){
-          body.innerHTML+='<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">لا توجد بيانات سابقة</div>';
+          body.innerHTML+='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0;">لا توجد بيانات</div>';
         } else {
           bEntries.forEach(function(kv){
-            var _dr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), 'var(--text)'); if(_dr) body.appendChild(_dr);
+            var _dr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#111111');
+            if(_dr) body.appendChild(_dr);
           });
         }
+
       } else {
-        // ── تعديل: جدول مقارنة قبل / بعد ──
-        var visibleChanges=changes.filter(function(c){ return !_HIDDEN_FIELDS.has(c.field); });
+        // ── تعديل: Notion-style diff table ──
+        var visibleChanges=changes.filter(function(c){
+          if(_HIDDEN_FIELDS.has(c.field)) return false;
+          var bv=_fmtVal(c.before,c.field), av=_fmtVal(c.after,c.field);
+          return !(bv===null && av===null);
+        });
         if(visibleChanges.length===0){
-          var noChange=document.createElement('div');
-          noChange.style.cssText='color:var(--text3);font-size:13px;text-align:center;padding:24px;';
-          noChange.textContent='لا توجد تغييرات مسجلة';
-          body.appendChild(noChange);
+          body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد تغييرات</div>';
         } else {
-          var tbl3=document.createElement('table');
-          tbl3.style.cssText='width:100%;border-collapse:collapse;font-size:13px;';
-          var thead=document.createElement('thead');
-          thead.innerHTML='<tr style="background:var(--bg4)">'+
-            '<th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:700;color:var(--text3);border-bottom:2px solid var(--border2);white-space:nowrap">الحقل</th>'+
-            '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#dc2626;border-bottom:2px solid var(--border2)">قبل</th>'+
-            '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#16a34a;border-bottom:2px solid var(--border2)">بعد</th></tr>';
-          tbl3.appendChild(thead);
-          var tbody3=document.createElement('tbody');
-          visibleChanges.forEach(function(c){
-            var bv=_fmtVal(c.before,c.field); var av=_fmtVal(c.after,c.field);
-            if(bv===null&&av===null) return; // skip fully empty diff rows
-            var tr=document.createElement('tr');
-            tr.style.cssText='transition:background .1s;';
-            tr.onmouseenter=function(){ this.style.background='var(--bg3)'; };
-            tr.onmouseleave=function(){ this.style.background=''; };
-            tr.innerHTML=
-              '<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text3);font-weight:600;font-size:12px;white-space:nowrap">'+_fieldLabel(c.field)+'</td>'+
-              '<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:#dc2626;text-decoration:line-through;opacity:.85;direction:ltr;text-align:left;">'+(bv||'—')+'</td>'+
-              '<td style="padding:10px 12px;border-bottom:1px solid var(--border);color:#16a34a;font-weight:700;direction:ltr;text-align:left;">'+(av||'—')+'</td>';
-            tbody3.appendChild(tr);
+          // Table header
+          var tblWrap=document.createElement('div');
+          tblWrap.style.cssText='border-radius:8px;overflow:hidden;border:1px solid #f0f0ee;';
+          var tblHead=document.createElement('div');
+          tblHead.style.cssText=[
+            'display:grid','grid-template-columns:2fr 3fr 3fr',
+            'background:#f9f9f8','padding:8px 12px',
+            'border-bottom:1px solid #e9e9e7'
+          ].join(';');
+          tblHead.innerHTML=
+            '<div style="font-size:10.5px;font-weight:700;color:#9ca3af;text-align:right;">الحقل</div>'+
+            '<div style="font-size:10.5px;font-weight:700;color:#dc2626;text-align:left;padding-right:8px">قبل</div>'+
+            '<div style="font-size:10.5px;font-weight:700;color:#16a34a;text-align:left;">بعد</div>';
+          tblWrap.appendChild(tblHead);
+
+          visibleChanges.forEach(function(c, idx){
+            var bv=_fmtVal(c.before,c.field)||'—';
+            var av=_fmtVal(c.after,c.field)||'—';
+            var diffRow=document.createElement('div');
+            var isLast=(idx===visibleChanges.length-1);
+            diffRow.style.cssText=[
+              'display:grid','grid-template-columns:2fr 3fr 3fr',
+              'padding:9px 12px',
+              'transition:background .1s',
+              isLast?'':'border-bottom:1px solid #f3f3f2'
+            ].join(';');
+            diffRow.onmouseenter=function(){ this.style.background='#f9f9f8'; };
+            diffRow.onmouseleave=function(){ this.style.background=''; };
+            diffRow.innerHTML=
+              '<div style="font-size:11.5px;font-weight:500;color:#6b7280;text-align:right;line-height:1.6;align-self:center;">'+_fieldLabel(c.field)+'</div>'+
+              '<div style="font-size:12.5px;color:#dc2626;text-decoration:line-through;opacity:.8;direction:ltr;text-align:left;padding-right:8px;line-height:1.6;align-self:center;word-break:break-word;">'+bv+'</div>'+
+              '<div style="font-size:12.5px;font-weight:700;color:#16a34a;direction:ltr;text-align:left;line-height:1.6;align-self:center;word-break:break-word;">'+av+'</div>';
+            tblWrap.appendChild(diffRow);
           });
-          tbl3.appendChild(tbody3);
-          body.appendChild(tbl3);
+          body.appendChild(tblWrap);
         }
       }
 
@@ -6347,6 +6520,27 @@ async function saveInvoice(existingId, goToLines=false){
       created_date:new Date().toISOString().slice(0,10),
       ...(invType==='simple'?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
+    // ── PRE-CHECK: رقم الفاتورة مكرر؟ (فقط عند إنشاء جديد) ──
+    if(!existingId){
+      const{data:dupCheck}=await sb.from('invoices')
+        .select('id,is_deleted')
+        .eq('id',id)
+        .maybeSingle();
+      if(dupCheck){
+        restore();
+        if(dupCheck.is_deleted){
+          // CASE 1 — موجودة ومحذوفة → عرض خيار استرجاع
+          const confirmed=await _showDupDeletedModal(id);
+          if(confirmed){
+            await _restoreDeletedInvoice(id);
+          }
+        } else {
+          // CASE 2 — موجودة وغير محذوفة → رسالة واضحة بدون خيارات
+          _showDupActiveModal(id);
+        }
+        return;
+      }
+    }
     // ── snapshot قبل التعديل (للـ audit) ──
     let _beforeSnap = null;
     if(existingId){
@@ -6358,12 +6552,14 @@ async function saveInvoice(existingId, goToLines=false){
       :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
     // ── audit trail → logInvoiceAction ──
-    logInvoiceAction(
-      existingId?'update':'create',
-      _savedData.id||existingId,
-      _beforeSnap||null,
-      _savedData
-    );
+    if(typeof logInvoiceAction === 'function'){
+      logInvoiceAction(
+        existingId?'update':'create',
+        _savedData.id||existingId,
+        _beforeSnap||null,
+        _savedData
+      );
+    }
     if(!existingId){
       const{data:cl2}=await sb.from('clients').select('credit_days').eq('id',clientId).single();
       const creditDays=cl2?.credit_days||60;
@@ -6418,30 +6614,187 @@ async function saveInvoice(existingId, goToLines=false){
   }
 }
 
+// ════════════════════════════════════════
+// 🔁 DUPLICATE INVOICE HANDLERS — v59.8
+// ════════════════════════════════════════
+
+// CASE 1 modal — فاتورة محذوفة → سؤال استرجاع
+function _showDupDeletedModal(invId){
+  return new Promise(function(resolve){
+    // إزالة أي modal سابق
+    var old=document.getElementById('dup-modal-overlay');
+    if(old) old.remove();
+
+    var overlay=document.createElement('div');
+    overlay.id='dup-modal-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.32);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease';
+
+    overlay.innerHTML=`
+      <div style="background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:400px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,.18);animation:modalSlideUp .25s cubic-bezier(.16,1,.3,1) both;direction:rtl">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="width:40px;height:40px;border-radius:50%;background:#fef9c3;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚠️</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#111">رقم مستخدم سابقاً</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:2px">الفاتورة <span style="font-family:monospace;font-weight:700;color:#2563eb">${invId}</span> موجودة ومحذوفة</div>
+          </div>
+        </div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:11px 13px;font-size:13px;color:#92400e;line-height:1.6;margin-bottom:18px">
+          هذا الرقم استخدمته فاتورة محذوفة سابقاً.<br>
+          تقدر <b>تسترجع الفاتورة القديمة</b> بدل ما تعيد الإدخال.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="dup-cancel" style="padding:8px 18px;border-radius:8px;border:1.5px solid #e9e9e7;background:#fff;color:#374151;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">إلغاء</button>
+          <button id="dup-restore" style="padding:8px 20px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px">
+            <span>♻️</span> استرجاع الفاتورة
+          </button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    function _resolve(val){
+      overlay.style.opacity='0';
+      overlay.style.transition='opacity .15s';
+      setTimeout(function(){ overlay.remove(); resolve(val); }, 150);
+    }
+    document.getElementById('dup-cancel').onclick=function(){ _resolve(false); };
+    document.getElementById('dup-restore').onclick=function(){ _resolve(true); };
+    overlay.addEventListener('click',function(e){ if(e.target===overlay) _resolve(false); });
+  });
+}
+
+// CASE 2 modal — فاتورة نشطة → رسالة فقط
+function _showDupActiveModal(invId){
+  var old=document.getElementById('dup-modal-overlay');
+  if(old) old.remove();
+
+  var overlay=document.createElement('div');
+  overlay.id='dup-modal-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.32);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease';
+
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:380px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,.18);animation:modalSlideUp .25s cubic-bezier(.16,1,.3,1) both;direction:rtl">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🚫</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#111">رقم الفاتورة موجود</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px">الفاتورة <span style="font-family:monospace;font-weight:700;color:#dc2626">${invId}</span> موجودة بالفعل</div>
+        </div>
+      </div>
+      <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:11px 13px;font-size:13px;color:#991b1b;line-height:1.6;margin-bottom:18px">
+        هذا الرقم مستخدم لفاتورة نشطة حالياً.<br>
+        اختر رقماً مختلفاً أو ابحث عن الفاتورة الموجودة.
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button id="dup-ok" style="padding:8px 22px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">حسناً</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  function _close(){
+    overlay.style.opacity='0';
+    overlay.style.transition='opacity .15s';
+    setTimeout(function(){ overlay.remove(); }, 150);
+    // فوكس على حقل الرقم
+    var fid=document.getElementById('f-id');
+    if(fid){ fid.focus(); fid.select(); }
+  }
+  document.getElementById('dup-ok').onclick=_close;
+  overlay.addEventListener('click',function(e){ if(e.target===overlay) _close(); });
+}
+
+// Restore deleted invoice by ID
+async function _restoreDeletedInvoice(invId){
+  try{
+    showToast('جاري الاسترجاع...','info');
+    // 1. flip is_deleted
+    var{error:e1}=await sb.from('invoices')
+      .update({is_deleted:false,deleted_at:null})
+      .eq('id',invId);
+    if(e1) throw e1;
+    // 2. استرجاع البنود من snapshot (upsert لو موجودة بعد)
+    var{data:snapLines}=await sb.from('invoice_lines').select('*').eq('invoice_id',invId);
+    if(snapLines&&snapLines.length>0){
+      await sb.from('invoice_lines').upsert(snapLines,{onConflict:'id'});
+    }
+    // 3. تحديث الواجهة
+    clearCache();
+    closeModal();
+    showToast('تم استرجاع الفاتورة '+invId+' بنجاح ✓','success');
+    addNotif('♻️','تم استرجاع الفاتورة '+invId,'success');
+    renderInvoices();
+  }catch(e){
+    handleError(e,'فشل الاسترجاع');
+  }
+}
+
 async function delInvoice(id){
   if(!hasPermission('invoices_delete')) return;
   const ok=await confirmDelete(`حذف الفاتورة ${id}؟`);
   if(!ok) return;
-  // 0. snapshot قبل الحذف
-  const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
-  const{data:linesSnap}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
-  // 1. audit_logs — fire-and-forget
-  _logAction('delete_invoices',{
-    count:1,ids:[id],
-    snapshot:{
-      invoices:invSnap?[invSnap]:[],
-      lines:Array.isArray(linesSnap)?linesSnap:[]
+  console.log('[delInvoice] بدء حذف الفاتورة — ID:', id);
+  try {
+    // 0. snapshot قبل الحذف (للـ undo + audit)
+    const{data:invSnap}=await sb.from('invoices').select('*').eq('id',id).single();
+    const{data:linesSnap}=await sb.from('invoice_lines').select('*').eq('invoice_id',id);
+    console.log('[delInvoice] snapshot:', invSnap ? 'موجود' : 'مفقود', '| lines:', (linesSnap||[]).length);
+
+    // 1. audit_logs — fire-and-forget
+    _logAction('delete_invoices',{
+      count:1, ids:[id],
+      snapshot:{
+        invoices: invSnap ? [invSnap] : [],
+        lines: Array.isArray(linesSnap) ? linesSnap : []
+      }
+    });
+
+    // 2. حذف invoice_lines أولاً — hard delete (جدول بدون is_deleted)
+    if(Array.isArray(linesSnap) && linesSnap.length > 0){
+      const{data:deletedLines, error:lErr}=await sb.from('invoice_lines')
+        .delete()
+        .eq('invoice_id', id)
+        .select();
+      console.log('[delInvoice] invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', lErr);
+      if(lErr){
+        console.error('[delInvoice] فشل حذف invoice_lines:', lErr.code, lErr.message);
+        throw lErr;
+      }
     }
-  });
-  // 2. soft delete — لا نحذف السجل
-  const{error}=await sb.from('invoices').update({
-    is_deleted:true,
-    deleted_at:new Date().toISOString()
-  }).eq('id',id);
-  if(error){showToast('خطأ في الحذف','error');return;}
-  // 3. invoice_history — fire-and-forget
-  logInvoiceAction('delete', id, invSnap, null);
-  clearCache();showToast('تم الحذف','success');renderInvoices();
+
+    // 3. soft delete invoice — .select() لضمان رجوع البيانات والتأكد من التنفيذ
+    const{data:updated, error}=await sb
+      .from('invoices')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .select();
+
+    console.log('[delInvoice] نتيجة الـ update — data:', updated, '| error:', error);
+
+    if(error){
+      console.error('[delInvoice] فشل الـ update:', error.code, error.message, error.details, error.hint);
+      showToast('خطأ في الحذف: ' + (error.message||error.code||'unknown'), 'error');
+      return;
+    }
+    if(!updated || updated.length === 0){
+      console.error('[delInvoice] الـ update لم يؤثر على أي صف — تحقق من RLS policy');
+      showToast('لم يتم الحذف — تحقق من الصلاحيات', 'error');
+      return;
+    }
+
+    // 3. invoice_history — fire-and-forget (guard: function might not exist in all versions)
+    if(typeof logInvoiceAction === 'function'){
+      logInvoiceAction('delete', id, invSnap, null);
+    }
+
+    console.log('[delInvoice] ✅ تم الحذف بنجاح — is_deleted=true على', updated.length, 'صف');
+    clearCache();
+    showToast('تم الحذف', 'success');
+    renderInvoices();
+  } catch(e) {
+    console.error('[delInvoice] خطأ غير متوقع:', e);
+    handleError(e, 'خطأ في حذف الفاتورة');
+  }
 }
 
 // Line Modal
@@ -6493,26 +6846,31 @@ async function _undoDelete() {
   if (!Array.isArray(restored.invoices) || restored.invoices.length === 0) return;
   var invoices = restored.invoices;
   var lines    = Array.isArray(restored.lines) ? restored.lines : [];
+  var invIds   = invoices.map(function(i){ return i.id; });
+  var lineIds  = lines.map(function(l){ return l.id; });
   try {
-    // 1. استعادة الفواتير أولاً — fully awaited
-    var { error: e1 } = await sb.from('invoices').upsert(invoices, { onConflict: 'id' });
+    // 1. استعادة الفواتير — flip is_deleted back to false
+    var { error: e1 } = await sb.from('invoices')
+      .update({ is_deleted: false, deleted_at: null })
+      .in('id', invIds);
     if (e1) throw e1;
-    // 2. استعادة البنود — فقط بعد نجاح الفواتير
+    // 2. استعادة البنود — upsert (تم حذفها فعلياً لأنها بدون is_deleted)
     if (lines.length > 0) {
-      var { error: e2 } = await sb.from('invoice_lines').upsert(lines, { onConflict: 'id' });
+      var { error: e2 } = await sb.from('invoice_lines')
+        .upsert(lines, { onConflict: 'id' });
       if (e2) throw e2;
     }
     // 3. نجح الاسترجاع — نظّف الـ buffer
     _lastDeleted = null;
     // 4. تحديث الواجهة
     showToast('تم الاسترجاع ✓', 'success');
-    _logAction('undo_delete', { count: restored.invoices.length, ids: restored.invoices.map(i => i.id) });
+    _logAction('undo_delete', { count: restored.invoices.length, ids: invIds });
     renderInvoices();
     if (_currentPage === 'lines') {
       renderLines(_filterState.lines.page || 0, _filterState.lines.filterInv || '');
     }
   } catch (e) {
-    // فشل — لا نُنظّف _lastDeleted
+    // فشل — لا نُنظّف _lastDeleted حتى يقدر المستخدم يحاول مرة ثانية
     handleError(e, 'خطأ في الاسترجاع');
   }
 }
@@ -6561,14 +6919,19 @@ async function _restoreFromAudit(log, btn) {
 
   var invoices = snap.invoices;
   var lines    = Array.isArray(snap.lines) ? snap.lines : [];
+  var invIds   = invoices.map(function(i){ return i.id; });
+  var lineIds  = lines.map(function(l){ return l.id; });
 
   try {
-    // 3. upsert الفواتير أولاً
-    var { error: e1 } = await sb.from('invoices').upsert(invoices, { onConflict: 'id' });
+    // 3. استعادة الفواتير — flip is_deleted back to false
+    var { error: e1 } = await sb.from('invoices')
+      .update({ is_deleted: false, deleted_at: null })
+      .in('id', invIds);
     if (e1) throw e1;
-    // 4. upsert البنود ثانياً
+    // 4. استعادة البنود — upsert (تم حذفها فعلياً لأنها بدون is_deleted)
     if (lines.length > 0) {
-      var { error: e2 } = await sb.from('invoice_lines').upsert(lines, { onConflict: 'id' });
+      var { error: e2 } = await sb.from('invoice_lines')
+        .upsert(lines, { onConflict: 'id' });
       if (e2) throw e2;
     }
     // 5. تحديث audit_logs — restored: true
@@ -6612,7 +6975,8 @@ async function _loadPendingInvoices() {
   try {
     const { data: invData, error: invErr } = await sb
       .from('invoices')
-      .select('id');
+      .select('id')
+      .eq('is_deleted', false);
     if (invErr) throw invErr;
 
     const { data: lineData, error: lineErr } = await sb
@@ -6697,7 +7061,7 @@ async function _autoFillLineDate(invId){
 
 async function openLineModal(lineId=null,preselectedInvId=null){
   if(!hasPermission('invoices_edit')) return;
-  const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
+  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false});
   let line={};
   if(lineId){const{data}=await sb.from('invoice_lines').select('*').eq('id',lineId).single();line=data||{};}
   // أولوية: preselected → آخر مستخدم → من البند نفسه
@@ -7250,7 +7614,8 @@ function toggleSelectAllInvoices(masterCb){
 async function bulkDeleteInvoices(){
   if(!hasPermission('invoices_delete')) return; // guard — لا تعمل بدون صلاحية
   if(_selectedInvIds.size===0) return;
-  const selectedIds=Array.from(_selectedInvIds);
+  // إزالة التكرار قبل كل شيء
+  const selectedIds=[...new Set(Array.from(_selectedInvIds))];
   const ok=await confirmDelete(`حذف ${selectedIds.length} فاتورة والبنود المرتبطة بها؟`);
   if(!ok) return;
   const btn=document.getElementById('bulk-delete-btn');
@@ -7264,7 +7629,7 @@ async function bulkDeleteInvoices(){
       invoices:Array.isArray(invSnap)?invSnap:[],
       lines:Array.isArray(linesSnap)?linesSnap:[]
     };
-    // 1. تسجيل العملية مع snapshot — قبل الحذف، fire-and-forget
+    // 1. تسجيل العملية مع snapshot — fire-and-forget
     _logAction('delete_invoices', {
       count: selectedIds.length,
       ids: selectedIds,
@@ -7273,12 +7638,45 @@ async function bulkDeleteInvoices(){
         lines: Array.isArray(linesSnap) ? linesSnap : []
       }
     });
-    // 2. حذف invoice_lines — bulk .in()
-    const{error:e1}=await sb.from('invoice_lines').delete().in('invoice_id',selectedIds);
-    if(e1) throw e1;
-    // 3. حذف invoices — bulk .in()
-    const{error:e2}=await sb.from('invoices').delete().in('id',selectedIds);
+    console.log('[bulkDelete] بدء الحذف الجماعي — IDs:', selectedIds);
+    console.log('[bulkDelete] عدد البنود في الـ snapshot:', (linesSnap||[]).length);
+    if((linesSnap||[]).length > 0){
+      console.log('[bulkDelete] نموذج بند (للتحقق من الأعمدة):', linesSnap[0]);
+      console.log('[bulkDelete] invoice_id values في البنود:', [...new Set((linesSnap||[]).map(l=>l.invoice_id))]);
+    }
+
+    // 2. حذف invoice_lines — hard delete + .select() للتحقق من تنفيذ الحذف الفعلي
+    const{data:deletedLines, error:e1}=await sb.from('invoice_lines')
+      .delete()
+      .in('invoice_id', selectedIds)
+      .select();
+    console.log('[bulkDelete] invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', e1);
+    if(e1){
+      console.error('[bulkDelete] فشل حذف invoice_lines:', e1.code, e1.message);
+      throw e1;
+    }
+    if(!deletedLines || deletedLines.length === 0){
+      // ليس خطأ مميتاً — ربما الفواتير بدون بنود — نكمل
+      console.warn('[bulkDelete] invoice_lines: لا صفوف محذوفة (ربما بدون بنود أو RLS)');
+    }
+
+    // 3. soft delete invoices — نعلّم is_deleted=true (بدون حذف فعلي)
+    const{data:updatedInvs, error:e2}=await sb.from('invoices')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .in('id', selectedIds)
+      .select();
+    console.log('[bulkDelete] invoices update — rows:', (updatedInvs||[]).length, '| error:', e2);
     if(e2) throw e2;
+    if(!updatedInvs || updatedInvs.length === 0){
+      throw new Error('[bulkDelete] الـ update لم يؤثر على أي صف — تحقق من RLS policy');
+    }
+
+    // 4. تسجيل في invoice_history — fire-and-forget لكل فاتورة
+    if(typeof logInvoiceAction === 'function'){
+      (Array.isArray(invSnap)?invSnap:[]).forEach(function(inv){
+        logInvoiceAction('delete', inv.id, inv, null);
+      });
+    }
     _selectedInvIds.clear();
     _showUndoToast(selectedIds.length);
     renderInvoices();
@@ -7305,7 +7703,7 @@ async function openPaymentModal(invId=null){
   if(!hasPermission('payments')) return;
   const[{data:recs},{data:allInvs},{data:pays}]=await Promise.all([
     sb.from('receivables').select('invoice_id,customer_name,total_amount').order('invoice_id'),
-    sb.from('invoices').select('id,customer_name,sale_amount').order('date',{ascending:false}),
+    sb.from('invoices').select('id,customer_name,sale_amount').eq('is_deleted',false).order('date',{ascending:false}),
     sb.from('payments').select('invoice_id,amount'),
   ]);
   const recMap={};(recs||[]).forEach(r=>{recMap[r.invoice_id]=r;});
@@ -7456,7 +7854,7 @@ function useCredit(amount){
 // Expense Modal
 async function openExpenseModal(){
   if(!hasPermission('expenses')) return;
-  const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
+  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false});
   openModal('💸 مصروف جديد',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم الفاتورة</label>
@@ -7623,7 +8021,7 @@ async function saveClient(existingId){
 async function showClientStatement(clientId, clientName){
   // جلب كل الفواتير والذمم والمدفوعات للعميل
   const[{data:invs},{data:recs},{data:pays}]=await Promise.all([
-    sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).order('date'),
+    sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).order('date'),
     sb.from('receivables').select('invoice_id,invoice_date,total_amount,due_date').eq('customer_name',clientName).order('invoice_date'),
     sb.from('payments').select('invoice_id,amount,payment_date,notes').eq('customer_name',clientName).order('payment_date'),
   ]);
@@ -7732,7 +8130,7 @@ async function openEditExpense(id){
   if(!hasPermission('expenses')) return;
   const{data:r}=await sb.from('expenses').select('*').eq('id',id).single();
   if(!r) return;
-  const{data:invs}=await sb.from('invoices').select('id,customer_name').order('date',{ascending:false});
+  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false});
   openModal('✏️ تعديل مصروف',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم الفاتورة</label>
@@ -7904,7 +8302,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.5';
+const APP_VERSION = 'v67.14';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -8008,7 +8406,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.5
+// 🔥 ULTRA PREMIUM NAV JS — v67.14
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
@@ -8952,7 +9350,7 @@ async function openClientInPanel(clientId, clientName, level=2){
   try{
     const[{data:cl},{data:invs},{data:pays}]=await Promise.all([
       sb.from('clients').select('*').eq('id',clientId).maybeSingle(),
-      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).order('date',{ascending:false}).limit(5),
+      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascending:false}).limit(5),
       sb.from('payments').select('amount,payment_date').eq('customer_name',clientName).order('payment_date',{ascending:false}).limit(5),
     ]);
     const client=cl||{name:clientName,id:clientId};
@@ -9804,7 +10202,7 @@ async function loadClientSuggestions(clientId){
 
   // جلب كل البيانات بطلب واحد
   const[invRes,recRes,payRes]=await Promise.all([
-    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).order('date',{ascending:false}).limit(5),
+    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascending:false}).limit(5),
     sb.from('receivables').select('invoice_id,due_date,total_amount').eq('customer_name',cl.name),
     sb.from('payments').select('invoice_id,payment_date').eq('customer_name',cl.name),
   ]);
@@ -10335,7 +10733,7 @@ async function archiveInvoice(id){
 // إضافة قسم الأرشيف مدمج في renderSettings مباشرة ✅
 
 async function showArchivedInvoices(){
-  const rows=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount').eq('stage','🗄️ مؤرشفة').order('date',{ascending:false}));
+  const rows=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount').eq('is_deleted',false).eq('stage','🗄️ مؤرشفة').order('date',{ascending:false}));
   openModal('🗄️ الفواتير المؤرشفة',
     rows.length===0?'<div class="notif-empty">لا توجد فواتير مؤرشفة</div>':
     `<div class="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>المبلغ</th><th>إجراء</th></tr></thead><tbody>
@@ -10523,7 +10921,7 @@ async function openGSearch(){
   _showQuickActions();
   if(!_gsearchLoaded){
     const[invs,clients,pays]=await Promise.all([
-      safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').order('date',{ascending:false})),
+      safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').eq('is_deleted',false).order('date',{ascending:false})),
       safeQuery(()=>sb.from('clients').select('id,name,address')),
       safeQuery(()=>sb.from('payments').select('invoice_id,customer_name,amount,payment_date').order('payment_date',{ascending:false}).limit(200)),
     ]);
@@ -10752,7 +11150,7 @@ body.dark .perm-row { background:var(--bg2); }
 // ── INVOICE CENTER ──
 async function renderInvoiceCenter(){
   setLoading('جاري تحميل الفواتير...');
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount,stage,description').order('date',{ascending:false}));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount,stage,description').eq('is_deleted',false).order('date',{ascending:false}));
   const list=invs||[];
   const stageOpts=['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل','🏁 مكتملة'];
   document.getElementById('page-content').innerHTML=`
