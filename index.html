@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v67.13">
+<meta name="app-version" content="v67.14">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════════════
-   🎨 DESIGN TOKENS — v67.13
+   🎨 DESIGN TOKENS — v67.14
    Single source of truth for all CSS vars
    ══════════════════════════════════════════
 
@@ -99,7 +99,7 @@
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.13
+   ✨ ULTRA PREMIUM UX — v67.14
    Slide Panels · Smooth Transitions · Depth
    ══════════════════════════════════════════ */
 
@@ -546,7 +546,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .update-action-btn:hover{background:var(--accent2);}
 .update-action-btn.visible{display:block;}
 /* ══════════════════════════════════════════
-   🔥 ULTRA PREMIUM SIDEBAR — v67.13
+   🔥 ULTRA PREMIUM SIDEBAR — v67.14
    Modern · Interactive · Alive
    ══════════════════════════════════════════ */
 
@@ -1754,7 +1754,7 @@ body.dark .summary-row td{background:#1e3a5f;border-color:#2563eb!important}
 }
 
 /* ══════════════════════════════════════════
-   ✨ ULTRA PREMIUM UX — v67.13 Polish
+   ✨ ULTRA PREMIUM UX — v67.14 Polish
    ══════════════════════════════════════════ */
 
 /* ── Link cells — clickable inside table ── */
@@ -2495,7 +2495,7 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
 <script src="js/audit.js"></script>
 <script>
 // ════════════════════════════════════════
-// 🔌 SUPABASE CLIENT GUARD — v67.13
+// 🔌 SUPABASE CLIENT GUARD — v67.14
 // يتأكد من تهيئة الـ client بشكل صحيح
 // يعمل كـ fallback إذا js/config.js لم يُعرّف sb
 // ════════════════════════════════════════
@@ -2528,6 +2528,19 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
     console.error('[SUPABASE GUARD] 🚨 CRITICAL: sb.from ليس function — كل عمليات قاعدة البيانات ستفشل');
   }
 })();
+
+
+// ════════════════════════════════════════
+// 🛡️ ACTIVE INVOICES HELPER — v67.14
+// Wrapper يضمن إن كل query للفواتير يفلتر is_deleted=false
+// الاستخدام: activeInvoices(sb.from('invoices').select('...'))
+// ════════════════════════════════════════
+function activeInvoices(q) {
+  return q.eq('is_deleted', false);
+}
+// View-level alias — للتوضيح
+// CREATE VIEW active_invoices AS SELECT * FROM invoices WHERE is_deleted = false;
+// يُستخدم activeInvoices() في JS بدل إنشاء view في DB
 
 // ← sb, rt, currentUser → js/config.js
 // ════════════════════════════════════════
@@ -5473,7 +5486,7 @@ async function renderActivity() {
     // Fields to NEVER show in any modal
     // Fields that must NEVER appear in any modal
     // ══════════════════════════════════════════════════════════
-    // 🗂️ MODAL DATA ENGINE — v67.13
+    // 🗂️ MODAL DATA ENGINE — v67.14
     // Handles field visibility, labelling, and value formatting
     // ══════════════════════════════════════════════════════════
 
@@ -6826,7 +6839,8 @@ async function _loadPendingInvoices() {
   try {
     const { data: invData, error: invErr } = await sb
       .from('invoices')
-      .select('id');
+      .select('id')
+      .eq('is_deleted', false);
     if (invErr) throw invErr;
 
     const { data: lineData, error: lineErr } = await sb
@@ -8152,7 +8166,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v67.13';
+const APP_VERSION = 'v67.14';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -8256,7 +8270,7 @@ const _pageGroup={
   settings:'system'
 };
 // ══════════════════════════════════════════
-// 🔥 ULTRA PREMIUM NAV JS — v67.13
+// 🔥 ULTRA PREMIUM NAV JS — v67.14
 // Ripple · Keyboard · Badges · Focus
 // ══════════════════════════════════════════
 
@@ -9200,7 +9214,7 @@ async function openClientInPanel(clientId, clientName, level=2){
   try{
     const[{data:cl},{data:invs},{data:pays}]=await Promise.all([
       sb.from('clients').select('*').eq('id',clientId).maybeSingle(),
-      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).order('date',{ascending:false}).limit(5),
+      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascending:false}).limit(5),
       sb.from('payments').select('amount,payment_date').eq('customer_name',clientName).order('payment_date',{ascending:false}).limit(5),
     ]);
     const client=cl||{name:clientName,id:clientId};
@@ -10052,7 +10066,7 @@ async function loadClientSuggestions(clientId){
 
   // جلب كل البيانات بطلب واحد
   const[invRes,recRes,payRes]=await Promise.all([
-    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).order('date',{ascending:false}).limit(5),
+    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascending:false}).limit(5),
     sb.from('receivables').select('invoice_id,due_date,total_amount').eq('customer_name',cl.name),
     sb.from('payments').select('invoice_id,payment_date').eq('customer_name',cl.name),
   ]);
