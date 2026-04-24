@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v70.0">
+<meta name="app-version" content="v71.0">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -1882,168 +1882,168 @@ tr{transition:background var(--dur-fast);}
 .sdrop-list{animation:slideDown var(--dur-fast) var(--ease-out);}
 @keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 
-/* ══════════════════════════════════════════
-   🔥 DASHBOARD v70.0 — Living Dashboard
-   Smart header · Count-up KPIs · Insights
-   Quick actions · Animated sections
-   ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════
+   🧠 INTELLIGENCE LAYER — v71.0
+   Notifications · AI Insights · Predictions
+   Zero new queries — all data from existing dashboard set
+   ══════════════════════════════════════════════════════ */
 
-/* Smart header banner */
-.dash-hero {
-  border-radius: var(--radius-lg);
-  padding: 18px 22px;
-  margin-bottom: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border: 1px solid transparent;
-  position: relative;
-  overflow: hidden;
-  animation: dashFadeIn .5s var(--ease-out) both;
+/* ── Notifications bar ── */
+.intel-alerts{
+  display:flex;flex-direction:column;gap:8px;
+  margin-bottom:18px;
 }
-.dash-hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,.12) 0%, transparent 60%);
-  pointer-events: none;
-}
-.dash-hero-left  { display:flex; align-items:center; gap:14px; flex:1; min-width:0; }
-.dash-hero-emoji { font-size:32px; flex-shrink:0; animation:dashBounce 2s ease-in-out infinite; }
-.dash-hero-text  { flex:1; min-width:0; }
-.dash-hero-title { font-size:16px; font-weight:800; line-height:1.3; }
-.dash-hero-sub   { font-size:12px; opacity:.75; margin-top:3px; }
-.dash-hero-right { display:flex; gap:8px; flex-shrink:0; }
-
-/* Quick action buttons */
-.dash-qa-btn {
-  display: inline-flex; align-items: center; gap:6px;
-  padding: 9px 16px; border-radius: var(--radius);
-  font-size: 13px; font-weight: 700; cursor: pointer;
-  border: none; font-family: var(--font);
-  transition: transform var(--dur-fast), box-shadow var(--dur-fast), filter var(--dur-fast);
-  white-space: nowrap;
-}
-.dash-qa-btn:hover  { transform: translateY(-2px); box-shadow: var(--shadow-md); filter:brightness(1.05); }
-.dash-qa-btn:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
-.dash-qa-btn.primary { background:var(--accent); color:#fff; }
-.dash-qa-btn.secondary { background:var(--bg4); color:var(--text); border:1px solid var(--border2); }
-
-/* KPI cards — enhanced interactive */
-.kpi-card {
-  cursor: pointer;
-  outline: none;
-}
-.kpi-card:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,.1) !important;
-}
-.kpi-card:active { transform: translateY(-1px) !important; }
-.kpi-card .kpi-trend {
-  display: inline-flex; align-items: center; gap:3px;
-  font-size: 11px; font-weight: 700;
-  padding: 1px 7px; border-radius: 20px;
-  margin-top: 4px;
-}
-.kpi-trend.up   { color:#166534; background:#dcfce7; }
-.kpi-trend.down { color:#9b1c1c; background:#fee2e2; }
-.kpi-trend.flat { color:var(--text3); background:var(--bg4); }
-
-/* Count-up number animation */
-.kpi-countup { display:inline-block; }
-
-/* Insights section */
-.dash-insights {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-  margin-bottom: 22px;
-}
-.dash-insight-card {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
-  animation: dashFadeIn .5s var(--ease-out) both;
-}
-.dash-insight-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); }
-.dash-insight-icon {
-  width:36px; height:36px; border-radius:var(--radius-sm);
-  display:flex; align-items:center; justify-content:center;
-  font-size:18px; flex-shrink:0;
-}
-.dash-insight-body { flex:1; min-width:0; }
-.dash-insight-label { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.4px; }
-.dash-insight-value { font-size:14px; font-weight:800; color:var(--text); margin-top:2px; line-height:1.3; }
-.dash-insight-sub   { font-size:11px; color:var(--text3); margin-top:2px; }
-
-/* Activity preview */
-.dash-activity-item {
-  display:flex; align-items:center; gap:12px;
-  padding:10px 16px;
-  border-bottom:1px solid var(--border);
-  cursor:pointer;
-  transition:background var(--dur-fast), transform var(--dur-fast);
-}
-.dash-activity-item:last-child { border-bottom:none; }
-.dash-activity-item:hover { background:var(--bg3); transform:translateX(-2px); }
-.dash-act-dot {
-  width:32px; height:32px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  font-size:14px; flex-shrink:0;
-}
-.dash-act-dot.inv { background:#dbeafe; }
-.dash-act-dot.pay { background:#d1fae5; }
-.dash-act-dot.wd  { background:#ede9fe; }
-
-/* Section fade-in stagger */
-.dash-section {
-  animation: dashFadeIn .45s var(--ease-out) both;
-}
-.dash-section:nth-child(1) { animation-delay:.05s; }
-.dash-section:nth-child(2) { animation-delay:.10s; }
-.dash-section:nth-child(3) { animation-delay:.15s; }
-.dash-section:nth-child(4) { animation-delay:.20s; }
-.dash-section:nth-child(5) { animation-delay:.25s; }
-.dash-section:nth-child(6) { animation-delay:.30s; }
-
-@keyframes dashFadeIn {
-  from { opacity:0; transform:translateY(10px); }
-  to   { opacity:1; transform:translateY(0); }
-}
-@keyframes dashBounce {
-  0%,100% { transform:translateY(0); }
-  50%      { transform:translateY(-4px); }
-}
-
-/* Section header inside dashboard */
-.dash-sec-hdr {
-  display:flex; align-items:center; justify-content:space-between;
-  margin-bottom:14px;
-}
-.dash-sec-title {
-  font-size:14px; font-weight:700; color:var(--text);
-  display:flex; align-items:center; gap:8px;
-}
-.dash-sec-action {
-  font-size:12px; font-weight:600; color:var(--accent);
-  cursor:pointer; padding:4px 10px; border-radius:var(--radius-sm);
-  transition:background var(--dur-fast);
+.intel-alert{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 16px;
+  border-radius:var(--radius);
   border:1px solid transparent;
-  background:none; font-family:var(--font);
+  font-size:13px;font-weight:500;
+  animation:intelSlideIn .35s var(--ease-out) both;
+  position:relative;
+  overflow:hidden;
 }
-.dash-sec-action:hover { background:var(--accent-light); border-color:#bfdbfe; }
+.intel-alert::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.15),transparent 60%);
+  pointer-events:none;
+}
+.intel-alert.danger{background:#fef2f2;border-color:#fca5a5;color:#991b1b;}
+.intel-alert.warning{background:#fffbeb;border-color:#fde68a;color:#92400e;}
+.intel-alert.info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af;}
+.intel-alert-icon{font-size:16px;flex-shrink:0;}
+.intel-alert-text{flex:1;line-height:1.4;}
+.intel-alert-close{
+  background:none;border:none;cursor:pointer;
+  font-size:14px;opacity:.5;padding:2px 6px;
+  border-radius:4px;font-family:var(--font);
+  transition:opacity var(--dur-fast),background var(--dur-fast);
+  flex-shrink:0;
+}
+.intel-alert-close:hover{opacity:1;background:rgba(0,0,0,.08);}
+@keyframes intelSlideIn{
+  from{opacity:0;transform:translateY(-6px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.intel-alert:nth-child(1){animation-delay:.0s;}
+.intel-alert:nth-child(2){animation-delay:.06s;}
+.intel-alert:nth-child(3){animation-delay:.12s;}
 
-/* Dark mode */
-body.dark .dash-insight-card { background:var(--bg2); border-color:var(--border); }
-body.dark .dash-qa-btn.secondary { background:var(--bg3); color:var(--text); border-color:var(--border2); }
+/* ── AI Insights strip ── */
+.intel-insights{
+  display:flex;gap:10px;flex-wrap:wrap;
+  margin-bottom:20px;
+}
+.intel-insight{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:12px 16px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  flex:1;min-width:220px;max-width:100%;
+  box-shadow:var(--shadow-sm);
+  animation:intelSlideIn .4s var(--ease-out) both;
+  transition:transform var(--dur-fast),box-shadow var(--dur-fast);
+  cursor:default;
+}
+.intel-insight:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.intel-insight:nth-child(1){animation-delay:.05s;}
+.intel-insight:nth-child(2){animation-delay:.10s;}
+.intel-insight:nth-child(3){animation-delay:.15s;}
+.intel-insight:nth-child(4){animation-delay:.20s;}
+.intel-insight-icon{
+  font-size:20px;flex-shrink:0;
+  width:36px;height:36px;
+  border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+}
+.intel-insight-body{flex:1;min-width:0;}
+.intel-insight-title{
+  font-size:12.5px;font-weight:700;
+  color:var(--text);line-height:1.4;
+}
+.intel-insight-sub{
+  font-size:11px;color:var(--text3);
+  margin-top:2px;line-height:1.4;
+}
 
+/* ── Prediction card ── */
+.intel-prediction{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px 22px;
+  box-shadow:var(--shadow-sm);
+  margin-bottom:20px;
+  position:relative;
+  overflow:hidden;
+  animation:intelSlideIn .45s var(--ease-out) .1s both;
+}
+.intel-prediction::before{
+  content:'';position:absolute;top:0;right:0;
+  width:4px;height:100%;
+  border-radius:0 var(--radius-lg) var(--radius-lg) 0;
+}
+.intel-prediction.risk-low::before{background:var(--green);}
+.intel-prediction.risk-medium::before{background:var(--yellow);}
+.intel-prediction.risk-high::before{background:var(--red);}
+.intel-pred-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;
+}
+.intel-pred-title{
+  font-size:14px;font-weight:800;color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.intel-risk-badge{
+  font-size:11px;font-weight:700;
+  padding:3px 10px;border-radius:20px;
+}
+.intel-risk-badge.low{background:var(--green-light);color:#166534;}
+.intel-risk-badge.medium{background:var(--yellow-light);color:#854d0e;}
+.intel-risk-badge.high{background:var(--red-light);color:#991b1b;}
+.intel-pred-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+.intel-pred-item{
+  background:var(--bg3);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  text-align:center;
+}
+.intel-pred-item-val{
+  font-size:18px;font-weight:800;
+  color:var(--text);
+  font-family:var(--mono);
+  line-height:1.2;
+}
+.intel-pred-item-label{
+  font-size:11px;color:var(--text3);
+  margin-top:4px;line-height:1.3;
+}
+
+/* ── Section label ── */
+.intel-section-label{
+  font-size:10.5px;font-weight:700;
+  color:var(--text4);letter-spacing:.6px;
+  text-transform:uppercase;
+  margin-bottom:8px;margin-top:2px;
+  display:flex;align-items:center;gap:6px;
+}
+.intel-section-label::after{
+  content:'';flex:1;height:1px;
+  background:var(--border);
+}
+
+/* dark mode */
+body.dark .intel-alert.danger{background:#450a0a;border-color:#7f1d1d;color:#fca5a5;}
+body.dark .intel-alert.warning{background:#422006;border-color:#854d0e;color:#fde68a;}
+body.dark .intel-alert.info{background:#172554;border-color:#1e40af;color:#93c5fd;}
+body.dark .intel-insight{background:var(--bg2);border-color:var(--border);}
+body.dark .intel-prediction{background:var(--bg2);border-color:var(--border);}
+body.dark .intel-pred-item{background:var(--bg3);}
 
 /* ── 6: Smart Empty States ── */
 .empty-state{text-align:center;padding:56px 24px 48px;color:var(--text3);}
@@ -3683,17 +3683,263 @@ function _filterPageAction(page, rawA) {
 // ════════════════════════════════════════
 
 // ── DASHBOARD ──
-async function renderDashboard(){
+// ════════════════════════════════════════════════════════════════
+// 🧠 INTELLIGENCE ENGINE — v71.0
+// Pure client-side — ZERO new Supabase calls.
+// All three functions receive already-computed dashboard variables.
+// ════════════════════════════════════════════════════════════════
+
+// ── 1. Smart Notifications (max 3, color-coded, dismissible) ──
+function _buildAlerts(opts){
+  // opts: { invs, recs, recCalc, overdue, totalProfit, biLines, nowKey, monthly, prevKey }
+  const {invs,recs,recCalc,overdue,totalProfit,biLines,nowKey,monthly,prevKey}=opts;
+  const alerts=[];
+
+  // A) Profit is negative this month
+  const thisM=monthly[nowKey]||{s:0,p:0};
+  if(thisM.p<0&&invs.length>0){
+    alerts.push({level:'danger',icon:'🚨',
+      text:`الأرباح سالبة هذا الشهر (${fmtM(thisM.p)}) — راجع التكاليف والعمولات`});
+  }
+
+  // B) Overdue receivables
+  if(overdue>0){
+    alerts.push({level:'warning',icon:'⏰',
+      text:`${overdue} فاتورة متأخرة بالتحصيل — متابعة مطلوبة`,
+      action:{label:'عرض الفواتير',page:'invoices'}});
+  }
+
+  // C) Invoices without lines (detailed type only)
+  const detailedInvIds=new Set(
+    invs.filter(i=>i.invoice_type!=='simple').map(i=>i.id).filter(Boolean)
+  );
+  const idsWithLines=new Set((biLines||[]).map(l=>l.invoice_id).filter(Boolean));
+  const noLines=[...detailedInvIds].filter(id=>!idsWithLines.has(id));
+  if(noLines.length>0){
+    alerts.push({level:'warning',icon:'⚠️',
+      text:`${noLines.length} فاتورة تفصيلية بدون بنود — يرجى إكمالها`});
+  }
+
+  // D) Total profit negative (all-time)
+  if(totalProfit<0&&invs.length>0&&thisM.p>=0){
+    alerts.push({level:'danger',icon:'📉',
+      text:`إجمالي الأرباح الكلية سالبة — مراجعة شاملة مطلوبة`});
+  }
+
+  // E) Sales drop month over month > 30%
+  const prevM=monthly[prevKey]||{s:0,p:0};
+  if(prevM.s>0&&thisM.s<prevM.s*0.7){
+    const drop=((prevM.s-thisM.s)/prevM.s*100).toFixed(0);
+    alerts.push({level:'warning',icon:'📉',
+      text:`المبيعات انخفضت ${drop}% مقارنة بالشهر السابق — راجع الأسباب`});
+  }
+
+  // Cap at 3, highest severity first
+  const order={danger:0,warning:1,info:2};
+  alerts.sort((a,b)=>order[a.level]-order[b.level]);
+  const top=alerts.slice(0,3);
+  if(!top.length) return '';
+
+  const rows=top.map((a,i)=>`
+    <div class="intel-alert ${a.level}" id="intel-alert-${i}">
+      <span class="intel-alert-icon">${a.icon}</span>
+      <span class="intel-alert-text">${a.text}${
+        a.action?` <button onclick="showPage('${a.action.page}')" style="margin-right:8px;padding:2px 10px;font-size:11px;font-weight:700;border:1px solid currentColor;background:none;border-radius:4px;cursor:pointer;font-family:var(--font);color:inherit;">${a.action.label} ←</button>`:''
+      }</span>
+      <button class="intel-alert-close" onclick="
+        var el=document.getElementById('intel-alert-${i}');
+        if(el){el.style.transition='opacity .2s,transform .2s';el.style.opacity='0';el.style.transform='translateY(-4px)';setTimeout(()=>{if(el.parentNode)el.parentNode.removeChild(el);},200);}
+      " title="إغلاق">✕</button>
+    </div>`).join('');
+
+  return `<div class="intel-alerts">${rows}</div>`;
+}
+
+// ── 2. AI Insights (rule-based sentences, max 4) ──
+function _buildInsights(opts){
+  const {invs,totalSales,totalProfit,totalRem,overdue,biCustomers,monthly,nowKey,prevKey,biLines,biPays}=opts;
+  if(!invs||!invs.length) return '';
+  const insights=[];
+  const thisM=monthly[nowKey]||{s:0,p:0};
+  const prevM=monthly[prevKey]||{s:0,p:0};
+  const profitMargin=totalSales>0?(totalProfit/totalSales*100):0;
+  const avgInv=invs.length?totalSales/invs.length:0;
+
+  // 1. Sales trend
+  if(prevM.s>0){
+    const pct=((thisM.s-prevM.s)/prevM.s*100);
+    if(pct>=5)
+      insights.push({icon:'📈',bg:'#d1fae5',
+        title:`المبيعات ارتفعت ${pct.toFixed(0)}% عن الشهر الماضي`,
+        sub:'استمر في هذا الأداء 💪'});
+    else if(pct<=-10)
+      insights.push({icon:'📉',bg:'#fee2e2',
+        title:`المبيعات انخفضت ${Math.abs(pct).toFixed(0)}% عن الشهر الماضي`,
+        sub:'راجع العروض والأسعار'});
+  }
+
+  // 2. Profit margin commentary
+  if(profitMargin>=25)
+    insights.push({icon:'💎',bg:'#fef9c3',
+      title:`هامش ربح ممتاز ${profitMargin.toFixed(1)}%`,
+      sub:'أداء مالي قوي جداً'});
+  else if(profitMargin>0&&profitMargin<10)
+    insights.push({icon:'⚠️',bg:'#fff7ed',
+      title:`هامش الربح منخفض ${profitMargin.toFixed(1)}%`,
+      sub:'الأرباح منخفضة بسبب ارتفاع التكاليف أو العمولات'});
+  else if(profitMargin<0)
+    insights.push({icon:'🚨',bg:'#fee2e2',
+      title:`هامش ربح سالب ${profitMargin.toFixed(1)}%`,
+      sub:'التكاليف تتجاوز الإيرادات — مراجعة عاجلة'});
+
+  // 3. Average invoice tip
+  if(avgInv>0){
+    const allTime=invs.reduce((s,i)=>s+(+i.sale_amount||0),0)/invs.length;
+    if(thisM.s>0){
+      const thisAvg=thisM.s/(invs.filter(i=>i.date&&i.date.startsWith(nowKey)).length||1);
+      if(thisAvg<allTime*0.8)
+        insights.push({icon:'💡',bg:'#ede9fe',
+          title:`متوسط الفاتورة هذا الشهر ${fmtM(thisAvg)}`,
+          sub:`أقل من المعدل الكلي (${fmtM(allTime)}) — حاول رفعه`});
+      else
+        insights.push({icon:'💡',bg:'#ede9fe',
+          title:`متوسط الفاتورة ${fmtM(allTime)}`,
+          sub:'فرصة لزيادة قيمة كل صفقة'});
+    } else {
+      insights.push({icon:'💡',bg:'#ede9fe',
+        title:`متوسط الفاتورة الكلي ${fmtM(allTime)}`,
+        sub:'فرصة لزيادة قيمة كل صفقة'});
+    }
+  }
+
+  // 4. Risky / loss-causing client
+  if(biCustomers&&biCustomers.length>0){
+    const losers=biCustomers.filter(c=>c.netProfit<0||c.balance<0);
+    if(losers.length>0){
+      const worst=losers.reduce((a,b)=>(b.netProfit||0)<(a.netProfit||0)?b:a);
+      insights.push({icon:'⚠️',bg:'#fee2e2',
+        title:`عميل ${worst.name||'—'} يسبب خسارة متكررة`,
+        sub:`صافي ربح: ${fmtM(worst.netProfit||0)} — راجع شروط التعامل`});
+    }
+  }
+
+  // 5. Collection health
+  const collRate=totalSales>0?((totalSales-totalRem)/totalSales*100):100;
+  if(collRate<60&&totalRem>0)
+    insights.push({icon:'💳',bg:'#fff7ed',
+      title:`نسبة التحصيل ${collRate.toFixed(0)}% فقط`,
+      sub:`${fmtM(totalRem)} لم تُحصّل بعد — تابع العملاء`});
+  else if(collRate>=90&&totalSales>0)
+    insights.push({icon:'✅',bg:'#d1fae5',
+      title:`نسبة تحصيل ممتازة ${collRate.toFixed(0)}%`,
+      sub:'معظم الفواتير محصّلة'});
+
+  // 6. Active invoice ratio
+  const activeCount=invs.filter(i=>i.stage&&!i.stage.includes('🏁')).length;
+  if(activeCount>0&&invs.length>0){
+    const activeRatio=(activeCount/invs.length*100);
+    if(activeRatio>60)
+      insights.push({icon:'🔄',bg:'#dbeafe',
+        title:`${activeCount} فاتورة نشطة (${activeRatio.toFixed(0)}% من الكل)`,
+        sub:'نسبة عالية — تابع الإغلاق'});
+  }
+
+  // Cap at 4, pick most impactful
+  const top=insights.slice(0,4);
+  if(!top.length) return '';
+
+  const cards=top.map(ins=>`
+    <div class="intel-insight">
+      <div class="intel-insight-icon" style="background:${ins.bg}">${ins.icon}</div>
+      <div class="intel-insight-body">
+        <div class="intel-insight-title">${ins.title}</div>
+        <div class="intel-insight-sub">${ins.sub}</div>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="intel-section-label">💡 رؤى ذكية</div>
+    <div class="intel-insights">${cards}</div>`;
+}
+
+// ── 3. Light Prediction (simple math, no ML) ──
+function _buildPrediction(opts){
+  const {invs,monthly,months,nowKey,totalProfit,overdue,active}=opts;
+  if(!invs||invs.length<2) return '';
+
+  // Sales in last 30 days (using invs with dates)
+  const now=new Date();
+  const d30=new Date(now);d30.setDate(d30.getDate()-30);
+  const recentSales=invs
+    .filter(i=>i.date&&new Date(i.date)>=d30)
+    .reduce((s,i)=>s+(+i.sale_amount||0),0);
+  const dailyAvg=recentSales/30;
+  const nextMonthEst=dailyAvg*30;
+
+  // Trend: compare last 2 months with values
+  const sortedMonths=[...months].sort();
+  const last2=sortedMonths.slice(-2);
+  let trendPct=0,trendDir='→',trendLabel='مستقر',trendColor='var(--text3)';
+  if(last2.length===2){
+    const m1=monthly[last2[0]]||{s:0};
+    const m2=monthly[last2[1]]||{s:0};
+    if(m1.s>0){
+      trendPct=((m2.s-m1.s)/m1.s*100);
+      if(trendPct>=5){trendDir='↑';trendLabel=`+${trendPct.toFixed(0)}%`;trendColor='#16a34a';}
+      else if(trendPct<=-5){trendDir='↓';trendLabel=`${trendPct.toFixed(0)}%`;trendColor='#dc2626';}
+      else {trendLabel=`${trendPct>=0?'+':''}${trendPct.toFixed(0)}%`;trendColor='var(--text3)';}
+    }
+  }
+
+  // Risk level
+  let risk='low',riskLabel='منخفض',riskSub='النظام بصحة جيدة ✅';
+  if(totalProfit<0||overdue>5){
+    risk='high';riskLabel='عالٍ';riskSub='أرباح سالبة أو ذمم كثيرة ⚠️';
+  } else if(overdue>2||trendPct<=-10||active>invs.length*0.6){
+    risk='medium';riskLabel='متوسط';riskSub='بعض المؤشرات تحتاج انتباه';
+  }
+
+  const estDisplay=nextMonthEst>0?fmtM(nextMonthEst):'—';
+
+  return `
+    <div class="intel-section-label">🔮 توقعات وتحليل المخاطر</div>
+    <div class="intel-prediction risk-${risk}">
+      <div class="intel-pred-header">
+        <div class="intel-pred-title">
+          🔮 توقعات الشهر القادم
+        </div>
+        <span class="intel-risk-badge ${risk}">⚠️ مستوى المخاطر: ${riskLabel}</span>
+      </div>
+      <div class="intel-pred-grid">
+        <div class="intel-pred-item">
+          <div class="intel-pred-item-val">${estDisplay}</div>
+          <div class="intel-pred-item-label">التوقع المبيعات<br>الشهر القادم</div>
+        </div>
+        <div class="intel-pred-item">
+          <div class="intel-pred-item-val" style="color:${trendColor}">${trendDir} ${trendLabel}</div>
+          <div class="intel-pred-item-label">الاتجاه<br>مقارنة الشهرين</div>
+        </div>
+        <div class="intel-pred-item">
+          <div class="intel-pred-item-val" style="font-size:14px;color:${risk==='high'?'#dc2626':risk==='medium'?'#ca8a04':'#16a34a'}">${riskLabel}</div>
+          <div class="intel-pred-item-label">${riskSub}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+
   setLoading('جاري تحميل البيانات...');
   try{
-  // ── Data fetching (unchanged from pre-v70) ──
+  // تحميل متسلسل بدل Promise.all لتجنب الـ hang
   const invs=await safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name').eq('is_deleted',false));
   setLoading('الذمم...');
   const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
   const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').eq('is_deleted',false).order('date',{ascending:false}).limit(6));
+  // تعريف nowKey مبكراً (مطلوب للـ BI cache)
   const nowKey=new Date().toISOString().slice(0,7);
   const prevDate=new Date();prevDate.setMonth(prevDate.getMonth()-1);
   const prevKey=prevDate.toISOString().slice(0,7);
+  // Phase 4 — BI data (cached للأداء)
   const _biCacheKey='bi_dash_'+nowKey;
   let _biData=_smartCache.get(_biCacheKey);
   let biLines=[], biPays=[], biExpsBI=[], biWdsBI=[], biRecsBI=[];
@@ -3710,8 +3956,6 @@ async function renderDashboard(){
   } else {
     ({biLines,biPays,biExpsBI,biWdsBI,biRecsBI}=_biData);
   }
-
-  // ── Calculations (identical to pre-v70) ──
   const totalSales=invs.reduce((s,i)=>s+(+i.sale_amount||0),0);
   const totalProfit=invs.reduce((s,i)=>s+calcInvoiceProfit(i).netProfit,0);
   const recCalc=recs.map(r=>calcPay(r));
@@ -3722,6 +3966,7 @@ async function renderDashboard(){
   const active=invs.filter(i=>i.stage&&!i.stage.includes('🏁')).length;
   const simpleCount=invs.filter(i=>i.invoice_type==='simple').length;
   const detailedCount=invs.length-simpleCount;
+  // بناء monthly مع المبيعات والأرباح
   const monthly={};
   invs.forEach(i=>{
     if(!i.date) return;
@@ -3730,12 +3975,15 @@ async function renderDashboard(){
     monthly[k].s+=(+i.sale_amount||0);
     monthly[k].p+=calcInvoiceProfit(i).netProfit;
   });
+  // بناء array ثابت لآخر 6 أشهر (حتى لو ما فيها بيانات)
   const months=[];
   for(let i=5;i>=0;i--){
     const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);
     months.push(d.toISOString().slice(0,7));
   }
+  // تأكد كل شهر موجود في monthly (حتى لو صفر)
   months.forEach(m=>{if(!monthly[m])monthly[m]={s:0,p:0};});
+  // ── Phase 4: حساب BI (مرة وحدة) ──
   const biAnalytics  = calcProfitAnalytics(invs, monthly);
   const biCustomers  = calcCustomerRanking(invs, biRecsBI, biPays);
   const biProducts   = calcProductIntelligence(biLines);
@@ -3745,180 +3993,79 @@ async function renderDashboard(){
   const thisM=monthly[nowKey]||{s:0,p:0};
   const prevM=monthly[prevKey]||{s:0,p:0};
   const delta=(a,b)=>{
-    if(!b||b===0)return{pct:'—',cls:'flat',sign:'→'};
+    if(!b||b===0)return{pct:'—',cls:'delta-flat',sign:'→'};
     const p=((a-b)/b*100);
-    if(!isFinite(p)||isNaN(p))return{pct:'—',cls:'flat',sign:'→'};
-    return{pct:Math.abs(p).toFixed(1),cls:p>0?'up':p<0?'down':'flat',sign:p>0?'↑':p<0?'↓':'→'};
+    if(!isFinite(p)||isNaN(p))return{pct:'—',cls:'delta-flat',sign:'→'};
+    return{pct:Math.abs(p).toFixed(1),cls:p>0?'delta-up':p<0?'delta-down':'delta-flat',sign:p>0?'↑':p<0?'↓':'→'};
   };
   const dSales=delta(thisM.s,prevM.s);
   const dProfit=delta(thisM.p,prevM.p);
+
+  // ── Dashboard Personality ──
+  const hour=new Date().getHours();
   const salesDelta=prevM.s>0?((thisM.s-prevM.s)/prevM.s*100):0;
   const profitMargin=totalSales>0?(totalProfit/totalSales*100):0;
-  const collectionRate=totalSales>0?((totalSales-totalRem)/totalSales*100):0;
-
-  // ── Smart Hero Message ──
-  let heroEmoji='✅', heroTitle='كل المؤشرات طبيعية — أداء مستقر', heroSub='النظام يراقب بياناتك باستمرار';
-  let heroBg='#eff6ff', heroBorder='#bfdbfe', heroColor='#1e40af';
+  let personalityMsg='', personalityColor='var(--accent)', personalityBg='#eff6ff', personalityBorder='#bfdbfe';
   if(invs.length===0){
-    heroEmoji='🚀'; heroTitle='أهلاً! ابدأ بإضافة أول فاتورة'; heroSub='النظام جاهز لتتبع مبيعاتك من اليوم الأول';
-    heroBg='var(--bg4)'; heroBorder='var(--border2)'; heroColor='var(--text2)';
+    personalityMsg='👋 أهلاً! لا توجد فواتير بعد — ابدأ بإضافة أول فاتورة';
+    personalityColor='var(--text3)';personalityBg='var(--bg4)';personalityBorder='var(--border)';
   } else if(totalProfit<0){
-    heroEmoji='🚨'; heroTitle='الأرباح الكلية سالبة — مراجعة عاجلة مطلوبة'; heroSub='راجع التكاليف والعمولات والمصروفات';
-    heroBg='var(--red-light)'; heroBorder='#fca5a5'; heroColor='#991b1b';
+    personalityMsg='⚠️ الأرباح الكلية سالبة — راجع التكاليف والعمولات';
+    personalityColor='#991b1b';personalityBg='var(--red-light)';personalityBorder='var(--row-profit-low-border)';
   } else if(salesDelta>=20){
-    heroEmoji='🔥'; heroTitle=`أداء قوي هذا الشهر — مبيعات أعلى بـ ${salesDelta.toFixed(0)}%`; heroSub='استمر — الزخم في صفّك';
-    heroBg='var(--green-light)'; heroBorder='#86efac'; heroColor='#166534';
+    personalityMsg=`🚀 أداء قوي جداً هذا الشهر — مبيعات أعلى بـ ${salesDelta.toFixed(0)}% من الشهر السابق`;
+    personalityColor='#166534';personalityBg='var(--green-light)';personalityBorder='var(--row-profit-high-border)';
   } else if(salesDelta>=5){
-    heroEmoji='📈'; heroTitle=`نمو جيد هذا الشهر — ارتفاع ${salesDelta.toFixed(0)}%`; heroSub='مقارنةً بالشهر السابق';
-    heroBg='var(--green-light)'; heroBorder='#86efac'; heroColor='#166534';
+    personalityMsg=`📈 نمو جيد هذا الشهر — ارتفاع ${salesDelta.toFixed(0)}% مقارنة بالشهر السابق`;
+    personalityColor='#166534';personalityBg='var(--green-light)';personalityBorder='var(--row-profit-high-border)';
   } else if(salesDelta<=-20){
-    heroEmoji='📉'; heroTitle=`انخفاض ملحوظ — ${Math.abs(salesDelta).toFixed(0)}% أقل من الشهر الماضي`; heroSub='مراجعة مطلوبة — تحقق من الأسباب';
-    heroBg='var(--orange-light)'; heroBorder='#fed7aa'; heroColor='#9a3412';
+    personalityMsg=`📉 انخفاض ملحوظ هذا الشهر — مراجعة مطلوبة (${Math.abs(salesDelta).toFixed(0)}% أقل من السابق)`;
+    personalityColor='#9a3412';personalityBg='var(--orange-light)';personalityBorder='#fed7aa';
   } else if(salesDelta<=-5){
-    heroEmoji='⚡'; heroTitle=`انخفاض بسيط — ${Math.abs(salesDelta).toFixed(0)}% مقارنة بالشهر السابق`; heroSub='راقب الأداء خلال الأيام القادمة';
-    heroBg='var(--yellow-light)'; heroBorder='#fde68a'; heroColor='#854d0e';
-  } else if(overdue>0){
-    heroEmoji='⏰'; heroTitle=`${overdue} فاتورة متأخرة بالتحصيل — متابعة مطلوبة`; heroSub='اضغط على الذمم لعرض التفاصيل';
-    heroBg='#fbeaea'; heroBorder='#fca5a5'; heroColor='#9b1c1c';
+    personalityMsg=`⚡ انخفاض بسيط مقارنة بالشهر السابق — ${Math.abs(salesDelta).toFixed(0)}%`;
+    personalityColor='#854d0e';personalityBg='var(--yellow-light)';personalityBorder='#fde68a';
   } else if(profitMargin>=20){
-    heroEmoji='💎'; heroTitle=`هامش ربح ممتاز ${profitMargin.toFixed(1)}% — النظام يعمل بكفاءة عالية`; heroSub='حافظ على هذا المستوى';
-    heroBg='var(--green-light)'; heroBorder='#86efac'; heroColor='#166534';
+    personalityMsg=`💎 هامش ربح ممتاز ${profitMargin.toFixed(1)}% — النظام يعمل بكفاءة عالية`;
+    personalityColor='#166534';personalityBg='var(--green-light)';personalityBorder='var(--row-profit-high-border)';
+  } else if(overdue>0){
+    personalityMsg=`⏰ ${overdue} فاتورة متأخرة بالتحصيل — متابعة مطلوبة`;
+    personalityColor='#9b1c1c';personalityBg='#fbeaea';personalityBorder='var(--row-profit-low-border)';
+  } else {
+    personalityMsg=`✅ كل المؤشرات طبيعية — أداء مستقر`;
+    personalityColor='#1e40af';personalityBg='#eff6ff';personalityBorder='#bfdbfe';
   }
-  const hour=new Date().getHours();
-  const timeGreet=hour<12?'صباح الخير':'مساء الخير';
 
-  // ── Insight sentences ──
-  const insightCards=[];
-  // Best invoice
-  if(invs.length>0){
-    const bestInv=invs.reduce((a,b)=>(+b.sale_amount||0)>(+a.sale_amount||0)?b:a);
-    if(bestInv) insightCards.push({
-      icon:'🏆', bg:'#fef9c3', label:'أعلى فاتورة',
-      value:`${fmtM(bestInv.sale_amount)}`, sub:`${bestInv.customer_name||'—'}`
-    });
-  }
-  // Best month
-  const peakMonth=months.reduce((a,m)=>monthly[m].s>monthly[a].s?m:a, months[0]);
-  if(peakMonth&&monthly[peakMonth].s>0) insightCards.push({
-    icon:'📅', bg:'#d1fae5', label:'أفضل شهر',
-    value:peakMonth, sub:`مبيعات ${fmtM(monthly[peakMonth].s)}`
-  });
-  // Collection rate
-  insightCards.push({
-    icon:'💳', bg:'#dbeafe', label:'نسبة التحصيل',
-    value:`${collectionRate.toFixed(1)}%`,
-    sub: collectionRate>=80?'ممتازة ✅':collectionRate>=60?'جيدة':'تحتاج متابعة ⚠️'
-  });
-  // Risky client
-  if(biCustomers&&biCustomers.length>0){
-    const risky=biCustomers.find(c=>c.balance&&c.balance<0);
-    if(risky) insightCards.push({
-      icon:'⚠️', bg:'#fee2e2', label:'عميل يحتاج متابعة',
-      value:risky.name||'—', sub:`رصيد ${fmtM(risky.balance)}`
-    });
-  }
-  // Avg invoice
-  if(invs.length>0) insightCards.push({
-    icon:'📊', bg:'#ede9fe', label:'متوسط الفاتورة',
-    value:fmtM(totalSales/invs.length), sub:`من ${invs.length} فاتورة`
-  });
-
-  // ── Activity feed ──
-  const recentPays=[...biPays].sort((a,b)=>b.payment_date>a.payment_date?1:-1).slice(0,3);
-  const recentWds=await safeQuery(()=>sb.from('withdrawals').select('partner,amount,date,description').order('date',{ascending:false}).limit(2));
-  const activities=[];
-  (last||[]).slice(0,4).forEach(i=>activities.push({
-    type:'inv',icon:'🧾',dot:'inv',
-    typeLabel:'فاتورة',color:'#2563eb',
-    title:`${i.customer_name||'—'}`,
-    meta:`${fmtM(i.sale_amount)} · ${fmtD(i.date)}`,
-    ts:i.date||'', page:'invoices'
-  }));
-  recentPays.forEach(p=>activities.push({
-    type:'pay',icon:'💳',dot:'pay',
-    typeLabel:'دفعة',color:'#16a34a',
-    title:`${p.customer_name||'—'}`,
-    meta:`${fmtM(p.amount)} · ${fmtD(p.payment_date)}`,
-    ts:p.payment_date||'', page:'invoices'
-  }));
-  recentWds.forEach(w=>activities.push({
-    type:'wd',icon:'💼',dot:'wd',
-    typeLabel:'سحب',color:'#7c3aed',
-    title:`${w.partner||'—'}`,
-    meta:`${fmtM(w.amount)} · ${fmtD(w.date)}`,
-    ts:w.date||'', page:'invoices'
-  }));
-  activities.sort((a,b)=>b.ts>a.ts?1:b.ts<a.ts?-1:0).splice(8);
-
-  // ── Render ──
-  const pc=document.getElementById('page-content');
-  pc.innerHTML='';
-
-  // 1️⃣ SMART HERO HEADER
-  const hero=document.createElement('div');
-  hero.className='dash-hero dash-section';
-  hero.style.cssText=`background:${heroBg};border-color:${heroBorder};color:${heroColor};`;
-  hero.innerHTML=`
-    <div class="dash-hero-left">
-      <span class="dash-hero-emoji">${heroEmoji}</span>
-      <div class="dash-hero-text">
-        <div class="dash-hero-title">${heroTitle}</div>
-        <div class="dash-hero-sub">${timeGreet} · ${heroSub}</div>
+  document.getElementById('page-content').innerHTML=`
+  <div style="background:${personalityBg};border:1px solid ${personalityBorder};border-radius:var(--radius);padding:13px 18px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13px;color:${personalityColor};font-weight:500">
+    <span>${personalityMsg}</span>
+  </div>
+  ${_buildAlerts({invs,recs,recCalc,overdue,totalProfit,biLines,nowKey,monthly,prevKey})}
+  <div class="kpi-grid">
+    <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-label">إجمالي المبيعات</div><div class="kpi-value">${fmt(totalSales)}</div><div class="kpi-sub">د.ع · ${invs.length} فاتورة</div></div>
+    <div class="kpi-card green"><div class="kpi-icon">📈</div><div class="kpi-label">صافي الأرباح</div><div class="kpi-value">${fmt(totalProfit)}</div><div class="kpi-sub">هامش ${totalSales?((totalProfit/totalSales)*100).toFixed(1):0}%</div></div>
+    <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-label">الذمم المتبقية</div><div class="kpi-value">${fmt(totalRem)}</div><div class="kpi-sub">${overdue>0?`<span style="color:var(--red);font-weight:700">${overdue} متأخرة ⚠️</span>`:'لا متأخرات ✅'}</div></div>
+    <div class="kpi-card yellow"><div class="kpi-icon">💸</div><div class="kpi-label">المصروفات</div><div class="kpi-value">${fmt(totalExp)}</div><div class="kpi-sub">د.ع</div></div>
+    <div class="kpi-card purple"><div class="kpi-icon">👥</div><div class="kpi-label">سحوبات الشركاء</div><div class="kpi-value">${fmt(totalWd)}</div><div class="kpi-sub">د.ع</div></div>
+    <div class="kpi-card teal"><div class="kpi-icon">🔄</div><div class="kpi-label">فواتير نشطة</div><div class="kpi-value">${active}</div><div class="kpi-sub">من ${invs.length} إجمالي</div></div>
+    <div class="kpi-card orange" onclick="showPage('reports')" style="cursor:pointer;transition:all .2s" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(234,88,12,.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''" title="اضغط لعرض التقارير">
+      <div class="kpi-icon">📄</div>
+      <div class="kpi-label">بسيطة vs تفصيلية</div>
+      <div class="kpi-value" style="font-size:18px">${simpleCount} <span style="font-size:13px;color:var(--text3)">|</span> ${detailedCount}</div>
+      <div style="margin-top:8px;position:relative">
+        <div style="background:#e0f2fe;border-radius:4px;height:14px;overflow:hidden">
+          <div style="background:linear-gradient(90deg,var(--teal),var(--accent));height:100%;width:${invs.length>0?((simpleCount/invs.length)*100).toFixed(0):0}%;transition:width .8s ease;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:4px">
+            ${invs.length>0&&simpleCount>0?`<span style="font-size:9px;color:#fff;font-weight:700;white-space:nowrap">${((simpleCount/invs.length)*100).toFixed(0)}%</span>`:''}
+          </div>
+        </div>
       </div>
+      <div class="kpi-sub" style="margin-top:4px">📄 ${simpleCount} بسيطة · 📋 ${detailedCount} تفصيلية</div>
     </div>
-    <div class="dash-hero-right">
-      <button class="dash-qa-btn primary" onclick="openInvoiceModal()">➕ فاتورة جديدة</button>
-      <button class="dash-qa-btn secondary" onclick="showPage('invoices')">📄 الفواتير</button>
-      <button class="dash-qa-btn secondary" onclick="showPage('activity')">📊 النشاط</button>
-    </div>`;
-  pc.appendChild(hero);
-
-  // 2️⃣ KPI CARDS
-  const kpiSection=document.createElement('div');
-  kpiSection.className='dash-section';
-  const kpiData=[
-    {cls:'blue',  icon:'💰', label:'إجمالي المبيعات', val:totalSales, sub:`${invs.length} فاتورة`, trend:dSales,   page:'invoices', fmt:true},
-    {cls:'green', icon:'📈', label:'صافي الأرباح',    val:totalProfit, sub:`هامش ${profitMargin.toFixed(1)}%`, trend:dProfit, page:'reports', fmt:true},
-    {cls:'red',   icon:'⏳', label:'الذمم المتبقية',   val:totalRem,  sub:overdue>0?`${overdue} متأخرة ⚠️`:'لا متأخرات ✅', trend:null, page:'invoices', fmt:true},
-    {cls:'yellow',icon:'💸', label:'المصروفات',        val:totalExp,  sub:'د.ع', trend:null, page:'reports', fmt:true},
-    {cls:'purple',icon:'👥', label:'سحوبات الشركاء',   val:totalWd,   sub:'د.ع', trend:null, page:'reports', fmt:true},
-    {cls:'teal',  icon:'🔄', label:'فواتير نشطة',      val:active,    sub:`من ${invs.length} إجمالي`, trend:null, page:'invoices', fmt:false},
-  ];
-  const kpiGrid=document.createElement('div');
-  kpiGrid.className='kpi-grid';
-  kpiData.forEach(k=>{
-    const card=document.createElement('div');
-    card.className=`kpi-card ${k.cls}`;
-    card.setAttribute('tabindex','0');
-    card.setAttribute('role','button');
-    card.title=`اضغط للانتقال إلى ${k.label}`;
-    const trendHtml=k.trend&&k.trend.pct!=='—'
-      ?`<div class="kpi-trend ${k.trend.cls}">${k.trend.sign} ${k.trend.pct}%</div>`:'';
-    const subStyle=k.sub.includes('⚠️')?'style="color:var(--red);font-weight:700"':'';
-    card.innerHTML=`
-      <div class="kpi-icon">${k.icon}</div>
-      <div class="kpi-label">${k.label}</div>
-      <div class="kpi-value"><span class="kpi-countup" data-target="${k.val}" data-fmt="${k.fmt}">${k.fmt?fmtM(k.val):k.val}</span></div>
-      <div class="kpi-sub" ${subStyle}>${k.sub}</div>
-      ${trendHtml}`;
-    card.addEventListener('click',()=>showPage(k.page));
-    card.addEventListener('keydown',e=>{ if(e.key==='Enter')showPage(k.page); });
-    kpiGrid.appendChild(card);
-  });
-  kpiSection.appendChild(kpiGrid);
-  pc.appendChild(kpiSection);
-
-  // Alert intelligence placeholder
-  const alertCont=document.createElement('div');
-  alertCont.id='alert-intel-container';
-  pc.appendChild(alertCont);
-
-  // 3️⃣ MONTHLY COMPARISON + QUICK STATS
-  const compareSection=document.createElement('div');
-  compareSection.className='dash-section';
-  compareSection.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px';
-  const fmtM2=v=>fmtM(v);
-  compareSection.innerHTML=`
+  </div>
+  ${_buildInsights({invs,totalSales,totalProfit,totalRem,overdue,biCustomers,monthly,nowKey,prevKey,biLines,biPays})}
+  ${_buildPrediction({invs,monthly,months,nowKey,totalProfit,overdue,active})}
+  <div id="alert-intel-container"></div>
+  <!-- مقارنة هذا الشهر vs السابق -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
     <div class="compare-card">
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
         📅 مقارنة الشهرية
@@ -3927,17 +4074,17 @@ async function renderDashboard(){
       <div class="compare-row">
         <span class="compare-label">المبيعات</span>
         <div class="compare-vals">
-          <span class="compare-prev">${fmtM2(prevM.s)}</span>
-          <span class="compare-this">${fmtM2(thisM.s)}</span>
-          <span class="compare-delta delta-${dSales.cls}">${dSales.pct==='—'?'—':dSales.sign+dSales.pct+'%'}</span>
+          <span class="compare-prev">${fmtM(prevM.s)}</span>
+          <span class="compare-this">${fmtM(thisM.s)}</span>
+          <span class="compare-delta ${dSales.cls}">${dSales.pct==='—'?'—':dSales.sign+dSales.pct+'%'}</span>
         </div>
       </div>
       <div class="compare-row">
         <span class="compare-label">الأرباح</span>
         <div class="compare-vals">
-          <span class="compare-prev">${fmtM2(prevM.p)}</span>
-          <span class="compare-this">${fmtM2(thisM.p)}</span>
-          <span class="compare-delta delta-${dProfit.cls}">${dProfit.pct==='—'?'—':dProfit.sign+dProfit.pct+'%'}</span>
+          <span class="compare-prev">${fmtM(prevM.p)}</span>
+          <span class="compare-this">${fmtM(thisM.p)}</span>
+          <span class="compare-delta ${dProfit.cls}">${dProfit.pct==='—'?'—':dProfit.sign+dProfit.pct+'%'}</span>
         </div>
       </div>
       <div class="compare-row">
@@ -3950,19 +4097,13 @@ async function renderDashboard(){
     </div>
     <div class="compare-card">
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">⚡ ملخص سريع</div>
-      <div class="compare-row"><span class="compare-label">هامش الربح الكلي</span><span class="compare-this" style="color:${totalProfit>=0?'var(--green)':'var(--red)'}">${profitMargin.toFixed(1)}%</span></div>
-      <div class="compare-row"><span class="compare-label">متوسط الفاتورة</span><span class="compare-this">${fmtM2(invs.length?totalSales/invs.length:0)}</span></div>
-      <div class="compare-row"><span class="compare-label">نسبة التحصيل</span><span class="compare-this" style="color:${collectionRate>=70?'var(--green)':'var(--red)'}">${collectionRate.toFixed(1)}%</span></div>
-      <div class="compare-row"><span class="compare-label">📄 بسيطة</span><span class="compare-this">${simpleCount}</span></div>
-      <div class="compare-row"><span class="compare-label">📋 تفصيلية</span><span class="compare-this">${detailedCount}</span></div>
-    </div>`;
-  pc.appendChild(compareSection);
+      <div class="compare-row"><span class="compare-label">هامش الربح الكلي</span><span class="compare-this" style="color:${totalProfit>=0?'var(--green)':'var(--red)'}">${totalSales?((totalProfit/totalSales)*100).toFixed(1):0}%</span></div>
+      <div class="compare-row"><span class="compare-label">متوسط الفاتورة</span><span class="compare-this">${fmtM(invs.length?totalSales/invs.length:0)}</span></div>
+      <div class="compare-row"><span class="compare-label">نسبة التحصيل</span><span class="compare-this" style="color:var(--green)">${totalSales?((totalSales-totalRem)/totalSales*100).toFixed(1):0}%</span></div>
+    </div>
+  </div>
 
-  // 4️⃣ CHARTS
-  const chartsSection=document.createElement('div');
-  chartsSection.className='dash-section';
-  chartsSection.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px';
-  chartsSection.innerHTML=`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
     <div class="table-card">
       <div class="table-header"><div class="table-title">📊 المبيعات الشهرية</div><span class="badge badge-blue">${months.length} شهر</span></div>
       <div class="chart-container"><div class="chart-canvas-wrap"><canvas id="chart-sales"></canvas></div><div class="chart-tooltip" id="chart-tooltip"></div></div>
@@ -3970,130 +4111,92 @@ async function renderDashboard(){
     <div class="table-card">
       <div class="table-header"><div class="table-title">🥧 مراحل الفواتير</div></div>
       <div class="chart-container"><div class="chart-canvas-wrap" style="height:200px"><canvas id="chart-stages"></canvas></div></div>
-    </div>`;
-  pc.appendChild(chartsSection);
-
-  // 5️⃣ SMART INSIGHTS
-  if(insightCards.length>0){
-    const insSection=document.createElement('div');
-    insSection.className='dash-section';
-    insSection.style.marginBottom='20px';
-    const insHdr=document.createElement('div');
-    insHdr.className='dash-sec-hdr';
-    insHdr.innerHTML='<div class="dash-sec-title">💡 رؤى ذكية</div>';
-    insSection.appendChild(insHdr);
-    const insGrid=document.createElement('div');
-    insGrid.className='dash-insights';
-    insightCards.forEach((c,idx)=>{
-      const card=document.createElement('div');
-      card.className='dash-insight-card';
-      card.style.animationDelay=`${0.05+idx*0.07}s`;
-      card.innerHTML=`
-        <div class="dash-insight-icon" style="background:${c.bg}">${c.icon}</div>
-        <div class="dash-insight-body">
-          <div class="dash-insight-label">${c.label}</div>
-          <div class="dash-insight-value">${c.value}</div>
-          <div class="dash-insight-sub">${c.sub}</div>
-        </div>`;
-      insGrid.appendChild(card);
-    });
-    insSection.appendChild(insGrid);
-    pc.appendChild(insSection);
-  }
-
-  // 6️⃣ LATEST INVOICES TABLE
-  const tblSection=document.createElement('div');
-  tblSection.className='dash-section table-card';
-  tblSection.style.marginBottom='20px';
-  tblSection.innerHTML=`
-    <div class="table-header">
-      <div class="table-title">📋 آخر الفواتير</div>
-      <button class="dash-sec-action" onclick="showPage('invoices')">عرض الكل ←</button>
     </div>
-    ${invs.length===0
-      ? `<div class="empty-state"><div class="empty-icon">🚀</div><h3>ابدأ بإضافة أول فاتورة</h3><p>اضغط على "فاتورة جديدة" من الأعلى</p></div>`
-      : `<div class="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>المبلغ</th><th>المرحلة</th></tr></thead><tbody>
-      ${(last||[]).map(i=>`<tr style="cursor:pointer" onclick="showPage('invoices')"><td class="td-mono text-blue" style="font-weight:700">${i.id||'—'}</td><td>${i.customer_name||'—'}</td><td class="td-mono text-green">${fmtM(i.sale_amount)}</td><td>${stageBadge(i.stage)}</td></tr>`).join('')}
-    </tbody></table></div>`}`;
-  pc.appendChild(tblSection);
+  </div>
+  <div class="table-card" style="margin-bottom:20px">
+    <div class="table-header"><div class="table-title">📋 آخر الفواتير</div><button class="btn btn-secondary btn-sm" onclick="showPage('invoices')">عرض الكل</button></div>
+    <div class="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>المبلغ</th><th>المرحلة</th></tr></thead><tbody>
+      ${(last||[]).map(i=>`<tr><td class="td-mono text-blue" style="font-weight:700">${i.id||'—'}</td><td>${i.customer_name||'—'}</td><td class="td-mono text-green">${fmtM(i.sale_amount)}</td><td>${stageBadge(i.stage)}</td></tr>`).join('')||'<tr><td colspan="4" class="text-muted" style="text-align:center;padding:20px">لا توجد فواتير</td></tr>'}
+    </tbody></table></div>
+  </div>`;
+  // آخر النشاطات — فواتير + دفعات + سحوبات
+  const recentPays=[...biPays].sort((a,b)=>b.payment_date>a.payment_date?1:b.payment_date<a.payment_date?-1:0).slice(0,4);
+  const recentWds=await safeQuery(()=>sb.from('withdrawals').select('partner,amount,date,description').order('date',{ascending:false}).limit(3));
+  const activities=[];
+  (last||[]).forEach(i=>activities.push({
+    type:'inv',icon:'🧾',dot:'inv',
+    typeLabel:'فاتورة',
+    title:`${i.customer_name||'—'}`,
+    meta:`${fmtM(i.sale_amount)} · ${fmtD(i.date)}`,
+    ts:i.date||''
+  }));
+  recentPays.forEach(p=>activities.push({
+    type:'pay',icon:'💳',dot:'pay',
+    typeLabel:'دفعة',
+    title:`${p.customer_name||'—'}`,
+    meta:`${fmtM(p.amount)} · ${fmtD(p.payment_date)}`,
+    ts:p.payment_date||''
+  }));
+  recentWds.forEach(w=>activities.push({
+    type:'wd',icon:'💼',dot:'wd',
+    typeLabel:'سحب',
+    title:`${w.partner||'—'} — ${w.description||''}`,
+    meta:`${fmtM(w.amount)} · ${fmtD(w.date)}`,
+    ts:w.date||''
+  }));
+  activities.sort((a,b)=>b.ts>a.ts?1:b.ts<a.ts?-1:0).splice(10);
 
-  // 7️⃣ ACTIVITY PREVIEW
-  const actSection=document.createElement('div');
-  actSection.className='dash-section table-card';
-  actSection.style.marginBottom='20px';
-  const actHdr=document.createElement('div');
-  actHdr.className='table-header';
-  actHdr.innerHTML=`<div class="table-title">⚡ آخر النشاطات</div><span class="badge badge-gray">${activities.length} عملية</span>`;
-  actSection.appendChild(actHdr);
-  if(activities.length===0){
-    actSection.innerHTML+='<div class="empty-state"><div class="empty-icon">📭</div><h3>لا توجد نشاطات بعد</h3><p>ستظهر هنا آخر العمليات تلقائياً</p></div>';
-  } else {
-    const actList=document.createElement('div');
-    actList.style.cssText='display:flex;flex-direction:column;padding:4px 0 8px';
-    activities.forEach(a=>{
-      const item=document.createElement('div');
-      item.className='dash-activity-item';
-      item.innerHTML=`
-        <div class="dash-act-dot ${a.dot}">${a.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:${a.color}22;color:${a.color}">${a.typeLabel}</span>
+  document.getElementById('page-content').insertAdjacentHTML('beforeend',`
+  <div class="table-card">
+    <div class="table-header"><div class="table-title">⚡ آخر النشاطات</div><span class="badge badge-gray">${activities.length} عملية</span></div>
+    <div style="padding:4px 20px 8px">
+      ${activities.length===0?'<div class="text-muted" style="text-align:center;padding:20px">لا توجد نشاطات</div>':
+      activities.map(a=>`
+      <div class="activity-item">
+        <div class="activity-dot ${a.dot}">${a.icon}</div>
+        <div class="activity-body">
+          <div class="activity-title">
+            <span class="badge ${a.type==='inv'?'badge-blue':a.type==='pay'?'badge-green':'badge-purple'}" style="font-size:10px;padding:2px 7px;margin-left:6px">${a.typeLabel}</span>
             ${a.title}
           </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:1px;font-family:var(--mono)">${a.meta}</div>
+          <div class="activity-meta">${a.meta}</div>
         </div>
-        <span style="font-size:18px;color:var(--border2)">›</span>`;
-      item.addEventListener('click',()=>showPage(a.page));
-      actList.appendChild(item);
-    });
-    actSection.appendChild(actList);
-  }
-  pc.appendChild(actSection);
+      </div>`).join('')}
+    </div>
+  </div>`);
 
-  // 8️⃣ BI SECTION (unchanged)
-  pc.insertAdjacentHTML('beforeend', renderBISection(
+  document.getElementById('page-content').insertAdjacentHTML('beforeend', renderBISection(
     biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly
   ));
 
-  // ── Count-up animation ──
-  function _animateCountUp(el){
-    const target=parseFloat(el.dataset.target)||0;
-    const doFmt=el.dataset.fmt==='true';
-    if(target===0){ el.textContent=doFmt?fmtM(0):'0'; return; }
-    const dur=900, steps=40, inc=target/steps;
-    let cur=0, step=0;
-    const tick=()=>{
-      step++;
-      cur=step>=steps?target:cur+inc;
-      el.textContent=doFmt?fmtM(cur):Math.round(cur).toString();
-      if(step<steps) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-
-  // ── Charts + animations after DOM ready ──
+  // ===== Chart Render (Safe Mode) =====
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     try{
-      const canvas=document.getElementById('chart-sales');
-      if(canvas&&canvas.offsetWidth>0){
-        drawSalesChart(months,monthly);
+      const canvas = document.getElementById('chart-sales');
+      if(!canvas) return;
+      if(!months || !months.length) return;
+      if(canvas.offsetWidth > 0){
+        drawSalesChart(months, monthly);
         drawStagesChart(invs);
       }
-    }catch(e){ console.warn('chart error:',e); }
-    // Count-up numbers
-    pc.querySelectorAll('.kpi-countup').forEach(el=>_animateCountUp(el));
+    }catch(e){ console.warn('chart error (non-fatal):', e); }
   }));
-
+  // تشغيل Alert Intelligence
   setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
+  // Smart Decision Toast — Priority 1 فقط، بدون إزعاج
   const topToasts=getTopDecisionsForToast(biDecisions);
   if(topToasts.length>0&&!sessionStorage.getItem('wadi_bi_toast')){
     setTimeout(()=>{
-      topToasts.forEach((d,i)=>setTimeout(()=>showToast(d.icon+' '+d.title,'warning'),i*2000));
+      topToasts.forEach((d,i)=>{
+        setTimeout(()=>showToast(d.icon+' '+d.title,'warning'),i*2000);
+      });
       sessionStorage.setItem('wadi_bi_toast','1');
     },1800);
   }
-  if(typeof window._wadiProactive==='function') window._wadiProactive();
-
+  // ── v66.6: Proactive Assistant trigger after dashboard loads ──
+  if (typeof window._wadiProactive === 'function') {
+    window._wadiProactive();
+  }
   }catch(e){
     console.error('Dashboard error:',e);
     document.getElementById('page-content').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:8px">فشل تحميل Dashboard</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">${e.message}</div><button class="btn btn-primary" onclick="renderDashboard()">إعادة المحاولة</button></div>`;
@@ -8676,7 +8779,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v70.0';
+const APP_VERSION = 'v71.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
