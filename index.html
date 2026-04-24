@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v71.0">
+<meta name="app-version" content="v72.0">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -1487,6 +1487,96 @@ body.dark .ai-insight-row.warning{background:#78350f1a}
 body.dark .ai-insight-row.info{background:#1e3a5f1a}
 body.dark .predict-card{background:var(--bg2);border-color:var(--border)}
 body.dark .predict-item{background:var(--bg3);border-color:var(--border)}
+
+/* ══════════════════════════════════════
+   🔔 LIVE TOAST STACK (top-right) — v72.0
+   ══════════════════════════════════════ */
+#wadi-live-toasts{
+  position:fixed;top:72px;left:20px;z-index:10500;
+  display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;max-width:320px;
+}
+.wlt{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:11px 14px;border-radius:10px;
+  background:#fff;border:1px solid var(--border);
+  box-shadow:0 6px 20px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.06);
+  font-size:12.5px;font-weight:600;color:var(--text);
+  pointer-events:auto;cursor:default;
+  opacity:0;transform:translateX(-24px);
+  transition:opacity .28s var(--ease-out),transform .28s var(--ease-out);
+  border-right:3px solid var(--border2);
+  line-height:1.45;max-width:320px;
+}
+.wlt.show{opacity:1;transform:translateX(0)}
+.wlt.wlt-red{background:#fff5f5;border-right-color:#dc2626;color:#991b1b}
+.wlt.wlt-yellow{background:#fffdf0;border-right-color:#ca8a04;color:#92400e}
+.wlt.wlt-green{background:var(--green-light);border-right-color:#16a34a;color:#166534}
+.wlt.wlt-blue{background:var(--accent-light);border-right-color:#2563eb;color:#1e40af}
+.wlt-icon{font-size:15px;flex-shrink:0;margin-top:1px}
+.wlt-body{flex:1}
+.wlt-title{font-weight:700;margin-bottom:2px}
+.wlt-sub{font-size:11px;opacity:.75;font-weight:400}
+body.dark .wlt{background:#1e293b;border-color:#334155;color:var(--text)}
+body.dark .wlt.wlt-red{background:#7f1d1d22;border-right-color:#ef4444;color:#fca5a5}
+body.dark .wlt.wlt-yellow{background:#78350f22;border-right-color:#f59e0b;color:#fcd34d}
+body.dark .wlt.wlt-green{background:#052e1622;border-right-color:#22c55e;color:#86efac}
+body.dark .wlt.wlt-blue{background:#1e3a5f22;border-right-color:#3b82f6;color:#93c5fd}
+
+/* ══════════════════════════════════════
+   📅 DAILY SUMMARY CARD — v72.0
+   ══════════════════════════════════════ */
+.daily-summary-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;
+  border-right:3px solid var(--accent);animation:slideIn .25s ease;
+}
+.daily-summary-hdr{
+  font-size:13px;font-weight:700;color:var(--text);
+  margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.daily-summary-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:8px;
+}
+.ds-item{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:9px 12px;
+}
+.ds-item-label{font-size:10.5px;color:var(--text3);margin-bottom:3px;font-weight:500}
+.ds-item-val{font-size:14px;font-weight:700;color:var(--text);font-family:var(--mono)}
+.ds-event{
+  margin-top:8px;padding:7px 12px;border-radius:var(--radius-sm);
+  background:var(--accent-light);border:1px solid #bfdbfe;
+  font-size:11.5px;color:#1e40af;font-weight:500;
+  display:flex;align-items:center;gap:6px;
+}
+body.dark .daily-summary-card{background:var(--bg2);border-color:var(--border);border-right-color:#3b82f6}
+body.dark .ds-item{background:var(--bg3);border-color:var(--border)}
+body.dark .ds-event{background:#1e3a5f22;border-color:#1e3a5f;color:#93c5fd}
+
+/* ══════════════════════════════════════
+   💡 SMART SUGGESTIONS — v72.0
+   ══════════════════════════════════════ */
+.smart-suggestions{margin-bottom:16px}
+.smart-suggestions-hdr{
+  font-size:13px;font-weight:700;color:var(--text);
+  margin-bottom:8px;display:flex;align-items:center;gap:6px;
+}
+.suggestion-list{display:flex;flex-direction:column;gap:6px}
+.suggestion-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;border-radius:var(--radius-sm);
+  background:var(--bg2);border:1px solid var(--border);
+  font-size:12.5px;font-weight:500;color:var(--text2);
+  cursor:pointer;transition:background .15s,border-color .15s;
+  animation:slideIn .2s ease both;
+}
+.suggestion-item:hover{background:var(--accent-light);border-color:#bfdbfe;color:var(--accent)}
+.suggestion-item .sug-icon{font-size:15px;flex-shrink:0}
+.suggestion-item .sug-text{flex:1;line-height:1.4}
+.suggestion-item .sug-arrow{font-size:11px;color:var(--text4);flex-shrink:0}
+body.dark .suggestion-item{background:var(--bg2);border-color:var(--border);color:var(--text2)}
+body.dark .suggestion-item:hover{background:#1e3a5f22;border-color:#1e3a5f;color:#93c5fd}
 
 /* TOOLTIP WITH DELAY */
 [title]{position:relative}
@@ -10653,8 +10743,257 @@ function buildIntelligenceLayer(data){
 
     container.innerHTML = html;
 
+    // ── v72.0: Advanced Intelligence Layer ──
+    buildAdvancedIntelligence(data);
+
   } catch(e){
     console.warn('buildIntelligenceLayer error:', e);
+  }
+}
+
+// ══════════════════════════════════════════
+// 🚀 ADVANCED INTELLIGENCE LAYER — v72.0
+// 🔔 Live Toasts + 💡 Suggestions + 📅 Daily Summary
+// Called from buildIntelligenceLayer ONLY — zero new DB calls
+// ══════════════════════════════════════════
+function buildAdvancedIntelligence(data){
+  const {
+    invs=[], biLines=[], biPays=[], biRecsBI=[],
+    totalSales=0, totalProfit=0, totalExp=0,
+    overdue=0, collectionRate=0, profitMargin=0,
+    salesDelta=0, thisM={s:0,p:0}
+  } = data;
+
+  try {
+
+    // ─────────────────────────────────────
+    // 📅 1. DAILY SUMMARY
+    // ─────────────────────────────────────
+    const todayStr = new Date().toISOString().slice(0,10);
+    const todayInvs = invs.filter(i=>i.date && i.date.slice(0,10)===todayStr);
+    const todaySales = todayInvs.reduce((s,i)=>s+(+i.sale_amount||0),0);
+    const todayProfit = todayInvs.reduce((s,i)=>s+calcInvoiceProfit(i).netProfit, 0);
+    const todayCount = todayInvs.length;
+
+    // أهم حدث اليوم — أكبر فاتورة
+    let todayEvent = 'لا توجد فواتير اليوم';
+    if(todayInvs.length > 0){
+      const bigInv = todayInvs.reduce((a,b)=>(+b.sale_amount||0)>(+a.sale_amount||0)?b:a);
+      if(+bigInv.sale_amount > 0){
+        todayEvent = `أكبر فاتورة: ${bigInv.customer_name||'—'} — ${fmtM(bigInv.sale_amount)}`;
+      } else {
+        todayEvent = `${todayCount} فاتورة مسجلة اليوم`;
+      }
+    } else if(todayCount === 0 && invs.length > 0){
+      todayEvent = 'لا فواتير اليوم — راجع العمليات';
+    }
+
+    const dailyHtml = `<div class="daily-summary-card">
+      <div class="daily-summary-hdr">📅 ملخص اليوم</div>
+      <div class="daily-summary-grid">
+        <div class="ds-item">
+          <div class="ds-item-label">عدد الفواتير اليوم</div>
+          <div class="ds-item-val">${todayCount}</div>
+        </div>
+        <div class="ds-item">
+          <div class="ds-item-label">مجموع المبيعات اليوم</div>
+          <div class="ds-item-val">${todaySales>0?fmtM(todaySales):'—'}</div>
+        </div>
+        <div class="ds-item">
+          <div class="ds-item-label">الربح اليوم</div>
+          <div class="ds-item-val" style="color:${todayProfit<0?'var(--red)':todayProfit>0?'var(--green)':'var(--text)'}">
+            ${todayCount>0?fmtM(todayProfit):'—'}
+          </div>
+        </div>
+        <div class="ds-item">
+          <div class="ds-item-label">الفواتير النشطة</div>
+          <div class="ds-item-val">${invs.filter(i=>i.stage&&!i.stage.includes('🏁')).length}</div>
+        </div>
+      </div>
+      <div class="ds-event">⚡ ${todayEvent}</div>
+    </div>`;
+
+    // ─────────────────────────────────────
+    // 💡 2. SMART SUGGESTIONS (max 3)
+    // ─────────────────────────────────────
+    const suggestions = [];
+    window._advSuggestionActions = [];
+
+    // فواتير بدون بنود
+    const invoiceIdsWithLines = new Set(biLines.map(l=>l.invoice_id));
+    const emptyInvs = invs.filter(i=>!invoiceIdsWithLines.has(i.id) && i.stage && !i.stage.includes('🏁'));
+    if(emptyInvs.length > 0){
+      suggestions.push({
+        icon:'📋', text:`أضف بنود للفواتير الناقصة (${emptyInvs.length} فاتورة بدون بنود)`,
+        action:()=>showPage('invoices')
+      });
+    }
+
+    // عميل عنده ذمم متأخرة
+    if(overdue > 0 && biRecsBI.length > 0){
+      const now = new Date();
+      const overdueRecs = biRecsBI.filter(r=>r.due_date && new Date(r.due_date)<now);
+      if(overdueRecs.length > 0){
+        const clientCount = {};
+        overdueRecs.forEach(r=>{
+          if(r.customer_name) clientCount[r.customer_name]=(clientCount[r.customer_name]||0)+1;
+        });
+        const topClient = Object.entries(clientCount).sort((a,b)=>b[1]-a[1])[0];
+        if(topClient){
+          suggestions.push({
+            icon:'⏰', text:`راجع ${topClient[0]} — عنده ${topClient[1]} ذمة متأخرة`,
+            action:()=>showPage('receivables')
+          });
+        }
+      }
+    }
+
+    // مصاريف مرتفعة
+    if(totalExp > 0 && totalProfit > 0 && totalExp > totalProfit * 0.4){
+      suggestions.push({
+        icon:'💸', text:`قلل المصاريف — تمثل ${((totalExp/totalProfit)*100).toFixed(0)}% من أرباحك`,
+        action:()=>showPage('expenses')
+      });
+    }
+
+    // متوسط الفاتورة منخفض
+    if(invs.length > 0){
+      const avg = totalSales / invs.length;
+      if(avg < 1000000 && totalSales > 0 && suggestions.length < 3){
+        suggestions.push({
+          icon:'📊', text:`حاول زيادة متوسط الفاتورة — الآن ${fmtM(Math.round(avg))}`,
+          action:null
+        });
+      }
+    }
+
+    // انخفاض مبيعات
+    if(salesDelta < -15 && suggestions.length < 3){
+      suggestions.push({
+        icon:'📉', text:`المبيعات انخفضت ${Math.abs(salesDelta).toFixed(0)}% — راجع الأسباب مع شريكك`,
+        action:null
+      });
+    }
+
+    const topSugs = suggestions.slice(0,3);
+    window._advSuggestionActions = topSugs.map(s=>s.action||null);
+
+    let sugsHtml = '';
+    if(topSugs.length > 0){
+      sugsHtml = `<div class="smart-suggestions">
+        <div class="smart-suggestions-hdr">💡 ماذا تفعل الآن؟</div>
+        <div class="suggestion-list">`;
+      topSugs.forEach((s,i)=>{
+        const clickable = s.action ? `onclick="if(window._advSuggestionActions[${i}])window._advSuggestionActions[${i}]()" style="cursor:pointer"` : '';
+        sugsHtml += `<div class="suggestion-item" ${clickable}>
+          <span class="sug-icon">${s.icon}</span>
+          <span class="sug-text">${s.text}</span>
+          ${s.action?'<span class="sug-arrow">←</span>':''}
+        </div>`;
+      });
+      sugsHtml += `</div></div>`;
+    }
+
+    // Inject daily + suggestions before existing alerts content
+    const cont = document.getElementById('alert-intel-container');
+    if(cont){
+      cont.innerHTML = dailyHtml + sugsHtml + cont.innerHTML;
+    }
+
+    // ─────────────────────────────────────
+    // 🔔 3. LIVE TOAST ALERTS (top-right stack, max 2)
+    // ─────────────────────────────────────
+    const liveToastKey = 'wadi_live_toasts_' + new Date().toISOString().slice(0,10);
+    if(sessionStorage.getItem(liveToastKey)) return; // مرة واحدة في اليوم
+
+    const liveToasts = [];
+
+    // فواتير بدون بنود
+    if(emptyInvs.length > 0){
+      liveToasts.push({
+        type:'wlt-yellow', icon:'⚠️',
+        title:`${emptyInvs.length} فواتير بدون بنود`,
+        sub:'أضف البنود للفواتير النشطة'
+      });
+    }
+
+    // أرباح سالبة اليوم
+    if(todayCount > 0 && todayProfit < 0){
+      liveToasts.push({
+        type:'wlt-red', icon:'🚨',
+        title:`الأرباح سالبة اليوم — ${fmtM(todayProfit)}`,
+        sub:'راجع التكاليف والعمولات'
+      });
+    } else if(thisM.p < 0){
+      liveToasts.push({
+        type:'wlt-red', icon:'🚨',
+        title:`الأرباح سالبة هذا الشهر`,
+        sub:'مراجعة عاجلة للتكاليف'
+      });
+    }
+
+    // ذمم متأخرة
+    if(overdue > 0 && liveToasts.length < 2){
+      liveToasts.push({
+        type:'wlt-red', icon:'⏰',
+        title:`${overdue} فاتورة متأخرة بالتحصيل`,
+        sub:'ادخل على الذمم واتابع'
+      });
+    }
+
+    // انخفاض مبيعات مفاجئ
+    if(salesDelta < -20 && liveToasts.length < 2){
+      liveToasts.push({
+        type:'wlt-yellow', icon:'📉',
+        title:`انخفاض مبيعات ${Math.abs(salesDelta).toFixed(0)}%`,
+        sub:'مقارنة بالشهر الماضي'
+      });
+    }
+
+    // أداء ممتاز — إيجابي
+    if(liveToasts.length === 0 && thisM.p > 0 && salesDelta >= 10){
+      liveToasts.push({
+        type:'wlt-green', icon:'🔥',
+        title:`أداء قوي هذا الشهر — +${salesDelta.toFixed(0)}%`,
+        sub:'استمر على نفس الزخم!'
+      });
+    }
+
+    const toShow = liveToasts.slice(0,2);
+    if(toShow.length === 0) return;
+
+    // أنشئ الـ container إذا ما موجود
+    let ltContainer = document.getElementById('wadi-live-toasts');
+    if(!ltContainer){
+      ltContainer = document.createElement('div');
+      ltContainer.id = 'wadi-live-toasts';
+      document.body.appendChild(ltContainer);
+    }
+
+    toShow.forEach((t, i)=>{
+      setTimeout(()=>{
+        const el = document.createElement('div');
+        el.className = `wlt ${t.type}`;
+        el.innerHTML = `<span class="wlt-icon">${t.icon}</span>
+          <div class="wlt-body">
+            <div class="wlt-title">${t.title}</div>
+            <div class="wlt-sub">${t.sub}</div>
+          </div>`;
+        ltContainer.appendChild(el);
+        // Show
+        requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
+        // Auto-hide after 4s
+        setTimeout(()=>{
+          el.classList.remove('show');
+          setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+        }, 4000);
+      }, i * 1200);
+    });
+
+    sessionStorage.setItem(liveToastKey, '1');
+
+  } catch(e){
+    console.warn('buildAdvancedIntelligence error:', e);
   }
 }
 
