@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v70.0">
+<meta name="app-version" content="v71.0">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -1455,6 +1455,38 @@ thead th{box-shadow:0 1px 0 var(--border)}
 .alert-intel-title{font-weight:600;margin-bottom:2px;font-size:12px}
 .alert-intel-sub{font-size:11px;opacity:.8;line-height:1.4}
 #alert-intel-container{margin-bottom:14px}
+/* ── Intelligence Layer v71.0 ── */
+.intel-section{margin-bottom:20px}
+.intel-section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.intel-section-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
+/* AI Insight sentences */
+.ai-insights-list{display:flex;flex-direction:column;gap:8px}
+.ai-insight-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);animation:slideIn .25s ease both}
+.ai-insight-row .ai-ins-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.ai-insight-row .ai-ins-text{font-size:13px;color:var(--text2);line-height:1.5}
+.ai-insight-row.positive{border-right:3px solid var(--green);background:var(--green-light)}
+.ai-insight-row.negative{border-right:3px solid var(--red);background:#fff5f5}
+.ai-insight-row.warning{border-right:3px solid var(--yellow);background:var(--yellow-light)}
+.ai-insight-row.info{border-right:3px solid var(--accent);background:var(--accent-light)}
+/* Predictions card */
+.predict-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.predict-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.predict-item{text-align:center;padding:12px 8px;border-radius:var(--radius-sm);background:var(--bg3);border:1px solid var(--border)}
+.predict-item .pi-icon{font-size:20px;margin-bottom:4px}
+.predict-item .pi-label{font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500}
+.predict-item .pi-value{font-size:15px;font-weight:700;color:var(--text);font-family:var(--mono)}
+.predict-item .pi-sub{font-size:10px;color:var(--text4);margin-top:2px}
+.predict-item.risk-high{background:#fff5f5;border-color:#fca5a5}.predict-item.risk-high .pi-value{color:var(--red)}
+.predict-item.risk-med{background:var(--yellow-light);border-color:#fde68a}.predict-item.risk-med .pi-value{color:var(--yellow)}
+.predict-item.risk-low{background:var(--green-light);border-color:#86efac}.predict-item.risk-low .pi-value{color:var(--green)}
+/* dark mode */
+body.dark .ai-insight-row{background:var(--bg2);border-color:var(--border)}
+body.dark .ai-insight-row.positive{background:#052e161a}
+body.dark .ai-insight-row.negative{background:#7f1d1d1a}
+body.dark .ai-insight-row.warning{background:#78350f1a}
+body.dark .ai-insight-row.info{background:#1e3a5f1a}
+body.dark .predict-card{background:var(--bg2);border-color:var(--border)}
+body.dark .predict-item{background:var(--bg3);border-color:var(--border)}
 
 /* TOOLTIP WITH DELAY */
 [title]{position:relative}
@@ -1883,7 +1915,7 @@ tr{transition:background var(--dur-fast);}
 @keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 
 /* ══════════════════════════════════════════
-   🔥 DASHBOARD v70.0 — Living Dashboard
+   🔥 DASHBOARD v71.0 — Living Dashboard
    Smart header · Count-up KPIs · Insights
    Quick actions · Animated sections
    ══════════════════════════════════════════ */
@@ -4084,7 +4116,13 @@ async function renderDashboard(){
     pc.querySelectorAll('.kpi-countup').forEach(el=>_animateCountUp(el));
   }));
 
-  setTimeout(()=>runAlertIntelligence(invs,recs,monthly,nowKey,prevKey),300);
+  setTimeout(()=>buildIntelligenceLayer({
+    invs, recs, monthly, nowKey, prevKey,
+    biPays, biRecsBI, biLines,
+    totalSales, totalProfit, totalRem, totalExp, totalWd,
+    overdue, active, collectionRate, profitMargin,
+    salesDelta, thisM, prevM, months
+  }),300);
   const topToasts=getTopDecisionsForToast(biDecisions);
   if(topToasts.length>0&&!sessionStorage.getItem('wadi_bi_toast')){
     setTimeout(()=>{
@@ -8676,7 +8714,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v70.0';
+const APP_VERSION = 'v71.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10372,188 +10410,256 @@ async function _refreshAlerts(){
   }
 }
 
-async function runAlertIntelligence(invs, recs, monthly, nowKey, prevKey){
-  const container=document.getElementById('alert-intel-container');
+// ══════════════════════════════════════════
+// 🧠 INTELLIGENCE LAYER v71.0
+// Zero Supabase calls — uses dashboard data only
+// ══════════════════════════════════════════
+function buildIntelligenceLayer(data){
+  // Destructure all pre-fetched data
+  const {
+    invs=[], recs=[], monthly={}, nowKey='', prevKey='',
+    biPays=[], biRecsBI=[], biLines=[],
+    totalSales=0, totalProfit=0, totalRem=0, totalExp=0, totalWd=0,
+    overdue=0, active=0, collectionRate=0, profitMargin=0,
+    salesDelta=0, thisM={s:0,p:0}, prevM={s:0,p:0}, months=[]
+  } = data;
+
+  const container = document.getElementById('alert-intel-container');
   if(!container) return;
 
-  const alerts=[];
+  try {
+    // ════════════════════════════════════════
+    // 1️⃣ SMART NOTIFICATIONS (max 3, dismissible)
+    // ════════════════════════════════════════
+    const alerts = [];
 
-  try{
-    // ── Alert 1: عملاء عندهم سجل تأخير ──
-    const[pays,allRecs]=await Promise.all([
-      safeQuery(()=>sb.from('payments').select('invoice_id,payment_date')),
-      safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,due_date,total_amount')),
-    ]);
-    const paidDates={};
-    pays.forEach(p=>{
-      if(!paidDates[p.invoice_id])paidDates[p.invoice_id]=[];
-      paidDates[p.invoice_id].push(p.payment_date);
-    });
-
-    // ── Alert 0: Overdue + Due Soon (Priority 1) ──
-    const today=new Date(); today.setHours(0,0,0,0);
-    const in7=new Date(today); in7.setDate(in7.getDate()+7);
-    const paidSet=new Set(pays.map(p=>p.invoice_id));
-    const overdueList=[];
-    const dueSoonList=[];
-    allRecs.forEach(r=>{
-      if(!r.due_date||paidSet.has(r.invoice_id)) return;
-      const due=new Date(r.due_date); due.setHours(0,0,0,0);
-      const days=Math.round((due-today)/86400000);
-      if(days<0) overdueList.push({...r,days:Math.abs(days)});
-      else if(days<=7) dueSoonList.push({...r,days});
-    });
-    // Overdue alerts (أولاً)
-    if(overdueList.length>0){
-      overdueList.sort((a,b)=>b.days-a.days).slice(0,3).forEach(r=>{
-        const _id=r.invoice_id;
-        alerts.push({
-          type:'red',icon:'🔴',
-          title:`${r.customer_name||'—'} — فاتورة متأخرة ${r.days} يوم`,
-          sub:`${_id||''} · المبلغ: ${fmtM(r.total_amount)}`,
-          action:()=>openInvoiceDirect(_id)
-        });
-      });
-      if(overdueList.length>3){
-        alerts.push({
-          type:'red',icon:'⏳',
-          title:`${overdueList.length} فاتورة متأخرة إجمالاً`,
-          sub:`اضغط لعرض كل الذمم المتأخرة`,
-          action:()=>showPage('receivables')
-        });
-      }
-    }
-    // Due Soon alerts
-    if(dueSoonList.length>0){
-      dueSoonList.sort((a,b)=>a.days-b.days).slice(0,2).forEach(r=>{
-        const _id=r.invoice_id;
-        alerts.push({
-          type:'yellow',icon:'⚠️',
-          title:`${r.customer_name||'—'} — تستحق خلال ${r.days===0?'اليوم':r.days+' أيام'}`,
-          sub:`${_id||''} · المبلغ: ${fmtM(r.total_amount)}`,
-          action:()=>openInvoiceDirect(_id)
-        });
-      });
-    }
-
-    // حساب التأخير لكل عميل
-    const clientDelays={};
-    allRecs.forEach(r=>{
-      if(!r.due_date||!r.customer_name) return;
-      const firstPay=paidDates[r.invoice_id]?.[0];
-      if(firstPay){
-        const delay=Math.floor((new Date(firstPay)-new Date(r.due_date))/86400000);
-        if(delay>0){
-          if(!clientDelays[r.customer_name])clientDelays[r.customer_name]={count:0,totalDays:0};
-          clientDelays[r.customer_name].count++;
-          clientDelays[r.customer_name].totalDays+=delay;
-        }
-      }
-    });
-    const lateClients=Object.entries(clientDelays)
-      .filter(([,v])=>v.count>=1)
-      .sort((a,b)=>b[1].totalDays-a[1].totalDays)
-      .slice(0,3);
-
-    if(lateClients.length>0){
-      lateClients.forEach(([name,v])=>{
-        const avg=Math.round(v.totalDays/v.count);
-        alerts.push({
-          type:'red',
-          icon:'⚠️',
-          title:`${name} — سجل تأخير بالدفع`,
-          sub:`متوسط التأخير ${avg} يوم · ${v.count} فاتورة متأخرة سابقاً`
-        });
-      });
-    }
-
-    // ── Alert 2: سعر البيع الحالي أقل من المعتاد ──
-    // جلب آخر فاتورة بكل عميل ومقارنتها بمتوسطه
-    const clientStats={};
-    invs.forEach(i=>{
-      const c=i.customer_name||'';
-      if(!clientStats[c])clientStats[c]={sales:[],lastSale:0,lastDate:''};
-      const s=+i.sale_amount||0;
-      if(s>0){
-        clientStats[c].sales.push(s);
-        if(!clientStats[c].lastDate||i.date>clientStats[c].lastDate){
-          clientStats[c].lastDate=i.date;
-          clientStats[c].lastSale=s;
-        }
-      }
-    });
-    Object.entries(clientStats).forEach(([name,d])=>{
-      if(d.sales.length<2)return;
-      const avg=d.sales.reduce((a,b)=>a+b,0)/d.sales.length;
-      const drop=(avg-d.lastSale)/avg*100;
-      if(drop>20){
-        alerts.push({
-          type:'yellow',
-          icon:'📉',
-          title:`${name} — سعر البيع أقل من المعتاد`,
-          sub:`آخر فاتورة ${fmtM(d.lastSale)} مقابل متوسط ${fmtM(Math.round(avg))} — انخفاض ${drop.toFixed(0)}%`
-        });
-      }
-    });
-
-    // ── Alert 3: أداء الشهر الحالي أقل من السابق ──
-    const thisData=monthly[nowKey]||{s:0,p:0};
-    const prevData=monthly[prevKey]||{s:0,p:0};
-    if(prevData.s>0&&thisData.s<prevData.s){
-      const drop=(prevData.s-thisData.s)/prevData.s*100;
-      if(drop>15){
-        alerts.push({
-          type:'yellow',
-          icon:'📊',
-          title:`أداء ${nowKey} أقل من الشهر السابق`,
-          sub:`المبيعات انخفضت ${drop.toFixed(0)}% — ${fmtM(thisData.s)} مقابل ${fmtM(prevData.s)}`
-        });
-      }
-    }
-    // تحقق الأرباح أيضاً
-    if(prevData.p>0&&thisData.p<prevData.p*0.8){
-      const drop=(prevData.p-thisData.p)/prevData.p*100;
+    // Alert: Invoices without lines (use biLines to detect)
+    const invoiceIdsWithLines = new Set(biLines.map(l=>l.invoice_id));
+    const invWithoutLines = invs.filter(i=>!invoiceIdsWithLines.has(i.id) && i.stage && !i.stage.includes('🏁'));
+    if(invWithoutLines.length > 0){
       alerts.push({
-        type:'red',
-        icon:'💰',
-        title:`أرباح ${nowKey} انخفضت بشكل ملحوظ`,
-        sub:`الأرباح انخفضت ${drop.toFixed(0)}% — ${fmtM(thisData.p)} مقابل ${fmtM(prevData.p)} الشهر السابق`
+        type:'yellow', icon:'⚠️',
+        title:`${invWithoutLines.length} فاتورة بدون بنود`,
+        sub:'راجع الفواتير النشطة وأضف البنود المطلوبة',
+        action:()=>showPage('invoices')
       });
     }
 
-  }catch(e){
-    console.error('Alert Intelligence error:',e);
-    return;
-  }
+    // Alert: Negative profit this month
+    if(thisM.p < 0){
+      alerts.push({
+        type:'red', icon:'🚨',
+        title:`الأرباح سالبة هذا الشهر — ${fmtM(thisM.p)}`,
+        sub:'راجع التكاليف والعمولات والمصروفات فوراً',
+        action:()=>showPage('reports')
+      });
+    }
 
-  // عرض الـ alerts
-  if(alerts.length===0){
-    container.innerHTML=`<div class="alert-intel blue">
-      <span class="alert-intel-icon">✅</span>
-      <div class="alert-intel-body">
-        <div class="alert-intel-title">كل المؤشرات طبيعية</div>
-        <div class="alert-intel-sub">لا توجد تنبيهات تستحق الانتباه هسه</div>
+    // Alert: Overdue receivables
+    if(overdue > 0){
+      alerts.push({
+        type:'red', icon:'⏰',
+        title:`${overdue} فاتورة متأخرة بالتحصيل`,
+        sub:'اضغط لعرض الذمم المتأخرة',
+        action:()=>showPage('receivables')
+      });
+    }
+
+    // Alert: Sales drop > 15% from last month
+    if(prevM.s > 0 && salesDelta < -15){
+      const drop = Math.abs(salesDelta).toFixed(0);
+      alerts.push({
+        type:'yellow', icon:'📉',
+        title:`انخفاض مبيعات ${drop}% مقارنة بالشهر الماضي`,
+        sub:`${fmtM(thisM.s)} مقابل ${fmtM(prevM.s)} — متابعة مطلوبة`
+      });
+    }
+
+    // Alert: Very low collection rate
+    if(collectionRate < 50 && totalSales > 0){
+      alerts.push({
+        type:'yellow', icon:'💳',
+        title:`نسبة التحصيل منخفضة — ${collectionRate.toFixed(1)}%`,
+        sub:'أكثر من نصف المبيعات لم تُحصَّل بعد'
+      });
+    }
+
+    // Limit to max 3
+    const topAlerts = alerts.slice(0,3);
+    window._intelAlertActions = topAlerts.map(a=>a.action||null);
+
+    // ════════════════════════════════════════
+    // 2️⃣ AI INSIGHTS (rule-based, max 4)
+    // ════════════════════════════════════════
+    const insights = [];
+
+    // Sales vs last month
+    if(prevM.s > 0){
+      const pct = ((thisM.s - prevM.s)/prevM.s*100);
+      if(pct >= 5){
+        insights.push({ cls:'positive', icon:'📈', text:`المبيعات ارتفعت ${pct.toFixed(0)}% عن الشهر الماضي — زخم ممتاز` });
+      } else if(pct <= -5){
+        insights.push({ cls:'negative', icon:'📉', text:`المبيعات انخفضت ${Math.abs(pct).toFixed(0)}% — تحقق من أسباب التراجع` });
+      }
+    }
+
+    // Profit margin health
+    if(totalSales > 0){
+      if(profitMargin < 0){
+        insights.push({ cls:'negative', icon:'🔴', text:`الأرباح الكلية سالبة — هامش ${profitMargin.toFixed(1)}% — مراجعة التكاليف ضرورية` });
+      } else if(profitMargin < 10){
+        insights.push({ cls:'warning', icon:'⚡', text:`هامش الربح منخفض ${profitMargin.toFixed(1)}% — ارفع الأسعار أو خفض التكاليف` });
+      } else if(profitMargin >= 20){
+        insights.push({ cls:'positive', icon:'💎', text:`هامش ربح ممتاز ${profitMargin.toFixed(1)}% — حافظ على هذا المستوى` });
+      }
+    }
+
+    // Average invoice tip
+    if(invs.length > 0){
+      const avgInv = totalSales / invs.length;
+      insights.push({ cls:'info', icon:'💡', text:`متوسط الفاتورة ${fmtM(Math.round(avgInv))} — حاول زيادته لرفع الإيرادات` });
+    }
+
+    // Risky client from biRecsBI x biPays
+    if(biRecsBI.length > 0 && biPays.length > 0){
+      const paidInvIds = new Set(biPays.map(p=>p.invoice_id));
+      const unpaidByClient = {};
+      biRecsBI.forEach(r=>{
+        if(!paidInvIds.has(r.invoice_id) && r.customer_name){
+          unpaidByClient[r.customer_name] = (unpaidByClient[r.customer_name]||0) + (+r.total_amount||0);
+        }
+      });
+      const risky = Object.entries(unpaidByClient).sort((a,b)=>b[1]-a[1])[0];
+      if(risky && risky[1] > 0){
+        insights.push({ cls:'warning', icon:'⚠️', text:`${risky[0]} — ذمة متراكمة ${fmtM(risky[1])} — يحتاج متابعة عاجلة` });
+      }
+    }
+
+    // Expenses vs profit warning
+    if(totalExp > 0 && totalProfit > 0 && totalExp > totalProfit * 0.5){
+      insights.push({ cls:'warning', icon:'💸', text:`المصروفات ${fmtM(totalExp)} تمثل أكثر من 50% من الأرباح — راجع بنود الإنفاق` });
+    }
+
+    const topInsights = insights.slice(0,4);
+
+    // ════════════════════════════════════════
+    // 3️⃣ LIGHT PREDICTIONS (no ML)
+    // ════════════════════════════════════════
+    // Next month estimate: avg of last 7 days × 30
+    const today = new Date();
+    const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate()-7);
+    const last7Sales = invs.reduce((s,i)=>{
+      if(!i.date) return s;
+      const d = new Date(i.date);
+      return d >= sevenDaysAgo ? s + (+i.sale_amount||0) : s;
+    }, 0);
+    const dailyAvg = last7Sales / 7;
+    const nextMonthEst = Math.round(dailyAvg * 30);
+
+    // Trend: percentage vs last month
+    let trendPct = 0, trendSign = '→', trendLabel = 'مستقر';
+    if(prevM.s > 0){
+      trendPct = (thisM.s - prevM.s)/prevM.s*100;
+      if(trendPct > 0){ trendSign='↑'; trendLabel=`+${trendPct.toFixed(1)}%`; }
+      else if(trendPct < 0){ trendSign='↓'; trendLabel=`${trendPct.toFixed(1)}%`; }
+      else { trendLabel='0%'; }
+    }
+
+    // Risk level
+    let riskCls='risk-low', riskIcon='🟢', riskLabel='منخفض';
+    const pendingCount = invs.filter(i=>i.stage && !i.stage.includes('🏁')).length;
+    if(totalProfit < 0 || (pendingCount > 5 && overdue > 2)){
+      riskCls='risk-high'; riskIcon='🔴'; riskLabel='عالي';
+    } else if(salesDelta < -10 || collectionRate < 60 || profitMargin < 5){
+      riskCls='risk-med'; riskIcon='🟡'; riskLabel='متوسط';
+    }
+
+    // ════════════════════════════════════════
+    // 4️⃣ RENDER
+    // ════════════════════════════════════════
+    let html = '';
+
+    // — Notifications bar —
+    if(topAlerts.length === 0){
+      html += `<div class="alert-intel blue" style="margin-bottom:14px">
+        <span class="alert-intel-icon">✅</span>
+        <div class="alert-intel-body">
+          <div class="alert-intel-title">كل المؤشرات طبيعية</div>
+          <div class="alert-intel-sub">لا توجد تنبيهات تستحق الانتباه الآن</div>
+        </div>
+      </div>`;
+    } else {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">🚨 تنبيهات ذكية (${topAlerts.length})</div>
+        <button onclick="document.getElementById('alert-intel-container').innerHTML=''"
+          style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px"
+          title="إخفاء التنبيهات">✕ إخفاء</button>
+      </div>`;
+      topAlerts.forEach((a,i)=>{
+        html += `<div class="alert-intel ${a.type}"${a.action?` onclick="if(window._intelAlertActions[${i}])window._intelAlertActions[${i}]()" style="cursor:pointer"`:''}">
+          <span class="alert-intel-icon">${a.icon}</span>
+          <div class="alert-intel-body">
+            <div class="alert-intel-title">${a.title}</div>
+            <div class="alert-intel-sub">${a.sub}${a.action?' <span style="opacity:.55;font-size:10px">← اضغط</span>':''}</div>
+          </div>
+        </div>`;
+      });
+    }
+
+    // — AI Insights section —
+    if(topInsights.length > 0){
+      html += `<div class="intel-section">
+        <div class="intel-section-hdr">
+          <div class="intel-section-title">🤖 رؤى ذكية</div>
+        </div>
+        <div class="ai-insights-list">`;
+      topInsights.forEach((ins,idx)=>{
+        html += `<div class="ai-insight-row ${ins.cls}" style="animation-delay:${idx*0.07}s">
+          <span class="ai-ins-icon">${ins.icon}</span>
+          <span class="ai-ins-text">${ins.text}</span>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // — Predictions card —
+    html += `<div class="intel-section">
+      <div class="intel-section-hdr">
+        <div class="intel-section-title">🔮 توقعات خفيفة</div>
+      </div>
+      <div class="predict-card">
+        <div class="predict-grid">
+          <div class="predict-item">
+            <div class="pi-icon">📅</div>
+            <div class="pi-label">توقع الشهر القادم</div>
+            <div class="pi-value">${nextMonthEst > 0 ? fmtM(nextMonthEst) : '—'}</div>
+            <div class="pi-sub">بناءً على آخر 7 أيام</div>
+          </div>
+          <div class="predict-item">
+            <div class="pi-icon">${trendPct > 0 ? '📈' : trendPct < 0 ? '📉' : '📊'}</div>
+            <div class="pi-label">الاتجاه الحالي</div>
+            <div class="pi-value" style="color:${trendPct>0?'var(--green)':trendPct<0?'var(--red)':'var(--text3)'}">${trendSign} ${trendLabel}</div>
+            <div class="pi-sub">مقارنة بالشهر السابق</div>
+          </div>
+          <div class="predict-item ${riskCls}">
+            <div class="pi-icon">${riskIcon}</div>
+            <div class="pi-label">مستوى المخاطر</div>
+            <div class="pi-value">${riskLabel}</div>
+            <div class="pi-sub">${riskCls==='risk-high'?'مراجعة عاجلة':riskCls==='risk-med'?'متابعة موصى بها':'أداء سليم'}</div>
+          </div>
+        </div>
       </div>
     </div>`;
-    return;
-  }
 
-  // تخزين الـ actions للاستخدام عند الضغط
-  window._alertActions=alerts.map(a=>a.action||null);
-  container.innerHTML=`
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-    <div style="font-size:13px;font-weight:700;color:var(--text)">🚨 تنبيهات ذكية (${alerts.length})</div>
-    <button onclick="document.getElementById('alert-intel-container').innerHTML=''" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer">إخفاء</button>
-  </div>
-  ${alerts.map((a,i)=>`
-  <div class="alert-intel ${a.type}" ${a.action?`onclick="if(window._alertActions[${i}])window._alertActions[${i}]()" style="cursor:pointer"`:''}">
-    <span class="alert-intel-icon">${a.icon}</span>
-    <div class="alert-intel-body">
-      <div class="alert-intel-title">${a.title}</div>
-      <div class="alert-intel-sub">${a.sub}${a.action?' <span style="opacity:.6;font-size:10px">← اضغط</span>':''}</div>
-    </div>
-  </div>`).join('')}`;
+    container.innerHTML = html;
+
+  } catch(e){
+    console.warn('buildIntelligenceLayer error:', e);
+  }
 }
+
+// Keep old function name as alias for backward compat
+function runAlertIntelligence(){ /* replaced by buildIntelligenceLayer v71.0 */ }
 
 // ══════════════════════════════════════════
 // 🧠 SMART FEATURES
