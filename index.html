@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v72.8">
+<meta name="app-version" content="v73.5">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4473,6 +4473,8 @@ async function _qtMarkConverted(qtId,invId){
     if(!upd||!upd.length){
       showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
       console.warn('[RACE CONDITION]',qtId,invId);
+    } else {
+      await _qtAudit('CONVERT_QUOTATION',{entity_id:qtId,linkedInvoice:invId,createdInvoice:invId,stage_from:'approved',stage_to:'converted'});
     }
   }catch(e){
     console.warn('[QT MARK CONVERTED ERROR]',e.message);
@@ -4480,8 +4482,25 @@ async function _qtMarkConverted(qtId,invId){
   }
 }
 
+// ── Quotation Audit Logger — fire-and-forget, never throws ──
+async function _qtAudit(action_type, details={}){
+  try{
+    const{error}=await sb.from('audit_logs').insert({
+      action_type,
+      user_id: window.currentUser?.id||null,
+      details: {entity:'quotation', ...details}
+    });
+    if(error) console.warn('[AUDIT ERROR]',error.message);
+  }catch(e){
+    console.warn('[AUDIT FAIL]',e.message);
+  }
+}
+
 async function convertQuotation(qtId){
   if(!qtId){showToast('رقم الكوتيشن غير صالح','error');return;}
+  // DB-level double protection — قبل أي UI
+  const{data:inv}=await sb.from('invoices').select('id').eq('quotation_id',qtId).limit(1).maybeSingle();
+  if(inv){showToast('تم التحويل مسبقاً','warning');return;}
   const qtData=await _qtLoadForConvert(qtId);
   if(!qtData) return;
   const hasContent=qtData.lines.length>0||(+qtData.qt.sale_amount>0);
@@ -4596,6 +4615,20 @@ async function renderQuotations(page=0,search='',filterStatus=''){
     const{data:rows,count,error}=await q;
     if(error) throw error;
 
+    // جلب الفواتير المرتبطة — batch واحد (source of truth: quotation_id relation)
+    const qtIds=(rows||[]).map(r=>r.id);
+    const linkedMap={};
+    if(qtIds.length>0){
+      const{data:linkedInvs}=await sb.from('invoices')
+        .select('id,quotation_id')
+        .in('quotation_id',qtIds)
+        .not('quotation_id','is',null);
+      // دعم multiple invoices — نأخذ أول واحد فقط لكل كوتيشن
+      (linkedInvs||[]).forEach(inv=>{
+        if(inv.quotation_id&&!Object.prototype.hasOwnProperty.call(linkedMap,inv.quotation_id))
+          linkedMap[inv.quotation_id]=inv.id;
+      });
+    }
     const statuses=['draft','sent','approved','converted','rejected'];
     const chips=statuses.map(s=>`<button class="filter-chip ${s===filterStatus?'active':''}" onclick="renderQuotations(0,'${search}','${s===filterStatus?'':s}')">${QT_STATUS_LABELS[s]||s}</button>`).join('');
 
@@ -4614,19 +4647,25 @@ async function renderQuotations(page=0,search='',filterStatus=''){
     </tr></thead><tbody>`;
 
     if(!rows||!rows.length){
-      html+=`<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">لا توجد عروض أسعار — <button class="btn btn-primary btn-sm" onclick="showPage('quotation_new')">أنشئ أول عرض</button></td></tr>`;
+      html+=`<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">لا توجد عروض حالياً — <button class="btn btn-primary btn-sm" onclick="showPage('quotation_new')">أنشئ أول عرض</button></td></tr>`;
     } else {
       rows.forEach(r=>{
+        const linkedInvId=linkedMap[r.id]||null;
+        const isConverted=!!linkedInvId;
         html+=`<tr>
           <td><span style="font-family:monospace;font-weight:700;color:var(--accent);cursor:pointer" onclick="showPage('quotation_detail','${r.id}')">${r.id}</span></td>
           <td>${r.customer_name||'—'}</td>
           <td>${fmtD(r.date)}</td>
-          <td>${_qtBadge(r.stage)}</td>
+          <td>${isConverted
+            ?`<span style="background:#f3e8ff;color:#7c3aed;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;white-space:nowrap;cursor:pointer" onclick="openInvoiceDirect('${linkedInvId}')">🔗 ${linkedInvId}</span>`
+            :_qtBadge(r.stage)}</td>
           <td style="font-family:monospace">${+r.sale_amount>0?fmtM(r.sale_amount):'—'}</td>
           <td style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm btn-icon" onclick="showPage('quotation_detail','${r.id}')">👁️</button>
-            ${r.stage!=='converted'?`<button class="btn btn-secondary btn-sm btn-icon" onclick="showPage('quotation_new','${r.id}')">✏️</button>`:'<span style="font-size:11px;color:#7c3aed;padding:2px 6px;background:#f3e8ff;border-radius:6px">🔒 محوّل</span>'}
-            ${r.stage==='approved'?`<button class="btn btn-primary btn-sm" onclick="convertQuotation('${r.id}')" style="font-size:11px">🔄 تحويل</button>`:''}
+            ${isConverted
+              ?`<span style="font-size:11px;color:#6366f1;padding:2px 8px;background:#eef2ff;border-radius:6px;white-space:nowrap">✔ تم التحويل</span>`
+              :`<button class="btn btn-secondary btn-sm btn-icon" onclick="showPage('quotation_new','${r.id}')">✏️</button>`}
+            ${!isConverted&&r.stage==='approved'?`<button class="btn btn-primary btn-sm" onclick="convertQuotation('${r.id}')" style="font-size:11px">🔄 تحويل</button>`:''}
           </td>
         </tr>`;
       });
@@ -4832,6 +4871,7 @@ async function saveQuotation(existingId=''){
       ...l, invoice_id:id, customer:cl?.name||'', date:dateVal,
     })));
     if(lErr) throw lErr;
+    await _qtAudit(existingId?'UPDATE_QUOTATION':'CREATE_QUOTATION',{entity_id:id,stage_from:null,stage_to:payload.stage||null});
     showToast(existingId?'تم تحديث العرض ✅':'تم حفظ العرض ✅','success');
     showPage('quotation_detail',id);
   }catch(e){handleError(e,'خطأ في حفظ العرض');}
@@ -4877,7 +4917,10 @@ async function renderQuotationDetail(qtId){
       :`<div style="text-align:center;padding:20px;color:var(--text3)">لا توجد أصناف</div>`;
 
     el.innerHTML=`<div class="qt-page">
-      ${isLocked?`<div class="qt-locked-banner">🔒 هذا العرض تحوّل إلى فاتورة ${relatedInvs?.length?`<span style="cursor:pointer;text-decoration:underline" onclick="openInvoiceDirect('${relatedInvs[0].id}')">${relatedInvs[0].id}</span>`:''}— يمكن تغيير الحالة فقط</div>`:''}
+      ${relatedInvs?.length?`<div style="background:#f3e8ff;border:1px solid #c4b5fd;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span style="font-size:13px;color:#7c3aed;font-weight:600">🔗 تم تحويل هذا العرض إلى الفاتورة: <strong>${relatedInvs?.[0]?.id||''}</strong></span>
+        ${relatedInvs?.[0]?.id?`<button class="btn btn-secondary btn-sm" onclick="openInvoiceDirect('${relatedInvs[0].id}')">فتح الفاتورة ←</button>`:''}
+      </div>`:''}
       ${qt.stage==='approved'&&!isLocked?`<div class="qt-convert-banner">
         <span style="font-size:13px;color:#16a34a;font-weight:600">💡 هذا الكوتيشن جاهز للتحويل إلى فاتورة</span>
         <button class="btn btn-primary btn-sm" onclick="convertQuotation('${qt.id}')">🔄 تحويل لفاتورة</button>
@@ -4944,36 +4987,65 @@ async function renderQuotationDetail(qtId){
         </div>`).join('')}
       </div>`:'' }
 
+      <div class="qt-card">
+        <div class="qt-card-title">📜 سجل الحالة (الجلسة الحالية)</div>
+        ${(()=>{const history=window._qtHistory?.[qt.id]||[];
+          return history.length?history.map(h=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span>${_qtBadge(h.stage)}</span>
+              <span style="color:var(--text3)">${new Date(h.at).toLocaleTimeString('en-GB')}</span>
+            </div>`).join('')
+            :`<div style="font-size:12px;color:var(--text3);padding:8px 0">لا يوجد سجل تغييرات</div>`;
+        })()}
+      </div>
+
       <div class="qt-action-bar">
         <button class="btn btn-secondary" onclick="showPage('quotations')">← رجوع</button>
         ${!isLocked?`<button class="btn btn-secondary" onclick="showPage('quotation_new','${qt.id}')">✏️ تعديل</button>`:''}
         <button class="btn btn-secondary" onclick="printQuotation('${qt.id}',false)">🖨️ زبون</button>
         <button class="btn btn-secondary" onclick="printQuotation('${qt.id}',true)">🖨️ داخلي</button>
         ${qt.stage==='approved'&&!isLocked?`<button class="btn btn-primary" onclick="convertQuotation('${qt.id}')" style="background:var(--green);border-color:var(--green)">🔄 تحويل لفاتورة</button>`:''}
-        ${qt.stage==='rejected'?`<button class="btn btn-danger btn-sm" onclick="_qtDelete('${qt.id}')">🗑️ حذف</button>`:''}
+        ${qt.stage==='rejected'&&window.currentUser?.role==='admin'?`<button class="btn btn-danger btn-sm" onclick="_qtDelete('${qt.id}')"
+          title="${relatedInvs?.length?'مرتبط بفاتورة — الحذف لن يؤثر على الفاتورة':'حذف هذا العرض نهائياً'}">🗑️ حذف</button>`:''}
       </div>
     </div>`;
   }catch(e){handleError(e,'خطأ في تحميل تفاصيل العرض');}
 }
 
 async function _qtChangeStatus(qtId,newStatus){
+  // جلب الحالة القديمة للـ audit
+  const{data:current}=await sb.from('invoices').select('stage').eq('id',qtId).single();
+  const oldStage=current?.stage||null;
   const{error}=await sb.from('invoices').update({stage:newStatus}).eq('id',qtId);
   if(error){handleError(error,'خطأ في تغيير الحالة');return;}
+  await _qtAudit('CHANGE_STAGE',{entity_id:qtId,stage_from:oldStage,stage_to:newStatus,linkedInvoice:null});
+  // ── Status history (in-memory, session only) ──
+  window._qtHistory=window._qtHistory||{};
+  const _hist=window._qtHistory[qtId]||[];
+  _hist.push({stage:newStatus,at:new Date().toISOString()});
+  window._qtHistory[qtId]=_hist.slice(-20);
   showToast(`الحالة: ${QT_STATUS_LABELS[newStatus]||newStatus}`,'success');
   renderQuotationDetail(qtId);
 }
 
 async function _qtDelete(qtId){
-  const{data:linked}=await sb.from('invoices').select('id').eq('quotation_id',qtId).eq('is_deleted',false).limit(1).maybeSingle();
-  if(linked){
+  // ── Permissions check ──
+  const CAN_DELETE=window.currentUser?.role==='admin';
+  if(!CAN_DELETE){showToast('لا تملك صلاحية الحذف','error');return;}
+  // ── Safety lock — فقط لو stage=rejected ──
+  const{data:qtCheck}=await sb.from('invoices').select('stage').eq('id',qtId).single();
+  if(qtCheck?.stage!=='rejected'){showToast('لا يمكن حذف العرض إلا بعد رفضه','warning');return;}
+  const{data:inv}=await sb.from('invoices').select('id').eq('quotation_id',qtId).limit(1).maybeSingle();
+  if(inv){
     const ok=await _showConfirmDialog(
       '⚠️ تحذير — عرض مرتبط بفاتورة',
-      `هذا العرض مرتبط بالفاتورة رقم: <b>${linked.id}</b><br>سيتم حذف العرض فقط وستبقى الفاتورة<br>هل أنت متأكد؟`
+      `هذا العرض مرتبط بالفاتورة رقم: <b>${inv.id}</b><br>سيتم حذف العرض فقط وستبقى الفاتورة<br>هل أنت متأكد؟`
     );
     if(!ok) return;
   }
   const{error}=await sb.from('invoices').update({is_deleted:true}).eq('id',qtId);
   if(error){handleError(error,'خطأ في الحذف');return;}
+  await _qtAudit('DELETE_QUOTATION',{entity_id:qtId,linkedInvoice:inv?.id||null,wasLinked:!!inv,stage_from:qtCheck?.stage||null,stage_to:null});
   showToast('تم حذف الكوتيشن','success');
   showPage('quotations');
 }
@@ -7680,6 +7752,9 @@ async function saveInvoice(existingId, goToLines=false){
     // ── QT CONFIRM — إذا من كوتيشن ──
     const _qtIdNow=(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})();
     if(_qtIdNow&&!existingId){
+      // extra lock — تحقق من DB قبل الحفظ
+      const{data:_alreadyConverted}=await sb.from('invoices').select('id').eq('quotation_id',_qtIdNow).limit(1).maybeSingle();
+      if(_alreadyConverted){showToast('تم التحويل مسبقاً إلى '+_alreadyConverted.id,'warning');restore();return;}
       const _qtOk=await _showConfirmDialog('⚠️ تأكيد التحويل',`سيتم إنشاء فاتورة نهائية من الكوتيشن ${_qtIdNow}\nهل أنت متأكد؟`);
       if(!_qtOk){restore();return;}
     }
@@ -9568,7 +9643,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v72.8';
+const APP_VERSION = 'v73.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
