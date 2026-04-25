@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v74.0">
+<meta name="app-version" content="v74.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -7777,15 +7777,14 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       const lines=_modalQtPrefill.lines.length>0?_modalQtPrefill.lines:[{}];
       lines.forEach((l,i)=>tbody.appendChild(_qtInlineBuildRow(i+1,l)));
       _qtInlineCalc();
-      // عنوان تفاعلي — يتحدث مع رقم الفاتورة (real-time)
+      // عنوان تفاعلي — يتحدث مع رقم الفاتورة
       const fId=document.getElementById('f-id');
-      // Desktop → panel-title / Mobile → modal-title
-      const modalTitle=document.getElementById('panel-title')||document.getElementById('modal-title');
+      const modalTitle=document.getElementById('modal-title')||document.querySelector('.panel-title,.modal-title');
       if(fId&&modalTitle){
         fId.addEventListener('input',()=>{
           const invNum=fId.value.trim();
           modalTitle.textContent=invNum
-            ?`🔄 تحويل من ${_modalQtId} إلى ${invNum}`
+            ?`🔄 تحويل من ${_modalQtId} إلى الفاتورة ${invNum}`
             :`🔄 تحويل من ${_modalQtId} إلى فاتورة`;
         });
       }
@@ -7888,18 +7887,25 @@ async function saveInvoice(existingId, goToLines=false){
       ?await sb.from('invoices').update(payload).eq('id',existingId).select().single()
       :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
-    // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
-    if(!existingId&&_savedData?.id&&_qtIdNow){
+    // ── QT LINK v74.1: حفظ الأصناف — invoice_id من DB فقط (لا form، لا qtId) ──
+    if(!existingId&&_qtIdNow){
+      // ── STRICT GUARD: يجب أن يكون _savedData.id موجوداً من الـ DB ──
+      const newInvoiceId = _savedData?.id;
+      if(!newInvoiceId){
+        console.error('[LINES DEBUG] ❌ ABORT — _savedData.id فارغ، لن تُحفظ أي lines', {_savedData, _qtIdNow});
+        showToast('خطأ: لم يتم الحصول على رقم الفاتورة من قاعدة البيانات','error');
+        restore();_resetSaving();return;
+      }
       const inlineLines=_qtInlineGetLines();
       console.log('[LINES DEBUG]',{
-        invoice_id: _savedData?.id,
+        invoice_id: newInvoiceId,
         qtId: _qtIdNow,
         linesCount: inlineLines.length,
-        lines: inlineLines
+        note: 'invoice_id مأخوذ من DB — ليس من الفورم ولا من qtId'
       });
       if(inlineLines.length>0){
         const linesPayload=inlineLines.map(l=>({
-          invoice_id:  _savedData.id,
+          invoice_id:  newInvoiceId,   // ✅ DB id فقط
           customer:    cl?.name||'',
           date:        dateVal,
           description: l.description,
@@ -7908,12 +7914,16 @@ async function saveInvoice(existingId, goToLines=false){
           cost_unit:   l.cost_unit,
           notes:       null,
         }));
-        console.log('[LINES PAYLOAD]', linesPayload);
+        console.log('[LINES PAYLOAD]', linesPayload.map(l=>({invoice_id:l.invoice_id,desc:l.description})));
         const{error:cpErr,data:cpData}=await sb.from('invoice_lines').insert(linesPayload).select();
-        console.log('[LINES INSERT RESULT]',{error:cpErr?.message||null,inserted:cpData?.length||0});
-        if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
+        if(cpErr){
+          console.error('[LINES INSERT ERROR]',{error:cpErr.message,invoice_id:newInvoiceId,qtId:_qtIdNow});
+          showToast('خطأ في حفظ بنود الفاتورة: '+cpErr.message,'error');
+        } else {
+          console.log('[LINES INSERT ✅]',{inserted:cpData?.length||0,invoice_id:newInvoiceId,sample_id:cpData?.[0]?.invoice_id});
+        }
       }
-      await _qtMarkConverted(_qtIdNow,_savedData.id);
+      await _qtMarkConverted(_qtIdNow,newInvoiceId);
     }
     // ── audit trail → logInvoiceAction ──
     if(typeof logInvoiceAction === 'function'){
