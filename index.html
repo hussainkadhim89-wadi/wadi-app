@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v74.4">
+<meta name="app-version" content="v74.5">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4467,18 +4467,27 @@ async function _qtLoadForConvert(qtId){
 
 async function _qtMarkConverted(qtId,invId){
   try{
+    // ── STEP 1: نقل بنود الكوتيشن من qtId إلى invId ──
+    const{data:movedLines,error:lErr}=await sb.from('invoice_lines')
+      .update({invoice_id:invId})
+      .eq('invoice_id',qtId)
+      .select();
+    if(lErr){
+      console.error('[QT LINES MOVE ❌]',{error:lErr.message,from:qtId,to:invId});
+    }else{
+      console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});
+    }
+    // ── STEP 2: تحديث stage الكوتيشن ──
     const{data:upd}=await sb.from('invoices')
       .update({stage:'converted'})
       .eq('id',qtId).eq('stage','approved').select();
     if(!upd||!upd.length){
-      showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
       console.warn('[RACE CONDITION]',qtId,invId);
-    } else {
+    }else{
       await _qtAudit('CONVERT_QUOTATION',{entity_id:qtId,linkedInvoice:invId,createdInvoice:invId,stage_from:'approved',stage_to:'converted'});
     }
   }catch(e){
     console.warn('[QT MARK CONVERTED ERROR]',e.message);
-    showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
   }
 }
 
@@ -7758,7 +7767,7 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
     setTimeout(()=>loadInvPriceCache(invId),200);
   }
   // ── QT INLINE LINES: حقن الأصناف في الجدول بعد فتح الـ modal ──
-  if(_isFromQt&&_modalQtPrefill?.lines){
+  if(_isFromQt&&_modalQtPrefill){
     setTimeout(()=>{
       const toggle=document.getElementById('inv-type-toggle');
       if(toggle) toggle.style.display='none';
@@ -7774,17 +7783,17 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       const tbody=document.getElementById('qt-conv-lines-body');
       if(!tbody) return;
       tbody.innerHTML='';
-      const lines=_modalQtPrefill.lines.length>0?_modalQtPrefill.lines:[{}];
+      const lines=(_modalQtPrefill.lines&&_modalQtPrefill.lines.length>0)?_modalQtPrefill.lines:[{}];
       lines.forEach((l,i)=>tbody.appendChild(_qtInlineBuildRow(i+1,l)));
       _qtInlineCalc();
       // عنوان تفاعلي — يتحدث مع رقم الفاتورة
       const fId=document.getElementById('f-id');
-      const modalTitle=document.getElementById('modal-title')||document.querySelector('.panel-title,.modal-title');
+      const modalTitle=document.getElementById('panel-title')||document.getElementById('modal-title');
       if(fId&&modalTitle){
         fId.addEventListener('input',()=>{
           const invNum=fId.value.trim();
           modalTitle.textContent=invNum
-            ?`🔄 تحويل من ${_modalQtId} إلى الفاتورة ${invNum}`
+            ?`🔄 تحويل من ${_modalQtId} إلى ${invNum}`
             :`🔄 تحويل من ${_modalQtId} إلى فاتورة`;
         });
       }
@@ -9736,7 +9745,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v74.4';
+const APP_VERSION = 'v74.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
