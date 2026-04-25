@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v73.9">
+<meta name="app-version" content="v74.0">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -7763,12 +7763,31 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       const toggle=document.getElementById('inv-type-toggle');
       if(toggle) toggle.style.display='none';
       if(typeof switchInvType==='function') switchInvType('detailed');
+      // إخفاء أزرار "حفظ فقط" و"حفظ وأضف بنود" — وضع التحويل فقط
+      const bOnly=document.getElementById('btn-save-only');
+      const bLines=document.getElementById('btn-save-lines');
+      const bSimple=document.getElementById('btn-save-simple');
+      if(bOnly)  bOnly.style.display='none';
+      if(bLines) bLines.style.display='none';
+      if(bSimple)bSimple.style.display='inline-flex';
+      // بناء rows من أصناف الكوتيشن
       const tbody=document.getElementById('qt-conv-lines-body');
       if(!tbody) return;
       tbody.innerHTML='';
       const lines=_modalQtPrefill.lines.length>0?_modalQtPrefill.lines:[{}];
       lines.forEach((l,i)=>tbody.appendChild(_qtInlineBuildRow(i+1,l)));
       _qtInlineCalc();
+      // عنوان تفاعلي — يتحدث مع رقم الفاتورة
+      const fId=document.getElementById('f-id');
+      const modalTitle=document.getElementById('modal-title')||document.querySelector('.panel-title,.modal-title');
+      if(fId&&modalTitle){
+        fId.addEventListener('input',()=>{
+          const invNum=fId.value.trim();
+          modalTitle.textContent=invNum
+            ?`🔄 تحويل من ${_modalQtId} إلى الفاتورة ${invNum}`
+            :`🔄 تحويل من ${_modalQtId} إلى فاتورة`;
+        });
+      }
     },200);
   }
 }
@@ -7871,6 +7890,12 @@ async function saveInvoice(existingId, goToLines=false){
     // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
     if(!existingId&&_savedData?.id&&_qtIdNow){
       const inlineLines=_qtInlineGetLines();
+      console.log('[LINES DEBUG]',{
+        invoice_id: _savedData?.id,
+        qtId: _qtIdNow,
+        linesCount: inlineLines.length,
+        lines: inlineLines
+      });
       if(inlineLines.length>0){
         const linesPayload=inlineLines.map(l=>({
           invoice_id:  _savedData.id,
@@ -7882,7 +7907,9 @@ async function saveInvoice(existingId, goToLines=false){
           cost_unit:   l.cost_unit,
           notes:       null,
         }));
-        const{error:cpErr}=await sb.from('invoice_lines').insert(linesPayload);
+        console.log('[LINES PAYLOAD]', linesPayload);
+        const{error:cpErr,data:cpData}=await sb.from('invoice_lines').insert(linesPayload).select();
+        console.log('[LINES INSERT RESULT]',{error:cpErr?.message||null,inserted:cpData?.length||0});
         if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
       }
       await _qtMarkConverted(_qtIdNow,_savedData.id);
@@ -9709,7 +9736,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v73.9';
+const APP_VERSION = 'v74.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
