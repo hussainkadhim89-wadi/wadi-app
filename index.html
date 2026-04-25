@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v74.2">
+<meta name="app-version" content="v74.3">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4524,17 +4524,15 @@ function _qtInlineGetLines(){
     total: rows.length,
     bodyEl: document.getElementById('qt-conv-lines-body')?.children?.length??'NOT FOUND',
     inPanel: !!document.getElementById('panel-body')?.querySelector('.qt-conv-line-row'),
-    inModal: !!document.getElementById('modal-body')?.querySelector('.qt-conv-line-row'),
   });
   const mapped=rows.map((row,i)=>{
     const desc=row.querySelector('.qt-conv-desc')?.value?.trim()||'';
     const qty=+row.querySelector('.qt-conv-qty')?.value||1;
     const price=+row.querySelector('.qt-conv-price')?.value||0;
     const cost=+row.querySelector('.qt-conv-cost')?.value||0;
-    console.log(`[INLINE ROW ${i+1}]`,{desc,qty,price,cost,willKeep:true});
+    console.log(`[INLINE ROW ${i+1}]`,{desc,qty,price,cost});
     return {description:desc, qty, unit_price:price, cost_unit:cost};
   });
-  // ── لا filter على description — نحتفظ بكل row موجودة ──
   return mapped;
 }
 
@@ -7769,7 +7767,7 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
     setTimeout(()=>loadInvPriceCache(invId),200);
   }
   // ── QT INLINE LINES: حقن الأصناف في الجدول بعد فتح الـ modal ──
-  if(_isFromQt&&_modalQtPrefill?.lines){
+  if(_isFromQt&&_modalQtPrefill){
     setTimeout(()=>{
       const toggle=document.getElementById('inv-type-toggle');
       if(toggle) toggle.style.display='none';
@@ -7833,25 +7831,23 @@ async function saveInvoice(existingId, goToLines=false){
     const simpleSale=invType==='simple'?+_val('f-simple-sale','0')||0:undefined;
     const simpleCost=invType==='simple'?+_val('f-simple-cost','0')||0:undefined;
     const simpleDesc=invType==='simple'?_val('f-simple-desc').trim()||'':undefined;
-    // ── QT ID RESOLUTION v74.2 ──
+    // ── QT CONFIRM — إذا من كوتيشن ──
     const _hiddenQtField=document.getElementById('f-quotation-id');
     const _hiddenQtVal=_hiddenQtField?.value?.trim()||'';
     const _qtIdNow=_modalQtId||_hiddenQtVal||null;
-    console.log('[QT CHECK]',{
-      _modalQtId,
-      hiddenField: _hiddenQtVal||'(فارغ)',
-      _qtIdNow,
-      source: _modalQtId?'global_var':(_hiddenQtVal?'hidden_input':'NULL ❌')
-    });
+    console.log('[QT CHECK]',{_modalQtId,hiddenField:_hiddenQtVal||'(فارغ)',_qtIdNow,source:_modalQtId?'global_var':(_hiddenQtVal?'hidden_input':'NULL ❌')});
     if(!existingId&&!_qtIdNow&&_hiddenQtField&&_hiddenQtField.closest('#panel-body,#modal-body')){
       console.error('[QT CHECK] ❌ f-quotation-id فارغ — _modalQtId:',_modalQtId);
-      showToast('خطأ: ضاع رقم الكوتيشون — أعد فتح نموذج التحويل','error');
+      showToast('خطأ: ضاع رقم الكوتيشن — أعد فتح نموذج التحويل','error');
       restore();_resetSaving();return;
     }
     if(_qtIdNow&&!existingId){
       // ── Inline lines validation ──
       const _preLines=_qtInlineGetLines();
-      if(_preLines.length===0){showToast('أضف صنفاً واحداً على الأقل','warning');restore();return;}
+      if(_preLines.length===0){
+        console.warn('[SAVE] _preLines فاضي — rows في DOM:',document.querySelectorAll('.qt-conv-line-row').length);
+        showToast('أضف صنفاً واحداً على الأقل','warning');restore();_resetSaving();return;
+      }
       const _badQty=_preLines.find(l=>!l.qty||l.qty<=0);
       if(_badQty){showToast(`الكمية يجب أن تكون أكبر من صفر: "${_badQty.description}"` ,'warning');restore();return;}
       const _badPrice=_preLines.find(l=>l.unit_price<0);
@@ -7914,14 +7910,13 @@ async function saveInvoice(existingId, goToLines=false){
     // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
     if(!existingId&&_qtIdNow){
       const newInvoiceId=_savedData?.id;
-      if(!newInvoiceId){console.error('[LINES DEBUG] ❌ _savedData.id فارغ',{_savedData,_qtIdNow});showToast('خطأ: لم يتم الحصول على ID الفاتورة من DB','error');restore();_resetSaving();return;}
+      if(!newInvoiceId){
+        console.error('[LINES DEBUG] ❌ _savedData.id فارغ',{_savedData,_qtIdNow});
+        showToast('خطأ: لم يتم الحصول على ID الفاتورة من DB','error');
+        restore();_resetSaving();return;
+      }
       const inlineLines=_qtInlineGetLines();
-      console.log('[LINES DEBUG]',{
-        invoice_id: newInvoiceId,
-        qtId: _qtIdNow,
-        linesCount: inlineLines.length,
-        note:'invoice_id من DB حصراً'
-      });
+      console.log('[LINES DEBUG]',{invoice_id:newInvoiceId,qtId:_qtIdNow,linesCount:inlineLines.length});
       if(inlineLines.length>0){
         const linesPayload=inlineLines.map(l=>({
           invoice_id:  newInvoiceId,
@@ -7933,14 +7928,10 @@ async function saveInvoice(existingId, goToLines=false){
           cost_unit:   l.cost_unit,
           notes:       null,
         }));
-        console.log('[FINAL LINES]', linesPayload.map(l=>({invoice_id:l.invoice_id,desc:l.description,qty:l.qty,price:l.unit_price})));
+        console.log('[FINAL LINES]',linesPayload.map(l=>({invoice_id:l.invoice_id,desc:l.description})));
         const{error:cpErr,data:cpData}=await sb.from('invoice_lines').insert(linesPayload).select();
-        if(cpErr){
-          console.error('[LINES INSERT ❌]',{error:cpErr.message,invoice_id:newInvoiceId});
-          showToast('خطأ في حفظ البنود: '+cpErr.message,'error');
-        }else{
-          console.log('[LINES INSERT ✅]',{inserted:cpData?.length||0,invoice_id:newInvoiceId,sample:cpData?.[0]?.invoice_id});
-        }
+        if(cpErr){console.error('[LINES INSERT ❌]',{error:cpErr.message,invoice_id:newInvoiceId});showToast('خطأ في حفظ البنود: '+cpErr.message,'error');}
+        else{console.log('[LINES INSERT ✅]',{inserted:cpData?.length||0,invoice_id:newInvoiceId,sample:cpData?.[0]?.invoice_id});}
       }
       await _qtMarkConverted(_qtIdNow,newInvoiceId);
     }
@@ -9766,7 +9757,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v74.2';
+const APP_VERSION = 'v74.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
