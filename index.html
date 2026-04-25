@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v73.6">
+<meta name="app-version" content="v73.9">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4482,6 +4482,51 @@ async function _qtMarkConverted(qtId,invId){
   }
 }
 
+
+// ── Inline Lines Table — Conversion Mode Only ──
+function _qtInlineBuildRow(i,l={}){
+  const tr=document.createElement('tr');
+  tr.className='qt-conv-line-row';
+  tr.innerHTML=`
+    <td style="text-align:center;color:var(--text3);font-size:12px;padding:4px 6px">${i}</td>
+    <td style="padding:3px 4px"><input class="qt-inline-input qt-conv-desc" style="width:100%;min-width:140px" value="${l.description||''}" placeholder="وصف الصنف..." oninput="_qtInlineCalc()"></td>
+    <td style="padding:3px 4px"><input class="qt-inline-input qt-conv-qty" type="number" style="width:70px;text-align:center" value="${l.qty||1}" min="0.01" step="0.01" oninput="_qtInlineCalc()"></td>
+    <td style="padding:3px 4px"><input class="qt-inline-input qt-conv-price" type="number" style="width:110px;text-align:right" value="${l.unit_price||0}" min="0" oninput="_qtInlineCalc()"></td>
+    <td style="padding:3px 4px"><input class="qt-inline-input qt-conv-cost" type="number" style="width:110px;text-align:right;color:var(--text3)" value="${l.cost_unit||0}" min="0" placeholder="🔒"></td>
+    <td class="qt-conv-total" style="padding:3px 8px;text-align:right;font-family:monospace;font-size:12px;font-weight:600;color:var(--accent)">—</td>
+    <td style="padding:3px 4px;text-align:center"><button type="button" class="btn btn-danger btn-sm btn-icon" onclick="_qtInlineRemoveRow(this)" style="font-size:10px;padding:2px 6px">✕</button></td>`;
+  return tr;
+}
+function _qtInlineAddRow(){
+  const tbody=document.getElementById('qt-conv-lines-body');
+  if(!tbody) return;
+  const i=tbody.children.length+1;
+  tbody.appendChild(_qtInlineBuildRow(i,{}));
+  tbody.lastElementChild?.querySelector('.qt-conv-desc')?.focus();
+}
+function _qtInlineRemoveRow(btn){
+  const tbody=document.getElementById('qt-conv-lines-body');
+  if(tbody&&tbody.children.length<=1){showToast('يجب صنف واحد على الأقل','warning');return;}
+  btn.closest('tr')?.remove();
+  _qtInlineCalc();
+}
+function _qtInlineCalc(){
+  document.querySelectorAll('.qt-conv-line-row').forEach(row=>{
+    const qty=+row.querySelector('.qt-conv-qty')?.value||0;
+    const price=+row.querySelector('.qt-conv-price')?.value||0;
+    const el=row.querySelector('.qt-conv-total');
+    if(el) el.textContent=qty*price>0?fmtM(qty*price):'—';
+  });
+}
+function _qtInlineGetLines(){
+  return[...document.querySelectorAll('.qt-conv-line-row')].map(row=>({
+    description: row.querySelector('.qt-conv-desc')?.value?.trim()||'',
+    qty:         +row.querySelector('.qt-conv-qty')?.value||1,
+    unit_price:  +row.querySelector('.qt-conv-price')?.value||0,
+    cost_unit:   +row.querySelector('.qt-conv-cost')?.value||0,
+  })).filter(l=>l.description);
+}
+
 // ── Quotation Audit Logger — fire-and-forget, never throws ──
 async function _qtAudit(action_type, details={}){
   try{
@@ -7652,13 +7697,35 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       </div>
       <div id="simple-margin-hint" style="display:none;margin-bottom:16px"></div>
     </div>
-    <!-- Detailed hint -->
-    <div id="detailed-hint" style="display:${invType==='detailed'?'block':'none'}">
+    <!-- Detailed hint — normal mode -->
+    <div id="detailed-hint" style="display:${invType==='detailed'&&!_isFromQt?'block':'none'}">
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#1e40af;display:flex;align-items:center;gap:8px">
         <span style="font-size:16px">📦</span>
         <span>اضغط <b>"حفظ وأضف بنود"</b> — ستنتقل مباشرة لإدخال الأصناف بعد الحفظ</span>
       </div>
     </div>
+    <!-- Inline Lines Table — CONVERSION MODE ONLY -->
+    ${_isFromQt?`
+    <div id="qt-inline-lines-section" style="margin-bottom:16px">
+      <div class="form-section" style="display:flex;align-items:center;justify-content:space-between">
+        <span>📦 الأصناف</span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="_qtInlineAddRow()" style="font-size:11px">＋ إضافة صنف</button>
+      </div>
+      <div style="overflow-x:auto">
+      <table class="data-table" id="qt-conv-lines-table">
+        <thead><tr>
+          <th style="width:35px">#</th>
+          <th>الصنف / الوصف</th>
+          <th style="width:75px">الكمية</th>
+          <th style="width:120px">سعر البيع</th>
+          <th style="width:120px">سعر الشراء 🔒</th>
+          <th style="width:110px">الإجمالي</th>
+          <th style="width:36px"></th>
+        </tr></thead>
+        <tbody id="qt-conv-lines-body"></tbody>
+      </table>
+      </div>
+    </div>`:''}
     <div class="form-section">💰 التكاليف الإضافية</div>
     <div class="form-grid form-grid-2" style="margin-bottom:20px">
       <div class="form-group"><label class="form-label">أجور النقل (د.ع)</label><input class="form-input" type="number" id="f-transport" value="${inv.transport_cost||0}" oninput="checkProfitMargin()"></div>
@@ -7690,40 +7757,26 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
     setTimeout(()=>loadClientSuggestions(inv.customer_id),200);
     setTimeout(()=>loadInvPriceCache(invId),200);
   }
-  // ── QT LINES PREFILL: حقن أصناف الكوتيشن في الـ form ──
-  if(_modalQtPrefill?.lines?.length>0){
+  // ── QT INLINE LINES: حقن الأصناف في الجدول بعد فتح الـ modal ──
+  if(_isFromQt&&_modalQtPrefill?.lines){
     setTimeout(()=>{
-      // إخفاء نوع الفاتورة وإجبار detailed
       const toggle=document.getElementById('inv-type-toggle');
       if(toggle) toggle.style.display='none';
-      // تفعيل detailed
       if(typeof switchInvType==='function') switchInvType('detailed');
-      // حقن الأصناف في الـ quick-add أو أضف رسالة للمستخدم
-      const linesMsg=_modalQtPrefill.lines.map((l,i)=>
-        `${i+1}. ${l.description||'—'} · الكمية: ${l.qty||1} · سعر البيع: ${fmtM(l.unit_price||0)}`
-      ).join('\n');
-      // أضف section مرئي يعرض الأصناف للمراجعة
-      const body=document.getElementById('panel-body')||document.getElementById('modal-body');
-      if(body){
-        const div=document.createElement('div');
-        div.style.cssText='background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px';
-        div.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase">📦 أصناف الكوتيشن — ستُنسخ إلى الفاتورة</div>
-          <table style="width:100%;font-size:12px;border-collapse:collapse">
-            <thead><tr style="color:var(--text3)"><th style="text-align:right;padding:3px 6px">الصنف</th><th style="text-align:center;padding:3px 6px">الكمية</th><th style="text-align:right;padding:3px 6px">سعر البيع</th></tr></thead>
-            <tbody>${_modalQtPrefill.lines.map(l=>`<tr style="border-top:1px solid var(--border)">
-              <td style="padding:4px 6px">${l.description||'—'}</td>
-              <td style="padding:4px 6px;text-align:center;font-family:monospace">${l.qty||1} ${l.uom||'EA'}</td>
-              <td style="padding:4px 6px;text-align:right;font-family:monospace;font-weight:600">${fmtM(l.unit_price||0)}</td>
-            </tr>`).join('')}</tbody>
-          </table>
-          <div style="font-size:11px;color:var(--text3);margin-top:8px">✅ ستُنسخ هذه الأصناف تلقائياً عند الحفظ</div>`;
-        body.insertBefore(div,body.firstChild);
-      }
-    },150);
+      const tbody=document.getElementById('qt-conv-lines-body');
+      if(!tbody) return;
+      tbody.innerHTML='';
+      const lines=_modalQtPrefill.lines.length>0?_modalQtPrefill.lines:[{}];
+      lines.forEach((l,i)=>tbody.appendChild(_qtInlineBuildRow(i+1,l)));
+      _qtInlineCalc();
+    },200);
   }
 }
 
 async function saveInvoice(existingId, goToLines=false){
+  // ── Single execution guard (double-click protection) ──
+  if(window._savingInvoice){return;}
+  window._savingInvoice=true;
   // ── Safe DOM accessor ──
   function _val(id, fallback=''){const el=document.getElementById(id);return el?el.value:fallback;}
   var _sp = existingId ? 'invoices_edit' : 'invoices_create';
@@ -7731,10 +7784,11 @@ async function saveInvoice(existingId, goToLines=false){
   const id=document.getElementById('f-id').value.trim();
   const clientId=document.getElementById('f-client').value;
   const dateVal=document.getElementById('f-date').value;
+  function _resetSaving(){window._savingInvoice=false;}
   // ── Validation ──
-  if(!id){showToast('أدخل رقم الفاتورة','warning');document.getElementById('f-id').focus();return;}
-  if(!clientId){showToast('اختر العميل','warning');return;}
-  if(!dateVal){showToast('أدخل التاريخ','warning');document.getElementById('f-date').focus();return;}
+  if(!id){showToast('أدخل رقم الفاتورة','warning');document.getElementById('f-id').focus();_resetSaving();return;}
+  if(!clientId){showToast('اختر العميل','warning');_resetSaving();return;}
+  if(!dateVal){showToast('أدخل التاريخ','warning');document.getElementById('f-date').focus();_resetSaving();return;}
   const btn=getModalSaveBtn();const restore=btnLoad(btn);
   try{
     const{data:cl}=await sb.from('clients').select('name').eq('id',clientId).single();
@@ -7752,6 +7806,13 @@ async function saveInvoice(existingId, goToLines=false){
     // ── QT CONFIRM — إذا من كوتيشن ──
     const _qtIdNow=(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})();
     if(_qtIdNow&&!existingId){
+      // ── Inline lines validation ──
+      const _preLines=_qtInlineGetLines();
+      if(_preLines.length===0){showToast('أضف صنفاً واحداً على الأقل','warning');restore();return;}
+      const _badQty=_preLines.find(l=>!l.qty||l.qty<=0);
+      if(_badQty){showToast(`الكمية يجب أن تكون أكبر من صفر: "${_badQty.description}"` ,'warning');restore();return;}
+      const _badPrice=_preLines.find(l=>l.unit_price<0);
+      if(_badPrice){showToast(`سعر غير صالح: "${_badPrice.description}"` ,'warning');restore();return;}
       // extra lock — تحقق من DB قبل الحفظ
       const{data:_alreadyConverted}=await sb.from('invoices').select('id').eq('quotation_id',_qtIdNow).limit(1).maybeSingle();
       if(_alreadyConverted){showToast('تم التحويل مسبقاً إلى '+_alreadyConverted.id,'warning');restore();return;}
@@ -7769,9 +7830,10 @@ async function saveInvoice(existingId, goToLines=false){
       comm_sini_pct: +_val('f-sini','0'),
       next_action:   _val('f-next'),
       created_date:new Date().toISOString().slice(0,10),
-      quotation_id:(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})(),
+      quotation_id:  _qtIdNow||null,
       ...(invType==='simple'&&!_qtIdNow?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
+    if(DEBUG) console.log('[SAVE_INVOICE]',{quotation_id:_qtIdNow,invoice_type:payload.invoice_type,id});
     // ── PRE-CHECK: رقم فاتورة مكرر؟ (فقط عند إنشاء جديد) ──
     if(!existingId){
       const{data:dupCheck}=await sb.from('invoices')
@@ -7791,6 +7853,11 @@ async function saveInvoice(existingId, goToLines=false){
         return;
       }
     }
+    // ── Race condition guard: فحص أخير قبل الـ insert مباشرة ──
+    if(_qtIdNow&&!existingId){
+      const{data:_raceCheck}=await sb.from('invoices').select('id').eq('quotation_id',_qtIdNow).limit(1).maybeSingle();
+      if(_raceCheck){showToast('تم التحويل مسبقاً — تعارض في الوقت','warning');restore();return;}
+    }
     // ── snapshot قبل التعديل (للـ audit) ──
     let _beforeSnap = null;
     if(existingId){
@@ -7801,27 +7868,24 @@ async function saveInvoice(existingId, goToLines=false){
       ?await sb.from('invoices').update(payload).eq('id',existingId).select().single()
       :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
-    // ── QT LINK: تحديث الكوتيشن بعد نجاح الـ insert فقط ──
-    if(!existingId&&_savedData?.id){
-      const _qtLinkId=(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})();
-      if(_qtLinkId){
-        // نسخ أصناف الكوتيشن إلى الفاتورة الجديدة
-        if(_modalQtPrefill?.lines?.length>0){
-          const copiedLines=_modalQtPrefill.lines.map(l=>({
-            invoice_id:  _savedData.id,
-            customer:    cl?.name||'',
-            date:        dateVal,
-            description: l.description||'',
-            qty:         l.qty||1,
-            unit_price:  l.unit_price||0,
-            cost_unit:   l.cost_unit||0,
-            notes:       null,
-          }));
-          const{error:cpErr}=await sb.from('invoice_lines').insert(copiedLines);
-          if(cpErr) console.warn('[QT LINES COPY ERROR]',cpErr.message);
-        }
-        await _qtMarkConverted(_qtLinkId,_savedData.id);
+    // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
+    if(!existingId&&_savedData?.id&&_qtIdNow){
+      const inlineLines=_qtInlineGetLines();
+      if(inlineLines.length>0){
+        const linesPayload=inlineLines.map(l=>({
+          invoice_id:  _savedData.id,
+          customer:    cl?.name||'',
+          date:        dateVal,
+          description: l.description,
+          qty:         l.qty,
+          unit_price:  l.unit_price,
+          cost_unit:   l.cost_unit,
+          notes:       null,
+        }));
+        const{error:cpErr}=await sb.from('invoice_lines').insert(linesPayload);
+        if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
       }
+      await _qtMarkConverted(_qtIdNow,_savedData.id);
     }
     // ── audit trail → logInvoiceAction ──
     if(typeof logInvoiceAction === 'function'){
@@ -7883,6 +7947,8 @@ async function saveInvoice(existingId, goToLines=false){
     console.error('[saveInvoice]', e);
     showToast('خطأ غير متوقع: '+e.message,'error');
     restore();
+  }finally{
+    window._savingInvoice=false;
   }
 }
 
@@ -9643,7 +9709,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v73.6';
+const APP_VERSION = 'v73.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
