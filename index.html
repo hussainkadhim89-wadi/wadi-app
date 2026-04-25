@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v74.6">
+<meta name="app-version" content="v74.7">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4467,23 +4467,52 @@ async function _qtLoadForConvert(qtId){
 
 async function _qtMarkConverted(qtId,invId){
   try{
-    // STEP 1: نقل بنود الكوتيشن من qtId إلى invId
-    const{data:movedLines,error:lErr}=await sb.from('invoice_lines')
-      .update({invoice_id:invId})
-      .eq('invoice_id',qtId)
-      .select();
-    if(lErr){console.error('[QT LINES MOVE ❌]',{error:lErr.message,from:qtId,to:invId});}
-    else{console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});}
-    // STEP 2: حساب المجاميع وتحديث sale_amount + cost_amount
-    const lines=movedLines||[];
-    if(lines.length>0){
-      const saleAmt=lines.reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0);
-      const costAmt=lines.reduce((s,l)=>s+(+l.qty||0)*(+l.cost_unit||0),0);
-      const desc=lines.map(l=>l.description||'').filter(Boolean).join(' / ');
-      await sb.from('invoices').update({sale_amount:saleAmt,cost_amount:costAmt,description:desc}).eq('id',invId);
-      console.log('[QT AMOUNTS UPDATE ✅]',{invId,saleAmt,costAmt,desc});
+    // ── STEP 1: GUARD — منع التكرار (لو البنود موجودة مسبقاً abort) ──
+    const{data:existing,error:cErr}=await sb.from('invoice_lines')
+      .select('id',{count:'exact',head:true})
+      .eq('invoice_id',invId);
+    const alreadyCopied=(existing?.length||0)>0;
+    console.log('[COPY CHECK]',{from:qtId,to:invId,alreadyCopied});
+    if(alreadyCopied){
+      console.warn('[COPY ABORT] البنود موجودة مسبقاً — تم الإيقاف',{invId});
+      // تخطى النسخ وأكمل باقي الخطوات
+    } else {
+      // ── STEP 2: COPY — نسخ البنود من QT إلى INV (حقول صريحة — لا SELECT *) ──
+      const{data:qtLines,error:fetchErr}=await sb.from('invoice_lines')
+        .select('description,qty,unit_price,cost_unit,uom,customer,date')
+        .eq('invoice_id',qtId);
+      if(fetchErr||!qtLines?.length){
+        console.warn('[COPY] لا توجد بنود في الكوتيشون',{qtId,fetchErr:fetchErr?.message});
+      } else {
+        // حقول صريحة فقط — لا id ولا PK ولا timestamps
+        const copyPayload=qtLines.map(l=>({
+          invoice_id:  invId,
+          description: l.description||'',
+          qty:         +l.qty||1,
+          unit_price:  +l.unit_price||0,
+          cost_unit:   +l.cost_unit||0,
+          uom:         l.uom||'EA',
+          customer:    l.customer||'',
+          date:        l.date||null,
+        }));
+        const{data:inserted,error:insErr}=await sb.from('invoice_lines')
+          .insert(copyPayload)
+          .select('id,invoice_id,description,qty,unit_price,cost_unit');
+        if(insErr){
+          console.error('[COPY RESULT ❌]',{error:insErr.message,from:qtId,to:invId});
+        } else {
+          console.log('[COPY RESULT ✅]',{inserted:inserted?.length||0,invoice_id:invId});
+          console.log('[COPY VERIFY]',{invoice_id:invId,rows:inserted?.length||0,sample_id:inserted?.[0]?.id,sample_inv:inserted?.[0]?.invoice_id});
+          // ── STEP 3: تحديث sale_amount + cost_amount للفاتورة ──
+          const saleAmt=inserted.reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0);
+          const costAmt=inserted.reduce((s,l)=>s+(+l.qty||0)*(+l.cost_unit||0),0);
+          const desc=inserted.map(l=>l.description||'').filter(Boolean).join(' / ');
+          await sb.from('invoices').update({sale_amount:saleAmt,cost_amount:costAmt,description:desc}).eq('id',invId);
+          console.log('[QT AMOUNTS UPDATE ✅]',{invId,saleAmt,costAmt});
+        }
+      }
     }
-    // STEP 3: تحديث stage الكوتيشن
+    // ── STEP 4: تحديث stage الكوتيشن → converted ──
     const{data:upd}=await sb.from('invoices')
       .update({stage:'converted'})
       .eq('id',qtId).eq('stage','approved').select();
@@ -9748,7 +9777,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v74.6';
+const APP_VERSION = 'v74.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
