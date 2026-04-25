@@ -4477,7 +4477,18 @@ async function _qtMarkConverted(qtId,invId){
     }else{
       console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});
     }
-    // ── STEP 2: تحديث stage الكوتيشن ──
+    // ── STEP 2: حساب المجاميع وتحديث sale_amount + cost_amount ──
+    const lines=movedLines||[];
+    if(lines.length>0){
+      const saleAmt=lines.reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0);
+      const costAmt=lines.reduce((s,l)=>s+(+l.qty||0)*(+l.cost_unit||0),0);
+      const desc=lines.map(l=>l.description||'').filter(Boolean).join(' / ');
+      await sb.from('invoices')
+        .update({sale_amount:saleAmt,cost_amount:costAmt,description:desc})
+        .eq('id',invId);
+      console.log('[QT AMOUNTS UPDATE ✅]',{invId,saleAmt,costAmt,desc});
+    }
+    // ── STEP 3: تحديث stage الكوتيشن ──
     const{data:upd}=await sb.from('invoices')
       .update({stage:'converted'})
       .eq('id',qtId).eq('stage','approved').select();
@@ -7783,7 +7794,7 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       const tbody=document.getElementById('qt-conv-lines-body');
       if(!tbody) return;
       tbody.innerHTML='';
-      const lines=(_modalQtPrefill.lines&&_modalQtPrefill.lines.length>0)?_modalQtPrefill.lines:[{}];
+      const lines=_modalQtPrefill.lines.length>0?_modalQtPrefill.lines:[{}];
       lines.forEach((l,i)=>tbody.appendChild(_qtInlineBuildRow(i+1,l)));
       _qtInlineCalc();
       // عنوان تفاعلي — يتحدث مع رقم الفاتورة
