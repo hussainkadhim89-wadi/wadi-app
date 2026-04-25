@@ -4467,18 +4467,27 @@ async function _qtLoadForConvert(qtId){
 
 async function _qtMarkConverted(qtId,invId){
   try{
+    // ── STEP 1: نقل البنود من qtId إلى invId ──
+    const{data:movedLines,error:lErr}=await sb.from('invoice_lines')
+      .update({invoice_id:invId})
+      .eq('invoice_id',qtId)
+      .select();
+    if(lErr){
+      console.error('[QT LINES MOVE ❌]',{error:lErr.message,from:qtId,to:invId});
+    }else{
+      console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});
+    }
+    // ── STEP 2: تحديث stage الكوتيشن ──
     const{data:upd}=await sb.from('invoices')
       .update({stage:'converted'})
       .eq('id',qtId).eq('stage','approved').select();
     if(!upd||!upd.length){
-      showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
       console.warn('[RACE CONDITION]',qtId,invId);
     } else {
       await _qtAudit('CONVERT_QUOTATION',{entity_id:qtId,linkedInvoice:invId,createdInvoice:invId,stage_from:'approved',stage_to:'converted'});
     }
   }catch(e){
     console.warn('[QT MARK CONVERTED ERROR]',e.message);
-    showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
   }
 }
 
@@ -4519,21 +4528,12 @@ function _qtInlineCalc(){
   });
 }
 function _qtInlineGetLines(){
-  const rows=[...document.querySelectorAll('.qt-conv-line-row')];
-  console.log('[INLINE ROWS]',{
-    total: rows.length,
-    bodyEl: document.getElementById('qt-conv-lines-body')?.children?.length??'NOT FOUND',
-    inPanel: !!document.getElementById('panel-body')?.querySelector('.qt-conv-line-row'),
-  });
-  const mapped=rows.map((row,i)=>{
-    const desc=row.querySelector('.qt-conv-desc')?.value?.trim()||'';
-    const qty=+row.querySelector('.qt-conv-qty')?.value||1;
-    const price=+row.querySelector('.qt-conv-price')?.value||0;
-    const cost=+row.querySelector('.qt-conv-cost')?.value||0;
-    console.log(`[INLINE ROW ${i+1}]`,{desc,qty,price,cost});
-    return {description:desc, qty, unit_price:price, cost_unit:cost};
-  });
-  return mapped;
+  return[...document.querySelectorAll('.qt-conv-line-row')].map(row=>({
+    description: row.querySelector('.qt-conv-desc')?.value?.trim()||'',
+    qty:         +row.querySelector('.qt-conv-qty')?.value||1,
+    unit_price:  +row.querySelector('.qt-conv-price')?.value||0,
+    cost_unit:   +row.querySelector('.qt-conv-cost')?.value||0,
+  })).filter(l=>l.description);
 }
 
 // ── Quotation Audit Logger — fire-and-forget, never throws ──
@@ -7767,7 +7767,7 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
     setTimeout(()=>loadInvPriceCache(invId),200);
   }
   // ── QT INLINE LINES: حقن الأصناف في الجدول بعد فتح الـ modal ──
-  if(_isFromQt&&_modalQtPrefill){
+  if(_isFromQt&&_modalQtPrefill?.lines){
     setTimeout(()=>{
       const toggle=document.getElementById('inv-type-toggle');
       if(toggle) toggle.style.display='none';
@@ -7788,12 +7788,12 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       _qtInlineCalc();
       // عنوان تفاعلي — يتحدث مع رقم الفاتورة
       const fId=document.getElementById('f-id');
-      const modalTitle=document.getElementById('panel-title')||document.getElementById('modal-title');
+      const modalTitle=document.getElementById('modal-title')||document.querySelector('.panel-title,.modal-title');
       if(fId&&modalTitle){
         fId.addEventListener('input',()=>{
           const invNum=fId.value.trim();
           modalTitle.textContent=invNum
-            ?`🔄 تحويل من ${_modalQtId} إلى ${invNum}`
+            ?`🔄 تحويل من ${_modalQtId} إلى الفاتورة ${invNum}`
             :`🔄 تحويل من ${_modalQtId} إلى فاتورة`;
         });
       }
@@ -7832,22 +7832,11 @@ async function saveInvoice(existingId, goToLines=false){
     const simpleCost=invType==='simple'?+_val('f-simple-cost','0')||0:undefined;
     const simpleDesc=invType==='simple'?_val('f-simple-desc').trim()||'':undefined;
     // ── QT CONFIRM — إذا من كوتيشن ──
-    const _hiddenQtField=document.getElementById('f-quotation-id');
-    const _hiddenQtVal=_hiddenQtField?.value?.trim()||'';
-    const _qtIdNow=_modalQtId||_hiddenQtVal||null;
-    console.log('[QT CHECK]',{_modalQtId,hiddenField:_hiddenQtVal||'(فارغ)',_qtIdNow,source:_modalQtId?'global_var':(_hiddenQtVal?'hidden_input':'NULL ❌')});
-    if(!existingId&&!_qtIdNow&&_hiddenQtField&&_hiddenQtField.closest('#panel-body,#modal-body')){
-      console.error('[QT CHECK] ❌ f-quotation-id فارغ — _modalQtId:',_modalQtId);
-      showToast('خطأ: ضاع رقم الكوتيشن — أعد فتح نموذج التحويل','error');
-      restore();_resetSaving();return;
-    }
+    const _qtIdNow=(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})();
     if(_qtIdNow&&!existingId){
       // ── Inline lines validation ──
       const _preLines=_qtInlineGetLines();
-      if(_preLines.length===0){
-        console.warn('[SAVE] _preLines فاضي — rows في DOM:',document.querySelectorAll('.qt-conv-line-row').length);
-        showToast('أضف صنفاً واحداً على الأقل','warning');restore();_resetSaving();return;
-      }
+      if(_preLines.length===0){showToast('أضف صنفاً واحداً على الأقل','warning');restore();return;}
       const _badQty=_preLines.find(l=>!l.qty||l.qty<=0);
       if(_badQty){showToast(`الكمية يجب أن تكون أكبر من صفر: "${_badQty.description}"` ,'warning');restore();return;}
       const _badPrice=_preLines.find(l=>l.unit_price<0);
@@ -7908,18 +7897,17 @@ async function saveInvoice(existingId, goToLines=false){
       :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
     // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
-    if(!existingId&&_qtIdNow){
-      const newInvoiceId=_savedData?.id;
-      if(!newInvoiceId){
-        console.error('[LINES DEBUG] ❌ _savedData.id فارغ',{_savedData,_qtIdNow});
-        showToast('خطأ: لم يتم الحصول على ID الفاتورة من DB','error');
-        restore();_resetSaving();return;
-      }
+    if(!existingId&&_savedData?.id&&_qtIdNow){
       const inlineLines=_qtInlineGetLines();
-      console.log('[LINES DEBUG]',{invoice_id:newInvoiceId,qtId:_qtIdNow,linesCount:inlineLines.length});
+      console.log('[LINES DEBUG]',{
+        invoice_id: _savedData?.id,
+        qtId: _qtIdNow,
+        linesCount: inlineLines.length,
+        lines: inlineLines
+      });
       if(inlineLines.length>0){
         const linesPayload=inlineLines.map(l=>({
-          invoice_id:  newInvoiceId,
+          invoice_id:  _savedData.id,
           customer:    cl?.name||'',
           date:        dateVal,
           description: l.description,
@@ -7928,12 +7916,12 @@ async function saveInvoice(existingId, goToLines=false){
           cost_unit:   l.cost_unit,
           notes:       null,
         }));
-        console.log('[FINAL LINES]',linesPayload.map(l=>({invoice_id:l.invoice_id,desc:l.description})));
+        console.log('[LINES PAYLOAD]', linesPayload);
         const{error:cpErr,data:cpData}=await sb.from('invoice_lines').insert(linesPayload).select();
-        if(cpErr){console.error('[LINES INSERT ❌]',{error:cpErr.message,invoice_id:newInvoiceId});showToast('خطأ في حفظ البنود: '+cpErr.message,'error');}
-        else{console.log('[LINES INSERT ✅]',{inserted:cpData?.length||0,invoice_id:newInvoiceId,sample:cpData?.[0]?.invoice_id});}
+        console.log('[LINES INSERT RESULT]',{error:cpErr?.message||null,inserted:cpData?.length||0});
+        if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
       }
-      await _qtMarkConverted(_qtIdNow,newInvoiceId);
+      await _qtMarkConverted(_qtIdNow,_savedData.id);
     }
     // ── audit trail → logInvoiceAction ──
     if(typeof logInvoiceAction === 'function'){
