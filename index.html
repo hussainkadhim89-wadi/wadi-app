@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v72.4">
+<meta name="app-version" content="v72.7">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4877,7 +4877,7 @@ async function renderQuotationDetail(qtId){
       :`<div style="text-align:center;padding:20px;color:var(--text3)">لا توجد أصناف</div>`;
 
     el.innerHTML=`<div class="qt-page">
-      ${isLocked?`<div class="qt-locked-banner">🔒 هذا العرض تحوّل إلى فاتورة ${relatedInvs?.length?`<span style="cursor:pointer;text-decoration:underline" onclick="openInvoiceDirect('${relatedInvs[0].id}')">${relatedInvs[0].id}</span>`:''}— قراءة فقط</div>`:''}
+      ${isLocked?`<div class="qt-locked-banner">🔒 هذا العرض تحوّل إلى فاتورة ${relatedInvs?.length?`<span style="cursor:pointer;text-decoration:underline" onclick="openInvoiceDirect('${relatedInvs[0].id}')">${relatedInvs[0].id}</span>`:''}— يمكن تغيير الحالة فقط</div>`:''}
       ${qt.stage==='approved'&&!isLocked?`<div class="qt-convert-banner">
         <span style="font-size:13px;color:#16a34a;font-weight:600">💡 هذا الكوتيشن جاهز للتحويل إلى فاتورة</span>
         <button class="btn btn-primary btn-sm" onclick="convertQuotation('${qt.id}')">🔄 تحويل لفاتورة</button>
@@ -4889,15 +4889,21 @@ async function renderQuotationDetail(qtId){
           <div>
             <div style="font-size:20px;font-weight:900;color:var(--accent);font-family:monospace">${qt.id}</div>
             <div style="font-size:13px;color:var(--text2);margin-top:4px">${qt.customer_name||'—'} · ${fmtD(qt.date)}</div>
-            
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             ${_qtBadge(qt.stage)}
-            ${!isLocked?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-              ${['sent','approved','rejected'].map(s=>
-                `<button class="btn btn-sm ${qt.stage===s?'btn-primary':'btn-secondary'}" onclick="_qtChangeStatus('${qt.id}','${s}')">${QT_STATUS_LABELS[s]||s}</button>`
-              ).join('')}
-            </div>`:''}
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${isLocked
+                // semi-locked: يسمح فقط بتغيير الحالة بين approved/sent/rejected
+                ?['approved','sent','rejected'].map(s=>
+                  `<button class="btn btn-sm ${qt.stage===s?'btn-primary':'btn-secondary'}" onclick="_qtChangeStatus('${qt.id}','${s}')">${QT_STATUS_LABELS[s]||s}</button>`
+                ).join('')
+                // غير محوّل: كل الحالات
+                :['sent','approved','rejected'].map(s=>
+                  `<button class="btn btn-sm ${qt.stage===s?'btn-primary':'btn-secondary'}" onclick="_qtChangeStatus('${qt.id}','${s}')">${QT_STATUS_LABELS[s]||s}</button>`
+                ).join('')
+              }
+            </div>
           </div>
         </div>
       </div>
@@ -4944,6 +4950,7 @@ async function renderQuotationDetail(qtId){
         <button class="btn btn-secondary" onclick="printQuotation('${qt.id}',false)">🖨️ زبون</button>
         <button class="btn btn-secondary" onclick="printQuotation('${qt.id}',true)">🖨️ داخلي</button>
         ${qt.stage==='approved'&&!isLocked?`<button class="btn btn-primary" onclick="convertQuotation('${qt.id}')" style="background:var(--green);border-color:var(--green)">🔄 تحويل لفاتورة</button>`:''}
+        ${qt.stage==='rejected'?`<button class="btn btn-danger btn-sm" onclick="_qtDelete('${qt.id}')">🗑️ حذف</button>`:''}
       </div>
     </div>`;
   }catch(e){handleError(e,'خطأ في تحميل تفاصيل العرض');}
@@ -4954,6 +4961,21 @@ async function _qtChangeStatus(qtId,newStatus){
   if(error){handleError(error,'خطأ في تغيير الحالة');return;}
   showToast(`الحالة: ${QT_STATUS_LABELS[newStatus]||newStatus}`,'success');
   renderQuotationDetail(qtId);
+}
+
+async function _qtDelete(qtId){
+  const{data:linked}=await sb.from('invoices').select('id').eq('quotation_id',qtId).eq('is_deleted',false).limit(1).maybeSingle();
+  if(linked){
+    const ok=await _showConfirmDialog(
+      '⚠️ تحذير — عرض مرتبط بفاتورة',
+      `هذا العرض مرتبط بالفاتورة رقم: <b>${linked.id}</b><br>سيتم حذف العرض فقط وستبقى الفاتورة<br>هل أنت متأكد؟`
+    );
+    if(!ok) return;
+  }
+  const{error}=await sb.from('invoices').update({is_deleted:true}).eq('id',qtId);
+  if(error){handleError(error,'خطأ في الحذف');return;}
+  showToast('تم حذف الكوتيشن','success');
+  showPage('quotations');
 }
 
 async function printQuotation(qtId,internal=false){
@@ -7661,7 +7683,7 @@ async function saveInvoice(existingId, goToLines=false){
     }
     const payload={id,date:dateVal,customer_id:clientId,customer_name:cl?.name||'',
       invoice_type:(_qtIdNow?'detailed':invType),
-      stage:document.getElementById('f-stage').value,transport_cost:+document.getElementById('f-transport').value||0,
+      stage:(document.getElementById('f-stage')?.value)||'📋 طلب وارد',transport_cost:+document.getElementById('f-transport')?.value||0,
       gift_expense:+document.getElementById('f-gift').value||0,gift_note:document.getElementById('f-gift-note').value,
       comm_omar_pct:+document.getElementById('f-omar').value,comm_hussain_pct:+document.getElementById('f-hcomm').value,
       comm_sini_pct:+document.getElementById('f-sini').value,next_action:document.getElementById('f-next').value,
@@ -9540,7 +9562,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v72.4';
+const APP_VERSION = 'v72.7';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
