@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.2">
+<meta name="app-version" content="v75.5">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3872,7 +3872,7 @@ async function renderDashboard(){
   setLoading('جاري تحميل البيانات...');
   try{
   // ── v73: Data Fetching (unchanged queries) ──
-  const invs=await safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name').eq('is_deleted',false));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name,invoice_type,quotation_id').eq('is_deleted',false));
   setLoading('الذمم...');
   const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
   const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').eq('is_deleted',false).order('date',{ascending:false}).limit(6));
@@ -3885,7 +3885,7 @@ async function renderDashboard(){
   if(!_biData){
     setLoading('تحليل البيانات...');
     [biLines,biPays,biExpsBI,biWdsBI,biRecsBI]=await Promise.all([
-      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id')),
+      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id')), // filtered client-side via activeInvIds
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date,customer_name')),
       safeQuery(()=>sb.from('expenses').select('amount,expense_date')),
       safeQuery(()=>sb.from('withdrawals').select('amount,date,partner')),
@@ -8185,17 +8185,15 @@ async function delInvoice(id){
     });
     console.log('[delInvoice] STEP 2b snapshot stored in audit_logs');
 
-    // STEP 3 — hard delete invoice_lines
-    if(Array.isArray(linesSnap) && linesSnap.length > 0){
-      const{data:deletedLines, error:lErr}=await sb.from('invoice_lines')
-        .delete()
-        .eq('invoice_id', id)
-        .select();
-      console.log('[delInvoice] STEP 3 invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', lErr);
-      if(lErr){
-        console.error('[delInvoice] فشل حذف invoice_lines:', lErr.code, lErr.message);
-        throw lErr;
-      }
+    // STEP 3 — hard delete invoice_lines (always — works even if 0 rows)
+    const{data:deletedLines, error:lErr}=await sb.from('invoice_lines')
+      .delete()
+      .eq('invoice_id', id)
+      .select();
+    console.log('[delInvoice] STEP 3 invoice_lines deleted — rows:', (deletedLines||[]).length, '| error:', lErr);
+    if(lErr){
+      console.error('[delInvoice] فشل حذف invoice_lines:', lErr.code, lErr.message);
+      throw lErr;
     }
 
     // STEP 4 — soft delete invoice
@@ -8218,6 +8216,18 @@ async function delInvoice(id){
       return;
     }
 
+    // STEP 4b — revert linked quotation stage if exists
+    if(invSnap?.quotation_id && typeof invSnap.quotation_id==='string' && invSnap.quotation_id.trim()){
+      const{error:qtErr}=await sb.from('invoices')
+        .update({stage:'draft'})
+        .eq('id',invSnap.quotation_id)
+        .eq('stage','converted')
+        .eq('invoice_type','quotation');
+      if(!qtErr){
+        console.log('[delInvoice] ✅ quotation stage reverted to draft:',invSnap.quotation_id);
+        await _qtAudit('CHANGE_STAGE',{entity_id:invSnap.quotation_id,stage_from:'converted',stage_to:'draft',linkedInvoice:id,note:'revert after invoice delete'});
+      }
+    }
     // 3. invoice_history — fire-and-forget (guard: function might not exist in all versions)
     if(typeof logInvoiceAction === 'function'){
       logInvoiceAction('delete', id, invSnap, null);
@@ -8611,7 +8621,7 @@ function _renderPendingBanner() {
   var ids = Array.isArray(_pendingInvIds) ? _pendingInvIds : [];
   var count = ids.length;
   if (count > 0) {
-    pendingMsgEl.textContent = '⚠️ عندك ' + count + ' فواتير بدون بنود';
+    pendingMsgEl.textContent = '⚠️ عندك ' + count + ' فواتير تفصيلية بدون بنود';
     banner.style.display = 'flex';
   } else {
     banner.style.display = 'none';
@@ -9912,7 +9922,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.2';
+const APP_VERSION = 'v75.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11612,6 +11622,19 @@ async function _refreshAlerts(){
 // 🧠 INTELLIGENCE LAYER v71.0
 // Zero Supabase calls — uses dashboard data only
 // ══════════════════════════════════════════
+// ── Stage normalization helper — single source of truth ──
+function _stageCode(stage){
+  if(!stage) return 'unknown';
+  const s=stage.trim();
+  if(s==='completed'||s.includes('🏁')) return 'completed';
+  if(s==='converted'||s.includes('🔄')) return 'converted';
+  if(s==='approved'||s.includes('✅')) return 'approved';
+  if(s==='sent'||s.includes('📤')) return 'sent';
+  if(s==='rejected'||s.includes('❌')) return 'rejected';
+  if(s==='draft'||s.includes('📋')) return 'draft';
+  return s.toLowerCase();
+}
+
 function buildIntelligenceLayer(data){
   // Destructure all pre-fetched data
   const {
@@ -11631,9 +11654,16 @@ function buildIntelligenceLayer(data){
     // ════════════════════════════════════════
     const alerts = [];
 
-    // Alert: Invoices without lines (use biLines to detect)
-    const invoiceIdsWithLines = new Set(biLines.map(l=>l.invoice_id));
-    const invWithoutLines = invs.filter(i=>!invoiceIdsWithLines.has(i.id) && i.stage && !i.stage.includes('🏁'));
+    // Alert: Invoices without lines — active detailed invoices only
+    const activeInvIds = new Set(invs.map(i=>i.id).filter(Boolean));
+    const invoiceIdsWithLines = new Set(biLines.filter(l=>activeInvIds.has(l.invoice_id)).map(l=>l.invoice_id));
+    const invWithoutLines = invs.filter(i=>
+      i.id &&
+      !invoiceIdsWithLines.has(i.id) &&
+      i.stage && _stageCode(i.stage)!=='completed' &&
+      (i.invoice_type==='detailed'||i.invoice_type===null||i.invoice_type===undefined) &&
+      i.invoice_type!=='quotation'
+    );
     if(invWithoutLines.length > 0){
       alerts.push({
         type:'yellow', icon:'⚠️',
