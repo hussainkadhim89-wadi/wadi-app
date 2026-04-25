@@ -7779,12 +7779,12 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       _qtInlineCalc();
       // عنوان تفاعلي — يتحدث مع رقم الفاتورة
       const fId=document.getElementById('f-id');
-      const modalTitle=document.getElementById('modal-title')||document.querySelector('.panel-title,.modal-title');
+      const modalTitle=document.getElementById('panel-title')||document.getElementById('modal-title');
       if(fId&&modalTitle){
         fId.addEventListener('input',()=>{
           const invNum=fId.value.trim();
           modalTitle.textContent=invNum
-            ?`🔄 تحويل من ${_modalQtId} إلى الفاتورة ${invNum}`
+            ?`🔄 تحويل من ${_modalQtId} إلى ${invNum}`
             :`🔄 تحويل من ${_modalQtId} إلى فاتورة`;
         });
       }
@@ -7822,22 +7822,21 @@ async function saveInvoice(existingId, goToLines=false){
     const simpleSale=invType==='simple'?+_val('f-simple-sale','0')||0:undefined;
     const simpleCost=invType==='simple'?+_val('f-simple-cost','0')||0:undefined;
     const simpleDesc=invType==='simple'?_val('f-simple-desc').trim()||'':undefined;
-    // ── QT ID RESOLUTION — المصدر الأول: _modalQtId (global)، الثاني: hidden input ──
+    // ── QT CONFIRM — إذا من كوتيشن ──
     const _hiddenQtField=document.getElementById('f-quotation-id');
     const _hiddenQtVal=_hiddenQtField?.value?.trim()||'';
     const _qtIdNow=_modalQtId||_hiddenQtVal||null;
-    // ── QT CHECK DEBUG (v74.1) ──
+    // ── QT CHECK DEBUG ──
     console.log('[QT CHECK]',{
       _modalQtId,
       hiddenField: _hiddenQtVal||'(فارغ)',
       _qtIdNow,
       source: _modalQtId?'global_var':(_hiddenQtVal?'hidden_input':'NULL ❌')
     });
-    // ── GUARD: لو وضع التحويل بس _qtIdNow null → بلوك فوري ──
-    if(!existingId&&!_qtIdNow&&_hiddenQtField!==null&&_hiddenQtField?.closest('form,#panel-body,#modal-body')){
-      // hidden field موجود في DOM بس فاضي = bug
+    // ── GUARD: hidden field موجود بس فاضي → بلوك ──
+    if(!existingId&&!_qtIdNow&&_hiddenQtField&&_hiddenQtField.closest('#panel-body,#modal-body')){
       console.error('[QT CHECK] ❌ f-quotation-id موجود بس فاضي — _modalQtId:',_modalQtId);
-      showToast('خطأ: ضاع رقم الكوتيشن — أعد فتح نموذج التحويل','error');
+      showToast('خطأ: ضاع رقم الكوتيشون — أعد فتح نموذج التحويل','error');
       restore();_resetSaving();return;
     }
     if(_qtIdNow&&!existingId){
@@ -7904,17 +7903,23 @@ async function saveInvoice(existingId, goToLines=false){
       :await sb.from('invoices').insert(payload).select().single();
     if(error){showToast('خطأ: '+error.message,'error');restore();return;}
     // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
-    if(!existingId&&_savedData?.id&&_qtIdNow){
+    if(!existingId&&_qtIdNow){
+      const newInvoiceId=_savedData?.id;
+      if(!newInvoiceId){
+        console.error('[LINES DEBUG] ❌ ABORT — _savedData.id فارغ',{_savedData,_qtIdNow});
+        showToast('خطأ: لم يتم الحصول على رقم الفاتورة من قاعدة البيانات','error');
+        restore();_resetSaving();return;
+      }
       const inlineLines=_qtInlineGetLines();
       console.log('[LINES DEBUG]',{
-        invoice_id: _savedData?.id,
+        invoice_id: newInvoiceId,
         qtId: _qtIdNow,
         linesCount: inlineLines.length,
-        lines: inlineLines
+        note: 'invoice_id مأخوذ من DB — ليس من الفورم ولا qtId'
       });
       if(inlineLines.length>0){
         const linesPayload=inlineLines.map(l=>({
-          invoice_id:  _savedData.id,
+          invoice_id:  newInvoiceId,
           customer:    cl?.name||'',
           date:        dateVal,
           description: l.description,
@@ -7923,12 +7928,16 @@ async function saveInvoice(existingId, goToLines=false){
           cost_unit:   l.cost_unit,
           notes:       null,
         }));
-        console.log('[LINES PAYLOAD]', linesPayload);
+        console.log('[LINES PAYLOAD]',linesPayload.map(l=>({invoice_id:l.invoice_id,desc:l.description})));
         const{error:cpErr,data:cpData}=await sb.from('invoice_lines').insert(linesPayload).select();
-        console.log('[LINES INSERT RESULT]',{error:cpErr?.message||null,inserted:cpData?.length||0});
-        if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
+        if(cpErr){
+          console.error('[LINES INSERT ERROR]',{error:cpErr.message,invoice_id:newInvoiceId,qtId:_qtIdNow});
+          showToast('خطأ في حفظ بنود الفاتورة: '+cpErr.message,'error');
+        }else{
+          console.log('[LINES INSERT ✅]',{inserted:cpData?.length||0,invoice_id:newInvoiceId,sample_id:cpData?.[0]?.invoice_id});
+        }
       }
-      await _qtMarkConverted(_qtIdNow,_savedData.id);
+      await _qtMarkConverted(_qtIdNow,newInvoiceId);
     }
     // ── audit trail → logInvoiceAction ──
     if(typeof logInvoiceAction === 'function'){
