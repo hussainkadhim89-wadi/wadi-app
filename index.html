@@ -5113,13 +5113,13 @@ async function renderQuotationDetail(qtId){
             const{icon,text}=_actionLabel(row);
             const dateStr=row.created_at?new Date(row.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
             const timeAgo=row.created_at?_timeAgo(row.created_at):'';
-            return \`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
               <span style="font-size:16px;line-height:1">\${icon}</span>
               <div style="flex:1;min-width:0">
                 <div style="font-size:13px;font-weight:600;color:var(--text1)">\${text}</div>
                 <div style="font-size:11px;color:var(--text3);margin-top:2px">📅 \${dateStr} · منذ \${timeAgo}</div>
               </div>
-            </div>\`;
+            </div>`;
           }).join('');
         })()}
       </div>
