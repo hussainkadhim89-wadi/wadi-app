@@ -7777,14 +7777,15 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       const lines=_modalQtPrefill.lines.length>0?_modalQtPrefill.lines:[{}];
       lines.forEach((l,i)=>tbody.appendChild(_qtInlineBuildRow(i+1,l)));
       _qtInlineCalc();
-      // عنوان تفاعلي — يتحدث مع رقم الفاتورة
+      // عنوان تفاعلي — يتحدث مع رقم الفاتورة (real-time)
       const fId=document.getElementById('f-id');
-      const modalTitle=document.getElementById('modal-title')||document.querySelector('.panel-title,.modal-title');
+      // Desktop → panel-title / Mobile → modal-title
+      const modalTitle=document.getElementById('panel-title')||document.getElementById('modal-title');
       if(fId&&modalTitle){
         fId.addEventListener('input',()=>{
           const invNum=fId.value.trim();
           modalTitle.textContent=invNum
-            ?`🔄 تحويل من ${_modalQtId} إلى الفاتورة ${invNum}`
+            ?`🔄 تحويل من ${_modalQtId} إلى ${invNum}`
             :`🔄 تحويل من ${_modalQtId} إلى فاتورة`;
         });
       }
