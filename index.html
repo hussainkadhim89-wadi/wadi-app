@@ -4531,7 +4531,7 @@ function _qtInlineGetLines(){
     const qty=+row.querySelector('.qt-conv-qty')?.value||1;
     const price=+row.querySelector('.qt-conv-price')?.value||0;
     const cost=+row.querySelector('.qt-conv-cost')?.value||0;
-    console.log(\`[INLINE ROW \${i+1}]\`,{desc,qty,price,cost,willKeep:true});
+    console.log(`[INLINE ROW ${i+1}]`,{desc,qty,price,cost,willKeep:true});
     return {description:desc, qty, unit_price:price, cost_unit:cost};
   });
   // ── لا filter على description — نحتفظ بكل row موجودة ──
