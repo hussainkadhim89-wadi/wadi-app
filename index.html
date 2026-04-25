@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v74.5">
+<meta name="app-version" content="v74.6">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4467,36 +4467,28 @@ async function _qtLoadForConvert(qtId){
 
 async function _qtMarkConverted(qtId,invId){
   try{
-    // ── STEP 1: نقل بنود الكوتيشن من qtId إلى invId ──
+    // STEP 1: نقل بنود الكوتيشن من qtId إلى invId
     const{data:movedLines,error:lErr}=await sb.from('invoice_lines')
       .update({invoice_id:invId})
       .eq('invoice_id',qtId)
       .select();
-    if(lErr){
-      console.error('[QT LINES MOVE ❌]',{error:lErr.message,from:qtId,to:invId});
-    }else{
-      console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});
-    }
-    // ── STEP 2: حساب المجاميع وتحديث sale_amount + cost_amount ──
+    if(lErr){console.error('[QT LINES MOVE ❌]',{error:lErr.message,from:qtId,to:invId});}
+    else{console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});}
+    // STEP 2: حساب المجاميع وتحديث sale_amount + cost_amount
     const lines=movedLines||[];
     if(lines.length>0){
       const saleAmt=lines.reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0);
       const costAmt=lines.reduce((s,l)=>s+(+l.qty||0)*(+l.cost_unit||0),0);
       const desc=lines.map(l=>l.description||'').filter(Boolean).join(' / ');
-      await sb.from('invoices')
-        .update({sale_amount:saleAmt,cost_amount:costAmt,description:desc})
-        .eq('id',invId);
+      await sb.from('invoices').update({sale_amount:saleAmt,cost_amount:costAmt,description:desc}).eq('id',invId);
       console.log('[QT AMOUNTS UPDATE ✅]',{invId,saleAmt,costAmt,desc});
     }
-    // ── STEP 3: تحديث stage الكوتيشن ──
+    // STEP 3: تحديث stage الكوتيشن
     const{data:upd}=await sb.from('invoices')
       .update({stage:'converted'})
       .eq('id',qtId).eq('stage','approved').select();
-    if(!upd||!upd.length){
-      console.warn('[RACE CONDITION]',qtId,invId);
-    }else{
-      await _qtAudit('CONVERT_QUOTATION',{entity_id:qtId,linkedInvoice:invId,createdInvoice:invId,stage_from:'approved',stage_to:'converted'});
-    }
+    if(!upd||!upd.length){console.warn('[RACE CONDITION]',qtId,invId);}
+    else{await _qtAudit('CONVERT_QUOTATION',{entity_id:qtId,linkedInvoice:invId,createdInvoice:invId,stage_from:'approved',stage_to:'converted'});}
   }catch(e){
     console.warn('[QT MARK CONVERTED ERROR]',e.message);
   }
@@ -4878,7 +4870,7 @@ async function saveQuotation(existingId=''){
 
   // Read-only guard
   if(existingId){
-    const{data:chk}=await sb.from('invoices').select('status').eq('id',existingId).single();
+    const{data:chk}=await sb.from('invoices').select('stage').eq('id',existingId).single();
     if(chk?.stage==='converted'){showToast('هذا العرض محوّل ولا يمكن تعديله','warning');return;}
   }
   // Duplicate check
@@ -9756,7 +9748,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v74.5';
+const APP_VERSION = 'v74.6';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
