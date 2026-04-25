@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v74.3">
+<meta name="app-version" content="v74.4">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4467,27 +4467,18 @@ async function _qtLoadForConvert(qtId){
 
 async function _qtMarkConverted(qtId,invId){
   try{
-    // ── STEP 1: نقل البنود من qtId إلى invId ──
-    const{data:movedLines,error:lErr}=await sb.from('invoice_lines')
-      .update({invoice_id:invId})
-      .eq('invoice_id',qtId)
-      .select();
-    if(lErr){
-      console.error('[QT LINES MOVE ❌]',{error:lErr.message,from:qtId,to:invId});
-    }else{
-      console.log('[QT LINES MOVE ✅]',{moved:movedLines?.length||0,from:qtId,to:invId});
-    }
-    // ── STEP 2: تحديث stage الكوتيشن ──
     const{data:upd}=await sb.from('invoices')
       .update({stage:'converted'})
       .eq('id',qtId).eq('stage','approved').select();
     if(!upd||!upd.length){
+      showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
       console.warn('[RACE CONDITION]',qtId,invId);
     } else {
       await _qtAudit('CONVERT_QUOTATION',{entity_id:qtId,linkedInvoice:invId,createdInvoice:invId,stage_from:'approved',stage_to:'converted'});
     }
   }catch(e){
     console.warn('[QT MARK CONVERTED ERROR]',e.message);
+    showToast('تم إنشاء الفاتورة لكن لم يتم ربطها بالكوتيشن','warning');
   }
 }
 
@@ -5450,7 +5441,7 @@ async function loadPrint(){
   const rec=recRes.data;
 
   // حساب المبالغ
-  const isDetailed=inv.invoice_type==='detailed'&&lines.length>0;
+  const isDetailed=inv.invoice_type==='detailed';
   const subtotal=isDetailed?lines.reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0):(+inv.sale_amount||0);
 
   // استخراج بيانات PO من next_action أو description
@@ -9745,7 +9736,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v74.3';
+const APP_VERSION = 'v74.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
