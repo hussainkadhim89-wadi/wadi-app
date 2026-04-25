@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.0">
+<meta name="app-version" content="v75.2">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4726,19 +4726,26 @@ async function renderQuotations(page=0,search='',filterStatus=''){
       ${chips}
       ${filterStatus||search?`<button class="filter-chip" onclick="renderQuotations()" style="color:var(--red)">↺ مسح</button>`:''}
     </div>
+    <div id="qt-bulk-bar" style="display:none;background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="qt-bulk-count" style="font-size:13px;font-weight:700;color:#dc2626"></span>
+      <button class="btn btn-danger btn-sm" onclick="_qtBulkDelete()">🗑 حذف المحدد</button>
+      <button class="btn btn-secondary btn-sm" onclick="_qtClearSelection()">إلغاء</button>
+    </div>
     <div class="table-wrap">
     <div class="table-header"><div class="table-title">📝 عروض الأسعار</div><div class="table-count">${count||0} عرض</div></div>
     <table class="data-table"><thead><tr>
+      <th style="width:36px;text-align:center"><input type="checkbox" id="qt-select-all" onchange="_qtToggleAll(this.checked)" title="تحديد الكل"></th>
       <th>رقم العرض</th><th>العميل</th><th>التاريخ</th><th>الحالة</th><th>المبلغ</th><th>إجراءات</th>
     </tr></thead><tbody>`;
 
     if(!rows||!rows.length){
-      html+=`<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">لا توجد عروض حالياً — <button class="btn btn-primary btn-sm" onclick="showPage('quotation_new')">أنشئ أول عرض</button></td></tr>`;
+      html+=`<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">لا توجد عروض حالياً — <button class="btn btn-primary btn-sm" onclick="showPage('quotation_new')">أنشئ أول عرض</button></td></tr>`;
     } else {
       rows.forEach(r=>{
         const linkedInvId=linkedMap[r.id]||null;
         const isConverted=!!linkedInvId;
         html+=`<tr>
+          <td style="text-align:center"><input type="checkbox" class="qt-row-cb" value="${r.id}" onchange="_qtOnRowCheck()" ${isConverted?'disabled title="محوّل — لا يمكن حذفه"':''}></td>
           <td><span style="font-family:monospace;font-weight:700;color:var(--accent);cursor:pointer" onclick="showPage('quotation_detail','${r.id}')">${r.id}</span></td>
           <td>${r.customer_name||'—'}</td>
           <td>${fmtD(r.date)}</td>
@@ -4945,7 +4952,23 @@ async function saveQuotation(existingId=''){
   };
 
   try{
+    let changeDetails=[];
     if(existingId){
+      // ── جلب القيم القديمة للمقارنة ──
+      const{data:oldQt}=await sb.from('invoices').select('customer_id,sale_amount,cost_amount').eq('id',existingId).single();
+      const{data:oldLines}=await sb.from('invoice_lines').select('qty,unit_price').eq('invoice_id',existingId).order('id');
+      // مقارنة التغييرات
+      if(oldQt){
+        if(oldQt.customer_id!==payload.customer_id) changeDetails.push('customer');
+        const oldSale=+oldQt.sale_amount||0;const newSale=+payload.sale_amount||0;
+        if(Math.abs(oldSale-newSale)>0.01) changeDetails.push('price');
+        if(oldLines&&oldLines.length>0){
+          const oldTotalQty=oldLines.reduce((s,l)=>s+(+l.qty||0),0);
+          const newTotalQty=lines.reduce((s,l)=>s+(+l.qty||0),0);
+          if(Math.abs(oldTotalQty-newTotalQty)>0.001) changeDetails.push('qty');
+          if(oldLines.length!==lines.length) changeDetails.push('items');
+        }
+      }
       const{error}=await sb.from('invoices').update(payload).eq('id',existingId);
       if(error) throw error;
       await sb.from('invoice_lines').delete().eq('invoice_id',existingId);
@@ -4957,7 +4980,7 @@ async function saveQuotation(existingId=''){
       ...l, invoice_id:id, customer:cl?.name||'', date:dateVal,
     })));
     if(lErr) throw lErr;
-    await _qtAudit(existingId?'UPDATE_QUOTATION':'CREATE_QUOTATION',{entity_id:id,stage_from:null,stage_to:payload.stage||null});
+    await _qtAudit(existingId?'UPDATE_QUOTATION':'CREATE_QUOTATION',{entity_id:id,stage_from:null,stage_to:payload.stage||null,changes:changeDetails});
     showToast(existingId?'تم تحديث العرض ✅':'تم حفظ العرض ✅','success');
     showPage('quotation_detail',id);
   }catch(e){handleError(e,'خطأ في حفظ العرض');}
@@ -5088,7 +5111,12 @@ async function renderQuotationDetail(qtId){
             let d={};
             try{d=typeof row.details==='string'?JSON.parse(row.details||'{}'):(row.details||{});}catch(_){d={};}
             if(aType==='CREATE_QUOTATION') return{icon:'🟢',text:'تم إنشاء الكوتيشون'};
-            if(aType==='UPDATE_QUOTATION') return{icon:'✏️',text:'تم تعديل الكوتيشون'};
+            if(aType==='UPDATE_QUOTATION'){
+              const ch=Array.isArray(d.changes)?d.changes:[];
+              const labelMap={customer:'العميل',price:'السعر',qty:'الكمية',items:'الأصناف'};
+              const detail=ch.length?ch.map(k=>labelMap[k]||k).join(' + '):'';
+              return{icon:'✏️',text:detail?`تم تعديل الكوتيشون — ${detail}`:'تم تعديل الكوتيشون'};
+            }
             if(aType==='DELETE_QUOTATION') return{icon:'🗑️',text:'تم حذف الكوتيشون'};
             if(aType==='CHANGE_STAGE'){
               const sf=(d.stage_from!=null&&d.stage_from!=='null'&&d.stage_from!=='')?String(d.stage_from):'';
@@ -5098,9 +5126,10 @@ async function renderQuotationDetail(qtId){
             }
             if(aType==='CONVERT_QUOTATION'){
               const inv=(d.createdInvoice&&String(d.createdInvoice).trim())||'';
+              const invLink=inv?`<span style="color:#7c3aed;cursor:pointer;text-decoration:underline;font-weight:700" onclick="openInvoiceDirect('${inv}')">${inv}</span>`:'';
               return inv
-                ?{icon:'💜',text:'تم التحويل إلى فاتورة '+inv}
-                :{icon:'💜',text:'تم تحويل الكوتيشون'};
+                ?{icon:'💜',text:`تم التحويل إلى فاتورة ${invLink}`,isHTML:true}
+                :{icon:'💜',text:'تم تحويل الكوتيشون',isHTML:false};
             }
             return{icon:'📋',text:'حدث غير معروف'};
           };
@@ -5110,17 +5139,24 @@ async function renderQuotationDetail(qtId){
             if(d>0) return d+'د';if(h>0) return h+'س';if(m>0) return m+'ق';return 'الآن';
           };
           return logs.map(row=>{
-            const{icon,text}=_actionLabel(row);
+            const{icon,text,isHTML=false}=_actionLabel(row);
             const dateStr=row.created_at?new Date(row.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
             const timeAgo=row.created_at?_timeAgo(row.created_at):'';
             return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
               <span style="font-size:16px;line-height:1">${icon}</span>
               <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;color:var(--text1)">${text}</div>
+                <div style="font-size:13px;font-weight:600;color:var(--text1)" data-html="${isHTML}">${text}</div>
                 <div style="font-size:11px;color:var(--text3);margin-top:2px">📅 ${dateStr} · منذ ${timeAgo}</div>
               </div>
             </div>`;
           }).join('');
+          // تفعيل الروابط القابلة للنقر في audit
+          setTimeout(()=>{
+            document.querySelectorAll('[data-html="true"]').forEach(el=>{
+              const raw=el.getAttribute('data-html');if(raw!=='true') return;
+              el.innerHTML=el.textContent; el.removeAttribute('data-html');
+            });
+          },0);
         })()}
       </div>
 
@@ -5173,6 +5209,66 @@ async function _qtDelete(qtId){
   await _qtAudit('DELETE_QUOTATION',{entity_id:qtId,linkedInvoice:inv?.id||null,wasLinked:!!inv,stage_from:qtCheck?.stage||null,stage_to:null});
   showToast('تم حذف الكوتيشن','success');
   showPage('quotations');
+}
+
+// ── Bulk Select Helpers ──
+function _qtOnRowCheck(){
+  const cbs=[...document.querySelectorAll('.qt-row-cb:not(:disabled)')];
+  const checked=cbs.filter(c=>c.checked);
+  const bar=document.getElementById('qt-bulk-bar');
+  const countEl=document.getElementById('qt-bulk-count');
+  const selAll=document.getElementById('qt-select-all');
+  if(bar){bar.style.display=checked.length>0?'flex':'none';}
+  if(countEl){countEl.textContent='محدد: '+checked.length+' كوتيشن';}
+  if(selAll){selAll.checked=checked.length>0&&checked.length===cbs.length;selAll.indeterminate=checked.length>0&&checked.length<cbs.length;}
+}
+function _qtToggleAll(val){
+  document.querySelectorAll('.qt-row-cb:not(:disabled)').forEach(cb=>{cb.checked=val;});
+  _qtOnRowCheck();
+}
+function _qtClearSelection(){
+  document.querySelectorAll('.qt-row-cb').forEach(cb=>{cb.checked=false;});
+  const selAll=document.getElementById('qt-select-all');
+  if(selAll){selAll.checked=false;selAll.indeterminate=false;}
+  const bar=document.getElementById('qt-bulk-bar');
+  if(bar){bar.style.display='none';}
+}
+async function _qtBulkDelete(){
+  const selected=[...document.querySelectorAll('.qt-row-cb:checked:not(:disabled)')].map(cb=>cb.value);
+  if(!selected.length){showToast('لم تحدد أي كوتيشن','warning');return;}
+  if(!window.currentUser?.role==='admin'){showToast('لا تملك صلاحية الحذف','error');return;}
+  // تأكيد
+  const ok=await _showConfirmDialog(
+    '⚠️ تأكيد الحذف',
+    `هل أنت متأكد من حذف <b>${selected.length}</b> كوتيشن؟<br>لا يمكن التراجع عن هذه العملية`
+  );
+  if(!ok) return;
+  let deleted=0;
+  const skippedDetails=[];
+  for(const qtId of selected){
+    try{
+      const{data:inv}=await sb.from('invoices').select('id').eq('quotation_id',qtId).limit(1).maybeSingle();
+      if(inv){skippedDetails.push({qtId,invId:inv.id});continue;}
+      await sb.from('invoice_lines').delete().eq('invoice_id',qtId);
+      const{error}=await sb.from('invoices').update({is_deleted:true}).eq('id',qtId);
+      if(error){skippedDetails.push({qtId,invId:null});continue;}
+      await _qtAudit('DELETE_QUOTATION',{entity_id:qtId,linkedInvoice:null,wasLinked:false,stage_from:null,stage_to:null});
+      deleted++;
+    }catch(e){skippedDetails.push({qtId,invId:null});}
+  }
+  if(deleted>0) showToast(`تم حذف ${deleted} كوتيشون بنجاح`,'success');
+  if(skippedDetails.length>0){
+    const skipLines=skippedDetails.map(s=>{
+      const invPart=s.invId?` → <span style="color:#7c3aed;cursor:pointer;font-weight:700;text-decoration:underline" onclick="openInvoiceDirect('${s.invId}')">${s.invId}</span>`:'';
+      return `<div style="padding:3px 0">• <span style="color:var(--accent);cursor:pointer;font-weight:700" onclick="showPage('quotation_detail','${s.qtId}')">${s.qtId}</span>${invPart}</div>`;
+    }).join('');
+    await _showConfirmDialog(
+      `⚠️ لم يتم حذف ${skippedDetails.length} كوتيشون`,
+      `<div style="font-size:13px;margin-bottom:8px">لأنها مرتبطة بفواتير:</div>${skipLines}`,
+      {okText:'حسناً',cancelText:null}
+    );
+  }
+  renderQuotations();
 }
 
 async function printQuotation(qtId,internal=false){
@@ -9816,7 +9912,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.0';
+const APP_VERSION = 'v75.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
