@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v72.7">
+<meta name="app-version" content="v72.8">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -7652,6 +7652,8 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
 }
 
 async function saveInvoice(existingId, goToLines=false){
+  // ── Safe DOM accessor ──
+  function _val(id, fallback=''){const el=document.getElementById(id);return el?el.value:fallback;}
   var _sp = existingId ? 'invoices_edit' : 'invoices_create';
   if(!hasPermission(_sp)) return;
   const id=document.getElementById('f-id').value.trim();
@@ -7667,14 +7669,14 @@ async function saveInvoice(existingId, goToLines=false){
     const invType=document.getElementById('btn-simple')?.classList.contains('active')?'simple':'detailed';
     // لو Simple — validation إضافي
     if(invType==='simple'){
-      const simpleDesc=document.getElementById('f-simple-desc')?.value?.trim();
-      const simpleSale=+document.getElementById('f-simple-sale')?.value||0;
-      if(!simpleDesc){showToast('أدخل وصف البضاعة','warning');document.getElementById('f-simple-desc').focus();restore();return;}
-      if(simpleSale<=0){showToast('أدخل قيمة البيع','warning');document.getElementById('f-simple-sale').focus();restore();return;}
+      const simpleDesc=_val('f-simple-desc').trim();
+      const simpleSale=+_val('f-simple-sale','0')||0;
+      if(!simpleDesc){showToast('أدخل وصف البضاعة','warning');document.getElementById('f-simple-desc')?.focus();restore();return;}
+      if(simpleSale<=0){showToast('أدخل قيمة البيع','warning');document.getElementById('f-simple-sale')?.focus();restore();return;}
     }
-    const simpleSale=invType==='simple'?+document.getElementById('f-simple-sale')?.value||0:undefined;
-    const simpleCost=invType==='simple'?+document.getElementById('f-simple-cost')?.value||0:undefined;
-    const simpleDesc=invType==='simple'?document.getElementById('f-simple-desc')?.value?.trim()||'':undefined;
+    const simpleSale=invType==='simple'?+_val('f-simple-sale','0')||0:undefined;
+    const simpleCost=invType==='simple'?+_val('f-simple-cost','0')||0:undefined;
+    const simpleDesc=invType==='simple'?_val('f-simple-desc').trim()||'':undefined;
     // ── QT CONFIRM — إذا من كوتيشن ──
     const _qtIdNow=(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})();
     if(_qtIdNow&&!existingId){
@@ -7683,10 +7685,14 @@ async function saveInvoice(existingId, goToLines=false){
     }
     const payload={id,date:dateVal,customer_id:clientId,customer_name:cl?.name||'',
       invoice_type:(_qtIdNow?'detailed':invType),
-      stage:(document.getElementById('f-stage')?.value)||'📋 طلب وارد',transport_cost:+document.getElementById('f-transport')?.value||0,
-      gift_expense:+document.getElementById('f-gift').value||0,gift_note:document.getElementById('f-gift-note').value,
-      comm_omar_pct:+document.getElementById('f-omar').value,comm_hussain_pct:+document.getElementById('f-hcomm').value,
-      comm_sini_pct:+document.getElementById('f-sini').value,next_action:document.getElementById('f-next').value,
+      stage:        _val('f-stage','📋 طلب وارد'),
+      transport_cost:+_val('f-transport','0')||0,
+      gift_expense:  +_val('f-gift','0')||0,
+      gift_note:     _val('f-gift-note'),
+      comm_omar_pct: +_val('f-omar','0'),
+      comm_hussain_pct:+_val('f-hcomm','0'),
+      comm_sini_pct: +_val('f-sini','0'),
+      next_action:   _val('f-next'),
       created_date:new Date().toISOString().slice(0,10),
       quotation_id:(()=>{const el=document.getElementById('f-quotation-id');return _modalQtId||(el?el.value.trim():'')||null;})(),
       ...(invType==='simple'&&!_qtIdNow?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
@@ -9562,7 +9568,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v72.7';
+const APP_VERSION = 'v72.8';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
