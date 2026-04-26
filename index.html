@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.9">
+<meta name="app-version" content="v75.9.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3885,7 +3885,7 @@ async function renderDashboard(){
   if(!_biData){
     setLoading('تحليل البيانات...');
     [biLines,biPays,biExpsBI,biWdsBI,biRecsBI]=await Promise.all([
-      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!inner(is_deleted)').eq('invoices.is_deleted',false).then(r=>({...r,data:(r.data||[]).map(({invoices:_,...l})=>l)}))), // server-side JOIN — active invoices only
+      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)').eq('invoices.is_deleted',false).then(r=>({...r,data:(r.data||[]).map(({invoices:_,...l})=>l)}))), // server-side JOIN — active invoices only
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date,customer_name')),
       safeQuery(()=>sb.from('expenses').select('amount,expense_date')),
       safeQuery(()=>sb.from('withdrawals').select('amount,date,partner')),
@@ -5362,7 +5362,7 @@ async function renderLines(page=0,filterInv=''){
   const from=page*PS,to=from+PS-1;
   // server-side JOIN — استبعاد بنود الفواتير المحذوفة
   let q=sb.from('invoice_lines')
-    .select('*,invoices!inner(id,is_deleted)',{count:'exact'})
+    .select('*,invoices!fk_invoice_lines_invoice(id,is_deleted)',{count:'exact'})
     .eq('invoices.is_deleted',false)
     .order('invoice_id')
     .range(from,to);
@@ -8609,7 +8609,7 @@ async function _loadPendingInvoices() {
 
     const { data: lineData, error: lineErr } = await sb
       .from('invoice_lines')
-      .select('invoice_id,invoices!inner(is_deleted)')
+      .select('invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)')
       .eq('invoices.is_deleted', false);
     if (lineErr) throw lineErr;
 
@@ -8982,7 +8982,7 @@ async function _qaDescInputCore(val){
     box.innerHTML=`<div style="padding:10px 14px;font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px"><div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div> جاري البحث...</div>`;
     box.style.display='block';
     const{data:_rawAuto}=await sb.from('invoice_lines')
-      .select('description,unit_price,cost_unit,id,invoice_id,invoices!inner(is_deleted)')
+      .select('description,unit_price,cost_unit,id,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)')
       .eq('invoices.is_deleted',false)
       .ilike('description',`%${val}%`)
       .order('id',{ascending:false})
@@ -9939,7 +9939,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.9';
+const APP_VERSION = 'v75.9.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12148,7 +12148,7 @@ async function suggestLinePrice(val){
   }
   // بحث في قاعدة البيانات — server-side JOIN (active invoices only)
   const{data:_rawCache}=await sb.from('invoice_lines')
-    .select('description,unit_price,unit_cost,invoices!inner(is_deleted)')
+    .select('description,unit_price,unit_cost,invoices!fk_invoice_lines_invoice(is_deleted)')
     .eq('invoices.is_deleted',false)
     .ilike('description',`%${val.trim()}%`)
     .order('id',{ascending:false})
