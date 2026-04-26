@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.0">
+<meta name="app-version" content="v76.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4756,7 +4756,8 @@ async function renderQuotations(page=0,search='',filterStatus=''){
           <td style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm btn-icon" onclick="showPage('quotation_detail','${r.id}')">👁️</button>
             ${isConverted
-              ?`<span style="font-size:11px;color:#6366f1;padding:2px 8px;background:#eef2ff;border-radius:6px;white-space:nowrap">✔ تم التحويل</span>`
+              ?`<span style="font-size:11px;color:#6366f1;padding:2px 8px;background:#eef2ff;border-radius:6px;white-space:nowrap">✔ تم التحويل</span>
+                <button class="btn btn-sm" style="font-size:10px;padding:2px 7px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;cursor:pointer" onclick="_qtUnlink('${r.id}','${linkedInvId||''}')" title="فك ارتباط الكوتيشن بالفاتورة">🔓 فك</button>`
               :`<button class="btn btn-secondary btn-sm btn-icon" onclick="showPage('quotation_new','${r.id}')">✏️</button>`}
             ${!isConverted&&r.stage==='approved'?`<button class="btn btn-primary btn-sm" onclick="convertQuotation('${r.id}')" style="font-size:11px">🔄 تحويل</button>`:''}
           </td>
@@ -5270,6 +5271,53 @@ async function _qtBulkDelete(){
   }
   clearCache();
   renderQuotations();
+}
+
+
+// ── Unlink Quotation from Invoice ──
+async function _qtUnlink(qtId, invId){
+  const invDisplay = invId || 'الفاتورة';
+  const ok = await _showConfirmDialog(
+    '🔓 فك الارتباط',
+    `هل تريد فك ارتباط <b>${qtId}</b> من <b>${invDisplay}</b>؟<br>
+     <small style="color:#6b7280">سيعود الكوتيشن إلى حالة <b>approved</b> ويصبح قابلاً للحذف أو إعادة التحويل</small>`,
+    {okText:'فك الارتباط', okClass:'btn-danger', cancelText:'إلغاء'}
+  );
+  if(!ok) return;
+
+  try{
+    // 1) إعادة stage الكوتيشن إلى approved
+    const{error:e1}=await sb.from('invoices')
+      .update({stage:'approved'})
+      .eq('id', qtId)
+      .eq('stage','converted');
+    if(e1) throw e1;
+
+    // 2) إزالة quotation_id من الفاتورة (لو موجود)
+    if(invId){
+      const{error:e2}=await sb.from('invoices')
+        .update({quotation_id: null})
+        .eq('id', invId)
+        .eq('quotation_id', qtId);
+      if(e2) console.warn('[_qtUnlink] could not clear quotation_id:', e2.message);
+    }
+
+    // 3) audit log
+    await _qtAudit('CHANGE_STAGE',{
+      entity_id: qtId,
+      stage_from: 'converted',
+      stage_to: 'approved',
+      linkedInvoice: invId||null,
+      note: 'unlink — manual'
+    });
+
+    clearCache();
+    showToast(`تم فك ارتباط ${qtId} بنجاح — يمكنك حذفه الآن`,'success');
+    renderQuotations();
+  }catch(e){
+    console.error('[_qtUnlink]', e);
+    showToast('خطأ: '+e.message,'error');
+  }
 }
 
 async function printQuotation(qtId,internal=false){
@@ -9945,7 +9993,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.0';
+const APP_VERSION = 'v76.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
