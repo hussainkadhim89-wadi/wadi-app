@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.4">
+<meta name="app-version" content="v76.5">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -6858,6 +6858,8 @@ async function renderActivity(tab) {
     <div id="logs-tab-content"><div style="text-align:center;padding:40px;color:var(--text3)">⏳ جاري التحميل...</div></div>
   </div>`;
 
+  // timeout صغير للـ DOM يتبنى logs-tab-content أولاً
+  await new Promise(r=>setTimeout(r,0));
   if (tab === 'invoices') await _renderInvoiceHistory();
   else if (tab === 'audit') await _renderAuditLogs();
   else if (tab === 'login') await renderLoginLog(true);
@@ -6983,8 +6985,11 @@ async function renderLoginLog(inTab) {
       return { icon:'💻', label:'متصفح' };
     }
 
-    var pc = document.getElementById('page-content');
-    pc.innerHTML = '';
+    var _targetEl = inTab
+      ? document.getElementById('logs-tab-content')
+      : document.getElementById('page-content');
+    if (!_targetEl) return;
+    _targetEl.innerHTML = '';
 
     var card = document.createElement('div'); card.className = 'table-card';
     var hd = document.createElement('div'); hd.className = 'table-header';
@@ -9537,7 +9542,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.4';
+const APP_VERSION = 'v76.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
