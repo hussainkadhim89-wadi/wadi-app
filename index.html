@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.9.4">
+<meta name="app-version" content="v75.9.5">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -5976,13 +5976,13 @@ async function renderReceivables(filterStatus='',filterCustomer=''){
 // ── AGING ──
 async function renderAging(){
   setLoading();
-  const[recs,pays,activeInvsAging]=await Promise.all([
+  const[rawRecs,pays,activeInvsAging]=await Promise.all([
     safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,total_amount,due_date')),
     safeQuery(()=>sb.from('payments').select('invoice_id,amount')),
     safeQuery(()=>sb.from('invoices').select('id').eq('is_deleted',false).neq('invoice_type','quotation')),
   ]);
   const _activeAgingSet=new Set((activeInvsAging||[]).map(i=>i.id));
-  const recs=(recs||[]).filter(r=>_activeAgingSet.has(r.invoice_id));
+  const recs=(rawRecs||[]).filter(r=>_activeAgingSet.has(r.invoice_id));
   const paidMap={};
   pays.forEach(p=>{paidMap[p.invoice_id]=(paidMap[p.invoice_id]||0)+(+p.amount||0);});
   const rows=recs.map(r=>{
@@ -9947,7 +9947,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.9.4';
+const APP_VERSION = 'v75.9.5';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
