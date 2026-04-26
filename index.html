@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.9.6">
+<meta name="app-version" content="v76.0">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -2879,7 +2879,7 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
 // الاستخدام: activeInvoices(sb.from('invoices').select('...'))
 // ════════════════════════════════════════
 function activeInvoices(q) {
-  return q.eq('is_deleted', false);
+  return q.eq('is_deleted', false).neq('invoice_type','quotation');
 }
 // View-level alias — للتوضيح
 // CREATE VIEW active_invoices AS SELECT * FROM invoices WHERE is_deleted = false;
@@ -3872,10 +3872,10 @@ async function renderDashboard(){
   setLoading('جاري تحميل البيانات...');
   try{
   // ── v73: Data Fetching (unchanged queries) ──
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name,invoice_type,quotation_id').eq('is_deleted',false));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name,invoice_type,quotation_id').eq('is_deleted',false).neq('invoice_type','quotation'));
   setLoading('الذمم...');
   const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
-  const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').eq('is_deleted',false).order('date',{ascending:false}).limit(6));
+  const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(6));
   const nowKey=new Date().toISOString().slice(0,7);
   const prevDate=new Date();prevDate.setMonth(prevDate.getMonth()-1);
   const prevKey=prevDate.toISOString().slice(0,7);
@@ -5373,7 +5373,7 @@ async function renderLines(page=0,filterInv=''){
   const rows=data||[];
 
   // جلب قائمة الفواتير للـ Quick Add
-  const{data:invList}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false}).limit(100);
+  const{data:invList}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(100);
 
   document.getElementById('page-content').innerHTML=`
   <div class="filter-bar">
@@ -5565,7 +5565,7 @@ const _WADI_FOOTER='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABLwAAADOCAIAAA
 async function _buildInvoiceA4(id){
   if(!id) return;
   // نبني نفس هيكل renderPrint لكن نضع id محدداً في الـ selector
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').eq('is_deleted',false).order('date',{ascending:false}));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}));
   document.getElementById('page-content').innerHTML=`
   <div class="table-card" style="max-width:640px">
     <div class="table-header"><div class="table-title">🖨️ طباعة فاتورة — Wadi Style</div></div>
@@ -6212,8 +6212,7 @@ async function renderCapital(){
 async function renderProfit(){
   setLoading();
   const[invs,exps,wds]=await Promise.all([
-    safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),
-    safeQuery(()=>sb.from('expenses').select('amount,paid_by')),
+    safeQuery(()=>sb.from('invoices').select('sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),.neq('invoice_type','quotation')  safeQuery(()=>sb.from('expenses').select('amount,paid_by')),
     safeQuery(()=>sb.from('withdrawals').select('amount,partner')),
   ]);
   const totalSales=invs.reduce((s,i)=>s+(+i.sale_amount||0),0);
@@ -6253,7 +6252,7 @@ async function renderProfit(){
 async function renderCashflow(){
   setLoading();
   const[invs,exps]=await Promise.all([
-    safeQuery(()=>sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),
+    safeQuery(()=>sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false).neq('invoice_type','quotation')),
     safeQuery(()=>sb.from('expenses').select('expense_date,amount,invoice_id')),
   ]);
   // بناء map للفواتير لجلب تاريخها
@@ -6515,7 +6514,7 @@ async function renderClientsWithRisk(search=''){
   setTimeout(async()=>{
     // نجيب بيانات بسيطة لحساب الـ ranking
     const[cInvs,cPays,cRecs]=await Promise.all([
-      safeQuery(()=>sb.from('invoices').select('customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false)),
+      safeQuery(()=>sb.from('invoices').select('customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('is_deleted',false).neq('invoice_type','quotation')),
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,customer_name')),
       safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,total_amount,due_date')),
     ]);
@@ -6550,7 +6549,7 @@ async function renderClientsWithRisk(search=''){
 async function renderReports(dateFrom='',dateTo='',filterType=''){
   setLoading();
   const[allInvs,exps,pays,recs]=await Promise.all([
-    safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,date,stage,invoice_type,description').eq('is_deleted',false)),
+    safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,date,stage,invoice_type,description').eq('is_deleted',false).neq('invoice_type','quotation')),
     safeQuery(()=>sb.from('expenses').select('amount,expense_type,paid_by')),
     safeQuery(()=>sb.from('payments').select('invoice_id,amount')),
     safeQuery(()=>sb.from('receivables').select('invoice_id,total_amount')),
@@ -8697,7 +8696,7 @@ async function _autoFillLineDate(invId){
 
 async function openLineModal(lineId=null,preselectedInvId=null){
   if(!hasPermission('invoices_edit')) return;
-  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false});
+  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false});
   let line={};
   if(lineId){const{data}=await sb.from('invoice_lines').select('*').eq('id',lineId).single();line=data||{};}
   // أولوية: preselected → آخر مستخدم → من البند نفسه
@@ -9347,7 +9346,7 @@ async function openPaymentModal(invId=null){
   if(!hasPermission('payments')) return;
   const[{data:recs},{data:allInvs},{data:pays}]=await Promise.all([
     sb.from('receivables').select('invoice_id,customer_name,total_amount').order('invoice_id'),
-    sb.from('invoices').select('id,customer_name,sale_amount').eq('is_deleted',false).order('date',{ascending:false}),
+    sb.from('invoices').select('id,customer_name,sale_amount').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}),
     sb.from('payments').select('invoice_id,amount'),
   ]);
   const recMap={};(recs||[]).forEach(r=>{recMap[r.invoice_id]=r;});
@@ -9498,7 +9497,7 @@ function useCredit(amount){
 // Expense Modal
 async function openExpenseModal(){
   if(!hasPermission('expenses')) return;
-  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false});
+  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false});
   openModal('💸 مصروف جديد',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم الفاتورة</label>
@@ -9665,7 +9664,7 @@ async function saveClient(existingId){
 async function showClientStatement(clientId, clientName){
   // جلب كل الفواتير والذمم والمدفوعات للعميل
   const[{data:invs},{data:recs},{data:pays}]=await Promise.all([
-    sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).order('date'),
+    sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).neq('invoice_type','quotation').neq('invoice_type','quotation').order('date'),
     sb.from('receivables').select('invoice_id,invoice_date,total_amount,due_date').eq('customer_name',clientName).order('invoice_date'),
     sb.from('payments').select('invoice_id,amount,payment_date,notes').eq('customer_name',clientName).order('payment_date'),
   ]);
@@ -9774,7 +9773,7 @@ async function openEditExpense(id){
   if(!hasPermission('expenses')) return;
   const{data:r}=await sb.from('expenses').select('*').eq('id',id).single();
   if(!r) return;
-  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).order('date',{ascending:false});
+  const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false});
   openModal('✏️ تعديل مصروف',`
     <div class="form-grid form-grid-2">
       <div class="form-group"><label class="form-label">رقم الفاتورة</label>
@@ -9946,7 +9945,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.9.6';
+const APP_VERSION = 'v76.0';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -10994,7 +10993,7 @@ async function openClientInPanel(clientId, clientName, level=2){
   try{
     const[{data:cl},{data:invs},{data:pays}]=await Promise.all([
       sb.from('clients').select('*').eq('id',clientId).maybeSingle(),
-      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascending:false}).limit(5),
+      sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(5),
       sb.from('payments').select('amount,payment_date').eq('customer_name',clientName).order('payment_date',{ascending:false}).limit(5),
     ]);
     const client=cl||{name:clientName,id:clientId};
@@ -11934,7 +11933,7 @@ async function loadClientSuggestions(clientId){
 
   // جلب كل البيانات بطلب واحد
   const[invRes,recRes,payRes]=await Promise.all([
-    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascending:false}).limit(5),
+    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascen.neq('invoice_type','quotation')ding:false}).limit(5),
     sb.from('receivables').select('invoice_id,due_date,total_amount').eq('customer_name',cl.name),
     sb.from('payments').select('invoice_id,payment_date').eq('customer_name',cl.name),
   ]);
@@ -12471,7 +12470,7 @@ async function archiveInvoice(id){
 // إضافة قسم الأرشيف مدمج في renderSettings مباشرة ✅
 
 async function showArchivedInvoices(){
-  const rows=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount').eq('is_deleted',false).eq('stage','🗄️ مؤرشفة').order('date',{ascending:false}));
+  const rows=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount').eq('is_deleted',false).eq('stage','🗄️ مؤرشفة').neq('invoice_type','quotation').order('date',{ascending:false}));
   openModal('🗄️ الفواتير المؤرشفة',
     rows.length===0?'<div class="notif-empty">لا توجد فواتير مؤرشفة</div>':
     `<div class="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>التاريخ</th><th>المبلغ</th><th>إجراء</th></tr></thead><tbody>
@@ -12659,7 +12658,7 @@ async function openGSearch(){
   _showQuickActions();
   if(!_gsearchLoaded){
     const[invs,clients,pays]=await Promise.all([
-      safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').eq('is_deleted',false).order('date',{ascending:false})),
+      safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false})),
       safeQuery(()=>sb.from('clients').select('id,name,address')),
       safeQuery(()=>sb.from('payments').select('invoice_id,customer_name,amount,payment_date').order('payment_date',{ascending:false}).limit(200)),
     ]);
