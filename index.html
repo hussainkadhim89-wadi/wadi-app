@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.20">
+<meta name="app-version" content="v76.21">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4282,6 +4282,21 @@ body.dark .pd-ins-item.good{background:rgba(22,163,74,.1);border-color:rgba(22,1
 body.dark .pd-ins-item.warning{background:rgba(234,88,12,.1);border-color:rgba(234,88,12,.25);}
 body.dark .pd-ins-item.critical{background:rgba(220,38,38,.1);border-color:rgba(220,38,38,.25);}
 body.dark .pd-ins-item.info{background:rgba(37,99,235,.1);border-color:rgba(37,99,235,.2);}
+/* v76.21 — Insight Actions */
+.pd-ins-action{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 10px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 140ms ease;white-space:nowrap;flex-shrink:0;}
+.pd-ins-action.critical{background:#fef2f2;color:#9b1c1c;border:1px solid #fca5a5;}
+.pd-ins-action.critical:hover{background:#fee2e2;transform:translateY(-1px);}
+.pd-ins-action.warning{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.pd-ins-action.warning:hover{background:#ffedd5;transform:translateY(-1px);}
+.pd-ins-action.good{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+.pd-ins-action.good:hover{background:#dcfce7;transform:translateY(-1px);}
+.pd-ins-action.info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+.pd-ins-action.info:hover{background:#dbeafe;transform:translateY(-1px);}
+.pd-ins-action:active{transform:scale(0.96) !important;}
+body.dark .pd-ins-action.critical{background:rgba(220,38,38,.12);color:#fca5a5;border-color:rgba(220,38,38,.3);}
+body.dark .pd-ins-action.warning{background:rgba(234,88,12,.12);color:#fdba74;border-color:rgba(234,88,12,.3);}
+body.dark .pd-ins-action.good{background:rgba(22,163,74,.12);color:#86efac;border-color:rgba(22,163,74,.3);}
+body.dark .pd-ins-action.info{background:rgba(37,99,235,.12);color:#93c5fd;border-color:rgba(37,99,235,.3);}
 /* v76.19.2 — Scroll Performance */
 .pd-root.is-scrolling .pd-kpi,
 .pd-root.is-scrolling .pd-chart-card,
@@ -4360,20 +4375,54 @@ body.dark .pd-ins-item.info{background:rgba(37,99,235,.1);border-color:rgba(37,9
     var pc=function(a,b){return(b&&b!==0)?((a-b)/b*100):null;};
     var fp=function(v){return v!==null?Math.abs(v).toFixed(1)+'%':null;};
     var sg=function(v){return v>0?'↑':v<0?'↓':'→';};
-    if(yestSales>0){var d=pc(todaySales,yestSales);if(d!==null&&Math.abs(d)>=5){if(d>0)raw.push({l:'good',i:'??',t:'مبيعاتك أعلى من أمس',s:'',b:sg(d)+fp(d),p:1});else raw.push({l:'warning',i:'??',t:'مبيعات اليوم أقل من أمس',s:'',b:sg(d)+fp(d),p:2});}}else if(todaySales>0)raw.push({l:'good',i:'✨',t:'أول مبيعات اليوم',s:'',b:null,p:3});
-    var md=pc(thisM.s,prevM.s);if(md!==null&&Math.abs(md)>=8){if(md>0)raw.push({l:'good',i:'??',t:'مبيعات هذا الشهر أعلى من السابق',s:'نمو جيد',b:sg(md)+fp(md),p:3});else raw.push({l:'warning',i:'??',t:'تراجع في مبيعات هذا الشهر',s:'راجع الفواتير',b:sg(md)+fp(md),p:2});}
-    if(profitMargin<0)raw.push({l:'critical',i:'??',t:'الأرباح سالبة',s:'التكاليف تتجاوز المبيعات',b:profitMargin.toFixed(1)+'%',p:0});else if(profitMargin<8&&profitMargin>0)raw.push({l:'warning',i:'??',t:'هامش ربح منخفض',s:'راجع التسعير',b:profitMargin.toFixed(1)+'%',p:1});else if(profitMargin>=20)raw.push({l:'good',i:'??',t:'هامش ربح ممتاز',s:'',b:profitMargin.toFixed(1)+'%',p:4});
-    if(overdue>0)raw.push({l:'critical',i:'⏰',t:overdue+' فاتورة تجاوزت تاريخ الاستحقاق',s:'تواصل مع العملاء',b:null,p:0});
-    if(collectionRate<60&&totalRem>0)raw.push({l:'warning',i:'??',t:'نسبة تحصيل منخفضة',s:'اتخذ إجراءات',b:collectionRate.toFixed(1)+'%',p:1});else if(collectionRate>=90)raw.push({l:'good',i:'??',t:'نسبة تحصيل عالية',s:'',b:collectionRate.toFixed(1)+'%',p:4});
-    if(top5.length>0){var tc=top5[0];var sh=totalSales>0?(tc.revenue/totalSales*100):0;if(sh>40)raw.push({l:'info',i:'??',t:tc.name+' — '+sh.toFixed(0)+'% من المبيعات',s:'نوّع قاعدة العملاء',b:null,p:3});else raw.push({l:'info',i:'??',t:'أفضل عميل: '+tc.name,s:'',b:fmtM(tc.revenue),p:5});}
-    var er=totalSales>0?(totalExp/totalSales*100):0;if(er>35)raw.push({l:'warning',i:'??',t:'مصروفات مرتفعة — '+er.toFixed(0)+'%',s:'راجع بنود المصروفات',b:null,p:2});
-    if(todayCount===0)raw.push({l:'info',i:'??',t:'لا توجد فواتير اليوم',s:'هل هناك نشاط؟',b:null,p:5});
+    // v76.21 — insights with actionable buttons (max 3 action btns)
+    if(yestSales>0){
+      var d=pc(todaySales,yestSales);
+      if(d!==null&&Math.abs(d)>=5){
+        if(d>0) raw.push({l:'good',i:'??',t:'مبيعاتك أعلى من أمس',s:'',b:sg(d)+fp(d),p:1,a:null});
+        else    raw.push({l:'warning',i:'??',t:'مبيعات اليوم أقل من أمس',s:'',b:sg(d)+fp(d),p:2,a:{lbl:'➕ فاتورة',fn:'openInvoiceModal()'}});
+      }
+    } else if(todaySales>0) raw.push({l:'good',i:'✨',t:'أول مبيعات اليوم',s:'',b:null,p:3,a:null});
+    var md=pc(thisM.s,prevM.s);
+    if(md!==null&&Math.abs(md)>=8){
+      if(md>0) raw.push({l:'good',i:'??',t:'مبيعات هذا الشهر أعلى من السابق',s:'نمو جيد',b:sg(md)+fp(md),p:3,a:{lbl:'?? التقارير',fn:"showPage('reports')"} });
+      else     raw.push({l:'warning',i:'??',t:'تراجع في مبيعات هذا الشهر',s:'راجع الفواتير المعلقة',b:sg(md)+fp(md),p:2,a:{lbl:'عرض الفواتير',fn:"showPage('invoices')"} });
+    }
+    if(profitMargin<0)         raw.push({l:'critical',i:'??',t:'الأرباح سالبة',s:'التكاليف تتجاوز المبيعات',b:profitMargin.toFixed(1)+'%',p:0,a:{lbl:'?? تحليل الربحية',fn:"showPage('reports')"}});
+    else if(profitMargin<8&&profitMargin>0) raw.push({l:'warning',i:'??',t:'هامش ربح منخفض',s:'راجع التسعير',b:profitMargin.toFixed(1)+'%',p:1,a:{lbl:'?? التقارير',fn:"showPage('reports')"}});
+    else if(profitMargin>=20)  raw.push({l:'good',i:'??',t:'هامش ربح ممتاز',s:'',b:profitMargin.toFixed(1)+'%',p:4,a:null});
+    if(overdue>0) raw.push({l:'critical',i:'⏰',t:overdue+' فاتورة تجاوزت تاريخ الاستحقاق',s:'تواصل مع العملاء',b:null,p:0,a:{lbl:'عرض الذمم',fn:"showPage('receivables')"}});
+    if(collectionRate<60&&totalRem>0) raw.push({l:'warning',i:'??',t:'نسبة تحصيل منخفضة',s:'اتخذ إجراءات',b:collectionRate.toFixed(1)+'%',p:1,a:{lbl:'متابعة الذمم',fn:"showPage('receivables')"}});
+    else if(collectionRate>=90) raw.push({l:'good',i:'??',t:'نسبة تحصيل عالية',s:'',b:collectionRate.toFixed(1)+'%',p:4,a:null});
+    if(top5.length>0){
+      var tc=top5[0];var sh=totalSales>0?(tc.revenue/totalSales*100):0;
+      if(sh>40) raw.push({l:'info',i:'??',t:tc.name+' — '+sh.toFixed(0)+'% من المبيعات',s:'نوّع قاعدة العملاء',b:null,p:3,a:{lbl:'?? العملاء',fn:"showPage('clients')"}});
+      else      raw.push({l:'info',i:'??',t:'أفضل عميل: '+tc.name,s:'',b:fmtM(tc.revenue),p:5,a:null});
+    }
+    var er=totalSales>0?(totalExp/totalSales*100):0;
+    if(er>35) raw.push({l:'warning',i:'??',t:'مصروفات مرتفعة — '+er.toFixed(0)+'%',s:'راجع بنود المصروفات',b:null,p:2,a:{lbl:'المصروفات',fn:"showPage('expenses')"}});
+    if(todayCount===0) raw.push({l:'info',i:'??',t:'لا توجد فواتير اليوم',s:'هل هناك نشاط؟',b:null,p:5,a:{lbl:'➕ فاتورة جديدة',fn:'openInvoiceModal()'}});
     var sw={critical:0,warning:1,good:2,info:3};
     raw.sort(function(a,b){return a.p!==b.p?a.p-b.p:(sw[a.l]||3)-(sw[b.l]||3);});
     var ins=raw.slice(0,5);
     if(!ins.length) return;
+    var actCount=0;
     var box=document.createElement('div');box.className='pd-insights';
-    ins.forEach(function(x,i){var el=document.createElement('div');el.className='pd-ins-item '+x.l;el.style.animation='wow-section-in 280ms var(--ease-smooth) both';el.style.animationDelay=(i*55)+'ms';el.innerHTML='<div class="pd-ins-icon">'+x.i+'</div><div class="pd-ins-body"><div class="pd-ins-text">'+x.t+'</div>'+(x.s?'<div class="pd-ins-sub">'+x.s+'</div>':'')+'</div>'+(x.b?'<span class="pd-ins-badge '+x.l+'">'+x.b+'</span>':'');box.appendChild(el);});
+    ins.forEach(function(x,i){
+      var el=document.createElement('div');el.className='pd-ins-item '+x.l;
+      el.style.animation='wow-section-in 280ms var(--ease-smooth) both';
+      el.style.animationDelay=(i*55)+'ms';
+      var showAct=x.a&&actCount<3;
+      if(showAct) actCount++;
+      el.innerHTML='<div class="pd-ins-icon">'+x.i+'</div>'
+        +'<div class="pd-ins-body">'
+        +'<div class="pd-ins-text">'+x.t+'</div>'
+        +(x.s?'<div class="pd-ins-sub">'+x.s+'</div>':'')
+        +(showAct?'<button class="pd-ins-action '+x.l+'" onclick="'+x.a.fn+';event.stopPropagation()">'+x.a.lbl+'</button>':'')
+        +'</div>'
+        +(x.b?'<span class="pd-ins-badge '+x.l+'">'+x.b+'</span>':'');
+      box.appendChild(el);
+    });
     var ks=root.querySelector('.pd-kpi-strip');if(ks)root.insertBefore(box,ks);else root.appendChild(box);
   })();
 
@@ -10354,7 +10403,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.20';
+const APP_VERSION = 'v76.21';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
