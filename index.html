@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.3">
+<meta name="app-version" content="v76.9.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -2703,8 +2703,7 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
         </div>
         <div class="nav-group-items" id="grp-system">
           <div class="nav-item" id="nav-settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>الإعدادات</div>
-          <div class="nav-item" id="nav-activity" onclick="showPage('activity')"><span class="nav-icon">📊</span>سجل النشاط</div>
-          <div class="nav-item" id="nav-login_log" onclick="showPage('login_log')"><span class="nav-icon">🔐</span>سجل الدخول</div>
+          <div class="nav-item" id="nav-activity" onclick="showLogsPage('activity')"><span class="nav-icon">📋</span>السجلات</div>
           <div class="nav-item" id="nav-admin" onclick="showPage('admin')"><span class="nav-icon">👑</span>لوحة الإدارة</div>
         </div>
       </div>
@@ -3623,7 +3622,7 @@ function _applyNavPermissions() {
     ['nav-clients',        'clients_view'],
     ['nav-reports',        'reports'],
     ['nav-activity',       'admin_panel'],
-    ['nav-login_log',      'admin_panel'],
+
     ['nav-admin',          'admin_panel'],
     ['nav-dashboard',      null],
     ['nav-settings',       null],
@@ -6830,6 +6829,103 @@ function diffObjects(before, after){
   return changes;
 }
 
+// ══════════════════════════════════════════════════════
+// LOGS PAGE WRAPPER — v76.9.1 (UI ONLY)
+// الدوال الأصلية renderActivity و renderLoginLog لم تُعدَّل
+// ══════════════════════════════════════════════════════
+var _logsCurrentTab = 'activity';
+
+async function showLogsPage(tab) {
+  tab = tab || _logsCurrentTab || 'activity';
+  _logsCurrentTab = tab;
+  _currentPage = 'activity'; // للـ nav highlight
+
+  // ── update nav highlight ──
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  var navEl = document.getElementById('nav-activity');
+  if (navEl) navEl.classList.add('active');
+
+  // ── بناء الـ wrapper في page-content ──
+  var pc = document.getElementById('page-content');
+  if (!pc) return;
+
+  var tabs = [
+    { id:'activity', label:'📊 سجل النشاط' },
+    { id:'invoices', label:'📄 سجل الفواتير' },
+    { id:'login',    label:'🔐 سجل الدخول'  },
+  ];
+
+  var tabsHTML = '<div class="logs-tabs">'
+    + tabs.map(function(t){
+        return '<button class="logs-tab-btn' + (tab===t.id?' active':'') + '" '
+          + 'onclick="showLogsPage(\'' + t.id + '\')">' + t.label + '</button>';
+      }).join('')
+    + '</div>';
+
+  pc.innerHTML = '<div style="padding:4px 0">'
+    + '<div class="table-header"><div class="table-title">📋 السجلات</div></div>'
+    + tabsHTML
+    + '<div id="logs-body"></div>'
+    + '</div>';
+
+  // ── استدعاء الدالة الأصلية وتبعيثها في logs-body ──
+  if (tab === 'login') {
+    await _showLoginLogInTab();
+  } else if (tab === 'invoices') {
+    await _showInvoiceHistoryInTab();
+  } else {
+    // activity — يستدعي renderActivity الأصلية
+    // renderActivity تكتب في page-content مباشرة
+    // نحفظ الـ tabs header ثم نستدعيها
+    await renderActivity();
+    // نعيد حقن الـ tabs header في أعلى page-content
+    var current = pc.innerHTML;
+    pc.innerHTML = '<div style="padding:4px 0">'
+      + '<div class="table-header"><div class="table-title">📋 السجلات</div></div>'
+      + tabsHTML
+      + current
+      + '</div>';
+  }
+}
+
+// ── Login Log داخل Tab ──
+async function _showLoginLogInTab() {
+  var body = document.getElementById('logs-body');
+  if (!body) { await renderLoginLog(); return; }
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">⏳ جاري التحميل...</div>';
+  // renderLoginLog تكتب في page-content — نستدعيها ثم ننقل المحتوى
+  var pc = document.getElementById('page-content');
+  var snapshot = pc.innerHTML; // احفظ الـ tabs
+  await renderLoginLog();
+  var loginContent = pc.innerHTML;
+  pc.innerHTML = snapshot; // استعد الـ tabs
+  var b = document.getElementById('logs-body');
+  if (b) b.innerHTML = loginContent;
+}
+
+// ── Invoice History داخل Tab ──
+async function _showInvoiceHistoryInTab() {
+  var body = document.getElementById('logs-body');
+  if (!body) { await renderActivity(); return; }
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">⏳ جاري التحميل...</div>';
+  // renderActivity تكتب كل شيء — نعمل fake filter لنعرض invoice_history فقط
+  // الأسهل: نستدعي renderActivity ونخفي قسم audit_logs
+  var pc = document.getElementById('page-content');
+  var snapshot = pc.innerHTML;
+  await renderActivity();
+  // نجيب فقط الـ hcard (invoice_history) — وهو أول table-card
+  var cards = pc.querySelectorAll('.table-card');
+  var invoiceCard = cards[0]; // invoice_history دائماً أول
+  pc.innerHTML = snapshot;
+  var b = document.getElementById('logs-body');
+  if (b && invoiceCard) {
+    b.appendChild(invoiceCard.cloneNode(true));
+  } else if (b) {
+    b.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">لا توجد سجلات</div>';
+  }
+}
+
+
 async function renderActivity() {
   var _savedFilter = document.getElementById('activityFilter')?.value || 'all';
   var _savedSearch = document.getElementById('activitySearch')?.value || '';
@@ -9994,7 +10090,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.3';
+const APP_VERSION = 'v76.9.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12914,6 +13010,17 @@ body.dark .admin-badge-admin { background:#422006;color:#fcd34d;border-color:#78
 body.dark .admin-badge-user  { background:#1e3a5f;color:#93c5fd;border-color:#1d4ed8; }
 body.dark .perm-row { background:var(--bg2); }
 
+
+/* ── Logs Tabs CSS ── */
+.logs-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:20px; }
+.logs-tab-btn {
+  padding:10px 20px; border:none; background:none; cursor:pointer;
+  font-size:13px; font-weight:600; color:var(--text2);
+  border-bottom:3px solid transparent; margin-bottom:-2px;
+  transition:all .15s; font-family:var(--font);
+}
+.logs-tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.logs-tab-btn:hover:not(.active) { color:var(--text1); background:var(--bg2); }
 </style></head><body>
   <div class="header">
     <div class="logo">⚡ وادي الطاقة للتجارة العامة</div>
