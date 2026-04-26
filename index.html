@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.2">
+<meta name="app-version" content="v76.3">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -9994,7 +9994,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.2';
+const APP_VERSION = 'v76.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11982,7 +11982,7 @@ async function loadClientSuggestions(clientId){
 
   // جلب كل البيانات بطلب واحد
   const[invRes,recRes,payRes]=await Promise.all([
-    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).eq('is_deleted',false).order('date',{ascen.neq('invoice_type','quotation')ding:false}).limit(5),
+    sb.from('invoices').select('id,date,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense').eq('customer_id',clientId).eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(5),
     sb.from('receivables').select('invoice_id,due_date,total_amount').eq('customer_name',cl.name),
     sb.from('payments').select('invoice_id,payment_date').eq('customer_name',cl.name),
   ]);
