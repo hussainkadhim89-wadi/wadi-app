@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.10">
+<meta name="app-version" content="v76.10.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -7066,6 +7066,7 @@ async function renderInvoiceHistory(container) {
   container.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري تحميل سجل الفواتير...</span></div>';
   try {
     var h = await _logsSharedFetch();
+    container.innerHTML = '';
     var { histData, userOptions, _userName, _formatDate, _histLabel, _shouldShow } = h;
 
     // ── Filter bar ──
@@ -7146,7 +7147,7 @@ async function renderInvoiceHistory(container) {
       hcard.appendChild(hlist);
     }
     container.appendChild(hcard);
-  } catch(e) { handleError(e, 'خطأ في تحميل سجل الفواتير'); }
+  } catch(e) { container.innerHTML = ''; handleError(e, 'خطأ في تحميل سجل الفواتير'); }
 }
 
 // ── renderAuditLogs(container) ───────────────────────────────────
@@ -7155,6 +7156,7 @@ async function renderAuditLogs(container) {
   container.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري تحميل سجل النشاط...</span></div>';
   try {
     var h = await _logsSharedFetch();
+    container.innerHTML = '';
     var { auditData, userOptions, _userName, _formatDate, _formatAction } = h;
 
     // ── Filter bar ──
@@ -7275,7 +7277,7 @@ async function renderAuditLogs(container) {
       card.appendChild(list);
     }
     container.appendChild(card);
-  } catch(e) { handleError(e, 'خطأ في تحميل سجل النشاط'); }
+  } catch(e) { container.innerHTML = ''; handleError(e, 'خطأ في تحميل سجل النشاط'); }
 }
 
 // ── renderLoginLog(container) ────────────────────────────────────
@@ -7292,6 +7294,7 @@ async function renderLoginLog(container) {
       .order('created_at', { ascending: false })
       .limit(100);
     if (error) throw error;
+    target.innerHTML = '';
     var rows = data||[];
 
     function _formatDate(ts){
@@ -7350,7 +7353,7 @@ async function renderLoginLog(container) {
       card.appendChild(list);
     }
     target.appendChild(card);
-  } catch(e) { handleError(e, 'خطأ في تحميل سجل الدخول'); }
+  } catch(e) { target.innerHTML = ''; handleError(e, 'خطأ في تحميل سجل الدخول'); }
 }
 
 // ── renderActivity() — backward-compat wrapper ───────────────────
@@ -9929,7 +9932,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.10';
+const APP_VERSION = 'v76.10.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
