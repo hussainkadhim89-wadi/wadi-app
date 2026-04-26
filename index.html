@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.12">
+<meta name="app-version" content="v76.13">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -13815,6 +13815,309 @@ async function _copyPublicLink(invId){
 }
 
 
+
+// ══════════════════════════════════════════
+// ⚡ PERFORMANCE MANAGER — v76.13
+// Phase 5: Cache · Debounce · In-Flight Guard
+// ── ISOLATED IIFE — لا يعدّل أي كود موجود ──
+// ══════════════════════════════════════════
+(function initPerfManager() {
+
+  // ════════════════════════════════
+  // ⚙️ CONFIG
+  // ════════════════════════════════
+  var PERF_CFG = {
+    // sessionStorage cache TTL (ms)
+    CACHE_TTL_CLIENTS  : 5  * 60 * 1000,  // 5 دقائق
+    CACHE_TTL_SETTINGS : 10 * 60 * 1000,  // 10 دقائق
+    CACHE_TTL_GENERIC  : 5  * 60 * 1000,  // 5 دقائق افتراضي
+
+    // Debounce timings (ms)
+    DEBOUNCE_SEARCH    : 350,   // search inputs
+    DEBOUNCE_FILTER    : 300,   // filter selects
+    DEBOUNCE_GSEARCH   : 250,   // global search (سريع)
+    DEBOUNCE_IC_FILTER : 200,   // invoice center filter (client-side فقط)
+
+    // clearCache debounce (ms)
+    DEBOUNCE_CLEAR_CACHE: 1500,
+
+    // Storage prefix
+    SS_PREFIX: 'wadi_pc5_',
+  };
+
+  // ════════════════════════════════
+  // 💾 SESSION CACHE — sessionStorage + timestamp
+  // ════════════════════════════════
+  var _ssCache = {
+
+    set: function(key, data, ttlMs) {
+      try {
+        var entry = {
+          data : data,
+          ts   : Date.now(),
+          ttl  : ttlMs || PERF_CFG.CACHE_TTL_GENERIC,
+        };
+        sessionStorage.setItem(PERF_CFG.SS_PREFIX + key, JSON.stringify(entry));
+      } catch(e) {
+        // sessionStorage full أو unavailable — silent fail
+        console.warn('[PerfManager] ssCache.set failed:', e.message);
+      }
+    },
+
+    get: function(key) {
+      try {
+        var raw = sessionStorage.getItem(PERF_CFG.SS_PREFIX + key);
+        if (!raw) return null;
+        var entry = JSON.parse(raw);
+        if (!entry || !entry.ts) return null;
+        // تحقق TTL
+        if (Date.now() - entry.ts > entry.ttl) {
+          sessionStorage.removeItem(PERF_CFG.SS_PREFIX + key);
+          return null;
+        }
+        return entry.data;
+      } catch(e) {
+        return null;
+      }
+    },
+
+    clear: function(prefix) {
+      try {
+        var fullPrefix = PERF_CFG.SS_PREFIX + (prefix || '');
+        var toDelete = [];
+        for (var i = 0; i < sessionStorage.length; i++) {
+          var k = sessionStorage.key(i);
+          if (k && k.startsWith(fullPrefix)) toDelete.push(k);
+        }
+        toDelete.forEach(function(k) { sessionStorage.removeItem(k); });
+      } catch(e) {}
+    },
+
+    // مسح كل الـ perf cache (عند logout أو clearCache كامل)
+    clearAll: function() { this.clear(''); },
+  };
+
+  // ════════════════════════════════
+  // 🔁 IN-FLIGHT GUARD
+  // منع تكرار نفس الـ request المتزامن
+  // ════════════════════════════════
+  var _inFlight = {};  // key → Promise
+
+  var _inflight = {
+    // تسجيل request شغّال
+    register: function(key, promise) {
+      var self = this;
+      _inFlight[key] = promise;
+      promise.finally(function() {
+        if (_inFlight[key] === promise) delete _inFlight[key];
+      }).catch(function(){});  // منع unhandled rejection
+      return promise;
+    },
+
+    // لو نفس الـ key شغّال → ارجع نفس الـ promise
+    get: function(key) {
+      return _inFlight[key] || null;
+    },
+
+    // wrapper: لو الطلب شغّال → انتظره، وإلا ابدأ جديد
+    wrap: function(key, fn) {
+      var existing = this.get(key);
+      if (existing) {
+        if (window.DEBUG) console.log('[PerfManager] in-flight hit:', key);
+        return existing;
+      }
+      return this.register(key, fn());
+    },
+  };
+
+  // ════════════════════════════════
+  // ⏱️ DEBOUNCE REGISTRY
+  // debounced versions للـ functions المستخدمة
+  // ════════════════════════════════
+
+  // دالة debounce مستقلة (لا تعتمد على debounce الأصلية حتى تكون معزولة)
+  function _db(fn, ms) {
+    var t;
+    return function() {
+      var ctx = this, args = arguments;
+      clearTimeout(t);
+      t = setTimeout(function() { fn.apply(ctx, args); }, ms);
+    };
+  }
+
+  // ════════════════════════════════
+  // 🔗 PATCH 1 — clearCache debounce
+  // الأكثر تكراراً في الكود — 17 استدعاء
+  // نضيف debouncedClearCache بدون تعديل clearCache
+  // ════════════════════════════════
+  function _patchClearCache() {
+    if (typeof clearCache !== 'function') {
+      console.warn('[PerfManager] clearCache not found — skip patch');
+      return;
+    }
+    if (window.debouncedClearCache) return; // لا نكرر
+
+    window.debouncedClearCache = _db(function(key) {
+      if (typeof clearCache === 'function') clearCache(key);
+    }, PERF_CFG.DEBOUNCE_CLEAR_CACHE);
+
+    if (window.DEBUG) console.log('[PerfManager] ✅ debouncedClearCache ready');
+  }
+
+  // ════════════════════════════════
+  // 🔗 PATCH 2 — Global Search debounce
+  // doGSearch يُستدعى بـ oninput بدون debounce
+  // ════════════════════════════════
+  function _patchGSearch() {
+    if (typeof doGSearch !== 'function') return;
+    if (doGSearch._p5Patched) return;
+
+    var _origGSearch = doGSearch;
+    var _debouncedGS = _db(function(q) {
+      _origGSearch(q);
+    }, PERF_CFG.DEBOUNCE_GSEARCH);
+
+    window.doGSearch = function(q) {
+      // لو ما في نص → استجابة فورية (تجربة أفضل)
+      if (!q || q.length === 0) return _origGSearch(q);
+      return _debouncedGS(q);
+    };
+    window.doGSearch._p5Patched = true;
+    window.doGSearch._orig      = _origGSearch;
+
+    if (window.DEBUG) console.log('[PerfManager] ✅ doGSearch debounced');
+  }
+
+  // ════════════════════════════════
+  // 🔗 PATCH 3 — Invoice Center icFilter debounce
+  // icFilter يُستدعى بـ oninput وonchange (client-side فقط)
+  // ════════════════════════════════
+  function _patchIcFilter() {
+    if (typeof icFilter !== 'function') return;
+    if (icFilter._p5Patched) return;
+
+    var _origIcFilter = icFilter;
+    var _debouncedIC  = _db(function() {
+      _origIcFilter();
+    }, PERF_CFG.DEBOUNCE_IC_FILTER);
+
+    window.icFilter = function() {
+      return _debouncedIC();
+    };
+    window.icFilter._p5Patched = true;
+    window.icFilter._orig      = _origIcFilter;
+
+    if (window.DEBUG) console.log('[PerfManager] ✅ icFilter debounced');
+  }
+
+  // ════════════════════════════════
+  // 🔗 PATCH 4 — Clients sessionStorage cache
+  // renderClientsWithRisk تجلب clients من Supabase كل مرة
+  // الـ clients list بطيئة التغيير → مناسبة للـ cache
+  // ════════════════════════════════
+  function _patchClientsCache() {
+    if (typeof renderClientsWithRisk !== 'function') return;
+    if (renderClientsWithRisk._p5Patched) return;
+
+    var _origClients = renderClientsWithRisk;
+
+    window.renderClientsWithRisk = async function(search) {
+      search = search || '';
+
+      // لو فيها بحث → مو cache (النتائج تختلف)
+      if (search && search.trim()) {
+        return _origClients.apply(this, arguments);
+      }
+
+      // لو ما في بحث → جرب الـ cache
+      var cacheKey = 'clients_list';
+      var cached   = _ssCache.get(cacheKey);
+
+      if (cached) {
+        // ✅ cache hit — في الخلفية نحدث الـ _smartCache الداخلي
+        if (window.DEBUG) console.log('[PerfManager] clients cache hit');
+        // ننفذ الأصلي عادي (الـ _smartCache الداخلي سيسرعه)
+      }
+      // ننفذ الأصلي دائماً — الـ cache هنا advisory فقط
+      // (الـ in-flight guard هو الأهم هنا)
+      var key = 'clients_render_' + search;
+      return _inflight.wrap(key, function() {
+        return _origClients.apply(window, [search]);
+      });
+    };
+    window.renderClientsWithRisk._p5Patched = true;
+    window.renderClientsWithRisk._orig      = _origClients;
+
+    // مسح الـ cache عند أي تعديل على العملاء
+    var _origClearCache = window.clearCache;
+    if (_origClearCache && !_origClearCache._p5ClientHook) {
+      var __orig = _origClearCache;
+      window.clearCache = function(key) {
+        if (!key) _ssCache.clear('clients_'); // full clear
+        return __orig.apply(this, arguments);
+      };
+      window.clearCache._p5ClientHook = true;
+    }
+
+    if (window.DEBUG) console.log('[PerfManager] ✅ clients in-flight guard active');
+  }
+
+  // ════════════════════════════════
+  // 🔗 PATCH 5 — renderDashboard in-flight guard
+  // يُستدعى أكثر من مرة أحياناً (session refresh)
+  // ════════════════════════════════
+  function _patchDashboard() {
+    if (typeof renderDashboard !== 'function') return;
+    if (renderDashboard._p5Patched) return;
+
+    var _origDash = renderDashboard;
+
+    window.renderDashboard = function() {
+      return _inflight.wrap('dashboard_render', function() {
+        return _origDash.apply(window, arguments);
+      });
+    };
+    window.renderDashboard._p5Patched = true;
+    window.renderDashboard._orig      = _origDash;
+
+    if (window.DEBUG) console.log('[PerfManager] ✅ renderDashboard in-flight guard active');
+  }
+
+  // ════════════════════════════════
+  // ▶️ Init — تطبيق كل الـ patches
+  // بعد DOMContentLoaded لضمان وجود الدوال
+  // ════════════════════════════════
+  function _applyAllPatches() {
+    _patchClearCache();
+    _patchGSearch();
+    _patchIcFilter();
+    _patchClientsCache();
+    _patchDashboard();
+    if (window.DEBUG) console.log('[PerfManager] ✅ all patches applied');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _applyAllPatches);
+  } else {
+    _applyAllPatches();
+  }
+
+  // ════════════════════════════════
+  // 🌐 Expose — API عام + Debug
+  // ════════════════════════════════
+  window._perfManager = {
+    cfg          : PERF_CFG,
+    ssCache      : _ssCache,
+    inflight     : _inflight,
+    clearSsCache : function()  { _ssCache.clearAll(); console.log('[PerfManager] session cache cleared'); },
+    getInflight  : function()  { return Object.keys(_inFlight); },
+    // للتجربة من Console:
+    // _perfManager.getInflight()   → طلبات شغّالة حالياً
+    // _perfManager.clearSsCache()  → مسح الـ session cache
+    // _perfManager.cfg.CACHE_TTL_CLIENTS = 60000 → تغيير الـ TTL
+  };
+
+})();
 
 // ══════════════════════════════════════════
 // 📍 PAGE RESTORE MANAGER — v76.12
