@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.16">
+<meta name="app-version" content="v76.18">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4032,7 +4032,51 @@ body.dark .pd-action,body.dark .pd-hbtn.ghost{background:#1e293b;border-color:#3
 body.dark .pd-toggle{background:#0f172a;}body.dark .pd-toggle-btn.active{background:#1e293b;}
 body.dark .pd-actions-grid{background:#334155;}body.dark .pd-action:hover{background:#263548;}
 body.dark .pd-act-item:hover{background:#263548;}
-body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{background:#14432a;}body.dark .pd-act-dot.wd{background:#44330a;}`;
+body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{background:#14432a;}body.dark .pd-act-dot.wd{background:#44330a;}
+/* ═══ v76.17 UX ENHANCEMENTS ═══ */
+@keyframes pd-kpi-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.pd-kpi{animation:pd-kpi-in .35s cubic-bezier(.16,1,.3,1) both;}
+.pd-kpi:nth-child(1){animation-delay:.04s}.pd-kpi:nth-child(2){animation-delay:.08s}
+.pd-kpi:nth-child(3){animation-delay:.12s}.pd-kpi:nth-child(4){animation-delay:.16s}
+.pd-kpi:nth-child(5){animation-delay:.20s}.pd-kpi:nth-child(6){animation-delay:.24s}
+.pd-kpi:nth-child(7){animation-delay:.28s}.pd-kpi:nth-child(8){animation-delay:.32s}
+.pd-kpi-vs{font-size:9.5px;color:var(--text4);margin-top:2px;letter-spacing:.2px;}
+@keyframes pd-chart-fade{from{opacity:0}to{opacity:1}}
+.pd-canvas-fade{animation:pd-chart-fade .25s ease;}
+.pd-today-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.pd-today-chip{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;transition:all .15s;}
+.pd-today-chip:hover{border-color:var(--border2);box-shadow:0 3px 10px rgba(0,0,0,.06);}
+.pd-today-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.pd-today-body{flex:1;min-width:0;}
+.pd-today-label{font-size:10px;font-weight:600;color:var(--text4);text-transform:uppercase;letter-spacing:.3px;}
+.pd-today-val{font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);margin-top:1px;}
+.pd-act-time{font-size:10px;color:var(--text4);white-space:nowrap;}
+.pd-metric-val.good{color:#16a34a !important;}
+.pd-metric-val.warn-color{color:#d97706 !important;}
+.pd-metric-val.bad{color:#dc2626 !important;}
+@keyframes pd-alert-in{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.pd-alert{animation:pd-alert-in .3s ease both;}
+.pd-alert:nth-child(1){animation-delay:.1s}.pd-alert:nth-child(2){animation-delay:.18s}
+.pd-alert:nth-child(3){animation-delay:.26s}.pd-alert:nth-child(4){animation-delay:.34s}
+
+body.dark .pd-today-chip{background:#1e293b;border-color:#334155;}
+/* v76.18 FINAL POLISH */
+@keyframes pd-arrow-up{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes pd-arrow-dn{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+.pd-kpi-badge.up{animation:pd-arrow-up 2s ease infinite;}
+.pd-kpi-badge.down{animation:pd-arrow-dn 2s ease infinite;}
+.pd-today-hint{font-size:9.5px;font-weight:600;margin-top:3px;letter-spacing:.1px;}
+.pd-today-hint.up{color:#16a34a;}.pd-today-hint.dn{color:#dc2626;}.pd-today-hint.flat{color:#94a3b8;}
+.pd-act-type{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px;letter-spacing:.2px;}
+.pd-act-type.create{background:#dbeafe;color:#1e40af;}
+.pd-act-type.pay{background:#dcfce7;color:#166534;}
+.pd-act-type.wd{background:#fef3c7;color:#92400e;}
+.pd-metric-row.state-good{background:rgba(22,163,74,.04);}
+.pd-metric-row.state-warn{background:rgba(217,119,6,.04);}
+.pd-metric-row.state-bad{background:rgba(220,38,38,.04);}
+.pd-alert::after{content:'\203a';margin-right:auto;font-size:14px;opacity:.4;margin-left:4px;}
+.pd-alert:hover::after{opacity:.8;}
+`;
     document.head.appendChild(sty);
   }
   const root=document.createElement('div');root.className='pd-root';
@@ -4043,7 +4087,52 @@ body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{backgrou
   const header=document.createElement('div');header.className='pd-header';
   header.innerHTML=`<div class="pd-header-left"><div class="pd-date">${dayN[now.getDay()]} &middot; ${now.getDate()} ${monN[now.getMonth()]} ${now.getFullYear()}</div><div class="pd-greeting">${greet} &mdash; \u0648\u0627\u062f\u064a \u0627\u0644\u0637\u0627\u0642\u0629 \uD83D\uDC4B</div></div><div class="pd-header-actions"><button class="pd-hbtn ghost" onclick="showPage('reports')">\uD83D\uDCCA \u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631</button><button class="pd-hbtn primary" onclick="openInvoiceModal()">\u2795 \u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629</button></div>`;
   root.appendChild(header);
-  if(alerts.length>0){const strip=document.createElement('div');strip.className='pd-alert-strip';alerts.forEach(a=>{const el=document.createElement('div');el.className='pd-alert '+a.sev;el.innerHTML=a.icon+' <b>'+a.title+'</b> <span style="opacity:.75;margin-right:4px">&middot; '+a.sub+'</span>';el.onclick=()=>showPage(a.action);strip.appendChild(el);});root.appendChild(strip);}
+  if(alerts.length>0){
+    // v76.17: sort by priority (critical first) — same data, visual only
+    const sevOrder={critical:0,warn:1,info:2};
+    const sortedAlerts=[...alerts].sort((a,b)=>(sevOrder[a.sev]||2)-(sevOrder[b.sev]||2));
+    const strip=document.createElement('div');strip.className='pd-alert-strip';
+    sortedAlerts.forEach(a=>{
+      const el=document.createElement('div');el.className='pd-alert '+a.sev;
+      const priorityLabel=a.sev==='critical'?'عاجل':a.sev==='warn'?'تنبيه':'';
+      el.innerHTML=a.icon+' '+(priorityLabel?'<span style="font-size:9px;font-weight:800;opacity:.55;margin-left:2px;text-transform:uppercase">'+priorityLabel+'</span> ':'')+' <b>'+a.title+'</b> <span style="opacity:.72;margin-right:4px">&middot; '+a.sub+'</span>';
+      el.onclick=()=>showPage(a.action);
+      strip.appendChild(el);
+    });
+    root.appendChild(strip);
+  }
+  // ── v76.17: TODAY SUMMARY BAR (existing data only) ──
+  const todayProfit=invs.filter(i=>i.date&&i.date.slice(0,10)===todayKey).reduce((s,i)=>s+calcInvoiceProfit(i).netProfit,0);
+  const newClientsToday=biCustomers.filter(c=>{const ci=invs.filter(x=>x.customer_name===c.name);const first=ci.sort((a,b)=>a.date>b.date?1:-1)[0];return first&&first.date&&first.date.slice(0,10)===todayKey;}).length;
+  // v76.18: yesterday comparison — existing data only
+  const yestKey=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const yestSales=invs.filter(i=>i.date&&i.date.slice(0,10)===yestKey).reduce((s,i)=>s+(+i.sale_amount||0),0);
+  const yestCount=invs.filter(i=>i.date&&i.date.slice(0,10)===yestKey).length;
+  const yestProfit=invs.filter(i=>i.date&&i.date.slice(0,10)===yestKey).reduce((s,i)=>s+calcInvoiceProfit(i).netProfit,0);
+  const makeTodayHint=(today,yest,unit)=>{
+    if(!yest||yest===0) return null;
+    const diff=today-yest;
+    const pct=Math.abs(diff/yest*100).toFixed(0);
+    const cls=diff>0?'up':diff<0?'dn':'flat';
+    const sign=diff>0?'↑':diff<0?'↓':'→';
+    return {cls, txt: sign+pct+'% vs أمس'};
+  };
+  const todayBar=document.createElement('div');todayBar.className='pd-today-bar';
+  [
+    {dot:'#2563eb',label:'مبيعات اليوم',val:fmtM(todaySales),hint:makeTodayHint(todaySales,yestSales,null)},
+    {dot:todayProfit>=0?'#16a34a':'#dc2626',label:'أرباح اليوم',val:fmtM(todayProfit),hint:makeTodayHint(todayProfit,yestProfit,null)},
+    {dot:'#7c3aed',label:'فواتير اليوم',val:todayCount+' فاتورة',hint:makeTodayHint(todayCount,yestCount,null)}
+  ].forEach(t=>{
+    const chip=document.createElement('div');chip.className='pd-today-chip';
+    chip.innerHTML='<div class="pd-today-dot" style="background:'+t.dot+'"></div>'
+      +'<div class="pd-today-body">'
+      +'<div class="pd-today-label">'+t.label+'</div>'
+      +'<div class="pd-today-val">'+t.val+'</div>'
+      +(t.hint?'<div class="pd-today-hint '+t.hint.cls+'">'+t.hint.txt+'</div>':'')
+      +'</div>';
+    todayBar.appendChild(chip);
+  });
+  root.appendChild(todayBar);
   const kpiStrip=document.createElement('div');kpiStrip.className='pd-kpi-strip';
   const buildSpark=(data,color)=>data.map((v,i)=>{const pct=Math.max(10,Math.round((v/Math.max(...data,1))*100));return '<div class="pd-spark-bar" style="height:'+pct+'%;background:'+color+';opacity:'+(i===data.length-1?1:.4)+'"></div>';}).join('');
   const dSalesSign=dSales.pct!=='_'?dSales.sign+dSales.pct+'%':null;
@@ -4058,7 +4147,18 @@ body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{backgrou
     {label:'\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0641\u0648\u0627\u062a\u064a\u0631',val:invs.length.toString(),sub:active+' \u0646\u0634\u0637\u0629 &middot; '+(invs.length-active)+' \u0645\u063a\u0644\u0642\u0629',color:'#0284c7',badge:null,spark:null,page:'invoices'},
     {label:'\u0633\u062d\u0648\u0628\u0627\u062a \u0627\u0644\u0634\u0631\u0643\u0627\u0621',val:fmtM(totalWd),sub:'\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0633\u062d\u0648\u0628\u0627\u062a',color:'#be185d',badge:null,spark:null,page:'withdrawals'},
   ];
-  kpis.forEach(k=>{const card=document.createElement('div');card.className='pd-kpi';card.onclick=()=>showPage(k.page);card.innerHTML='<div class="pd-kpi-accent" style="background:'+k.color+'"></div><div class="pd-kpi-top"><div class="pd-kpi-label">'+k.label+'</div>'+(k.badge?'<span class="pd-kpi-badge '+k.badge.cls+'">'+k.badge.text+'</span>':'')+'</div><div class="pd-kpi-val">'+k.val+'</div><div class="pd-kpi-sub">'+k.sub+'</div>'+(k.spark?'<div class="pd-spark">'+buildSpark(k.spark,k.sparkColor)+'</div>':'');kpiStrip.appendChild(card);});
+  kpis.forEach(k=>{
+    const card=document.createElement('div');card.className='pd-kpi';card.onclick=()=>showPage(k.page);
+    const vsLabel=k.badge&&k.badge.cls!=='ok'&&k.badge.cls!=='warn'?'<div class="pd-kpi-vs">مقارنة بالشهر السابق</div>':'';
+    card.innerHTML='<div class="pd-kpi-accent" style="background:'+k.color+'"></div>'
+      +'<div class="pd-kpi-top"><div class="pd-kpi-label">'+k.label+'</div>'
+      +(k.badge?'<span class="pd-kpi-badge '+k.badge.cls+'">'+k.badge.text+'</span>':'')
+      +'</div><div class="pd-kpi-val">'+k.val+'</div>'
+      +'<div class="pd-kpi-sub">'+k.sub+'</div>'
+      +vsLabel
+      +(k.spark?'<div class="pd-spark">'+buildSpark(k.spark,k.sparkColor)+'</div>':'');
+    kpiStrip.appendChild(card);
+  });
   root.appendChild(kpiStrip);
   const mainGrid=document.createElement('div');mainGrid.className='pd-main-grid';
   const chartCard=document.createElement('div');chartCard.className='pd-chart-card';
@@ -4078,7 +4178,40 @@ body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{backgrou
   const actFeed=document.createElement('div');actFeed.className='pd-activity-card';
   actFeed.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0622\u062e\u0631 \u0627\u0644\u0646\u0634\u0627\u0637\u0627\u062a</div><div class="pd-card-sub">'+activities.length+' \u0639\u0645\u0644\u064a\u0629</div></div>';
   if(activities.length===0){actFeed.innerHTML+='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">\u0644\u0627 \u062a\u0648\u062c\u062f \u0646\u0634\u0627\u0637\u0627\u062a \u0628\u0639\u062f</div>';}
-  else{activities.slice(0,6).forEach(a=>{const item=document.createElement('div');item.className='pd-act-item';item.onclick=()=>showPage(a.page);item.innerHTML='<div class="pd-act-dot '+a.dot+'">'+a.icon+'</div><div class="pd-act-body"><div class="pd-act-name">'+a.name+'</div><div class="pd-act-meta">'+a.label+' &middot; '+a.meta+'</div></div><div class="pd-act-amount">'+a.amount+'</div>';actFeed.appendChild(item);});}
+  else{
+    // v76.17: relative time helper (no new data — uses existing ts)
+    const relTime=ts=>{
+      if(!ts) return '';
+      const diff=Date.now()-new Date(ts).getTime();
+      const m=Math.floor(diff/60000);
+      const h=Math.floor(diff/3600000);
+      const d=Math.floor(diff/86400000);
+      if(m<1) return 'الآن';
+      if(m<60) return 'قبل '+m+' د';
+      if(h<24) return 'قبل '+h+' س';
+      if(d<7) return 'قبل '+d+' يوم';
+      return ts.slice(0,10);
+    };
+    // v76.18: activity type badges
+    const actTypeMeta={
+      inv:{cls:'create',txt:'فاتورة'},
+      pay:{cls:'pay',txt:'دفعة'},
+      wd:{cls:'wd',txt:'سحب'}
+    };
+    activities.slice(0,6).forEach(a=>{
+      const item=document.createElement('div');item.className='pd-act-item';
+      item.onclick=()=>showPage(a.page);
+      const tm=actTypeMeta[a.dot]||{cls:'create',txt:a.label};
+      item.innerHTML='<div class="pd-act-dot '+a.dot+'">'+a.icon+'</div>'
+        +'<div class="pd-act-body">'
+        +'<div class="pd-act-name"><span class="pd-act-type '+tm.cls+'">'+tm.txt+'</span>'+a.name+'</div>'
+        +'<div class="pd-act-meta">'+a.meta+'</div></div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'
+        +'<div class="pd-act-amount">'+a.amount+'</div>'
+        +'<div class="pd-act-time">'+relTime(a.ts)+'</div></div>';
+      actFeed.appendChild(item);
+    });
+  }
   bottomGrid.appendChild(actFeed);
   const perfCard=document.createElement('div');perfCard.className='pd-perf-card';
   perfCard.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0645\u0624\u0634\u0631\u0627\u062a \u0627\u0644\u0623\u062f\u0627\u0621</div></div>';
@@ -4088,7 +4221,22 @@ body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{backgrou
    {label:'\u0645\u062a\u0648\u0633\u0637 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629',val:fmtM(invs.length?totalSales/invs.length:0),pct:null,color:'#2563eb'},
    {label:'\u0641\u0648\u0627\u062a\u064a\u0631 \u0646\u0634\u0637\u0629',val:active+' / '+invs.length,pct:invs.length?Math.round(active/invs.length*100):0,color:'#7c3aed'},
    {label:'\u062a\u0648\u0642\u0639\u0627\u062a \u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u0642\u0627\u062f\u0645',val:forecastVal>0?fmtM(forecastVal):'_',pct:null,color:forecastPct>=0?'#059669':'#dc2626'}
-  ].forEach(m=>{const row=document.createElement('div');row.className='pd-metric-row';row.innerHTML='<div class="pd-metric-label">'+m.label+'</div><div class="pd-metric-right"><div class="pd-metric-val" style="color:'+m.color+'">'+m.val+'</div>'+(m.pct!==null?'<div class="pd-metric-track"><div class="pd-metric-fill" style="width:'+m.pct+'%;background:'+m.color+'"></div></div>':'')+'</div>';perfCard.appendChild(row);});
+  ].forEach(m=>{
+    const row=document.createElement('div');row.className='pd-metric-row';
+    // v76.17: semantic color class
+    // v76.18: cleaner semantic state system
+    const isGood=m.color==='#16a34a'||m.color==='#059669'||m.color==='#2563eb'||m.color==='#7c3aed';
+    const isWarn=m.color==='#f59e0b'||m.color==='#d97706';
+    const finalCls=isGood?'good':isWarn?'warn-color':'bad';
+    const rowState=isGood?'state-good':isWarn?'state-warn':'state-bad';
+    row.className='pd-metric-row '+rowState;
+    row.innerHTML='<div class="pd-metric-label">'+m.label+'</div>'
+      +'<div class="pd-metric-right">'
+      +'<div class="pd-metric-val '+finalCls+'">'+m.val+'</div>'
+      +(m.pct!==null?'<div class="pd-metric-track"><div class="pd-metric-fill" style="width:'+m.pct+'%;background:'+m.color+'"></div></div>':'')
+      +'</div>';
+    perfCard.appendChild(row);
+  });
   bottomGrid.appendChild(perfCard);root.appendChild(bottomGrid);
   const alertCont=document.createElement('div');alertCont.id='alert-intel-container';root.appendChild(alertCont);
   pc.appendChild(root);
@@ -4121,7 +4269,16 @@ body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{backgrou
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     drawProChart(_chartMode);
     const tBtns=document.querySelectorAll('#pd-chart-toggle .pd-toggle-btn');
-    tBtns.forEach(btn=>{btn.onclick=()=>{_chartMode=btn.dataset.mode;tBtns.forEach(b=>b.classList.remove('active'));btn.classList.add('active');drawProChart(_chartMode);};});
+    tBtns.forEach(btn=>{btn.onclick=()=>{
+      if(btn.dataset.mode===_chartMode) return; // لو نفس الوضع — مو نعيد الرسم
+      _chartMode=btn.dataset.mode;
+      tBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      // fade transition
+      const wrap=document.getElementById('pd-canvas-wrap');
+      if(wrap){wrap.classList.remove('pd-canvas-fade');void wrap.offsetWidth;wrap.classList.add('pd-canvas-fade');}
+      drawProChart(_chartMode);
+    };});
   }));
   setTimeout(()=>buildIntelligenceLayer({invs,recs,monthly,nowKey,prevKey,biPays,biRecsBI,biLines,totalSales,totalProfit,totalRem,totalExp,totalWd,overdue,active,collectionRate,profitMargin,salesDelta,thisM,prevM,months}),300);
   const topToasts=getTopDecisionsForToast(biDecisions);
@@ -9873,7 +10030,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.16';
+const APP_VERSION = 'v76.18';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
