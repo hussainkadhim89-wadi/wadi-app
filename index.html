@@ -3621,7 +3621,7 @@ function _applyNavPermissions() {
     ['nav-cashflow',       'reports'],
     ['nav-clients',        'clients_view'],
     ['nav-reports',        'reports'],
-    ['nav-logs',          'admin_panel'],
+    ['nav-logs',           'admin_panel'],
     ['nav-admin',          'admin_panel'],
     ['nav-dashboard',      null],
     ['nav-settings',       null],
@@ -3840,7 +3840,8 @@ function showPage(page, arg){
     print:renderPrint,receivables:renderReceivables,aging:renderAging,expenses:renderExpenses,
     withdrawals:renderWithdrawals,capital:renderCapital,profit:renderProfit,cashflow:renderCashflow,
     clients:renderClientsWithRisk,credits:renderCredits,reports:renderReports,settings:renderSettings,
-    invoice_center:renderInvoiceCenter,activity:renderActivity,admin:renderAdminPanel,login_log:renderLoginLog,logs:function(arg){ return showLogsPage(arg||'invoices'); }};
+    invoice_center:renderInvoiceCenter,activity:renderActivity,admin:renderAdminPanel,login_log:renderLoginLog,
+    logs:function(arg){ return showLogsPage(arg||'invoices'); }};
   if(fn[page]) fn[page](arg).then?.(()=>_restoreScroll(page)) || setTimeout(()=>_restoreScroll(page),200);
 }
 
@@ -6830,580 +6831,462 @@ function diffObjects(before, after){
   return changes;
 }
 
-async function renderActivity() {
-  var _savedFilter = document.getElementById('activityFilter')?.value || 'all';
-  var _savedSearch = document.getElementById('activitySearch')?.value || '';
-  var _savedUser   = document.getElementById('activityUserFilter')?.value || 'all';
-  var _savedDate   = document.getElementById('activityDateFilter')?.value || '';
+// ══════════════════════════════════════════════════════════════
+// 📋 LOGS MODULE — v76.9.3
+// Clean architecture: shared fetch → split renderers → tab shell
+// ══════════════════════════════════════════════════════════════
 
-  setLoading('جاري تحميل سجل النشاط...');
-  try {
-    // ── جلب audit_logs ──
-    const { data: auditData, error: auditError } = await sb
-      .from('audit_logs')
-      .select('id,action_type,details,created_at,user_id')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (auditError) throw auditError;
+// ── Shared: fetch all logs data + build helper functions ──────
+// Returns { auditData, histData, userMap, userOptions,
+//           _userName, _formatDate, _formatAction, _histLabel,
+//           _actionColor, _HIDDEN_FIELDS, _IMPORTANT_ZERO,
+//           _fieldLabels, _uuidRx, _isoDateRx,
+//           _fieldLabel, _fmtDate, _fmtVal, _shouldShow }
+async function _logsSharedFetch() {
+  const { data: auditData, error: auditError } = await sb
+    .from('audit_logs')
+    .select('id,action_type,details,created_at,user_id')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (auditError) throw auditError;
 
-    // ── جلب invoice_history ──
-    const { data: histData } = await sb
-      .from('invoice_history')
-      .select('id,invoice_id,action,before,after,user_id,created_at')
-      .order('created_at', { ascending: false })
-      .limit(100);
+  const { data: histData } = await sb
+    .from('invoice_history')
+    .select('id,invoice_id,action,before,after,user_id,created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
 
-    // ── Batch fetch profiles ──
-    var _allUserIds = [];
-    (auditData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
-    (histData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
-    var _uniqueIds = _allUserIds.filter(function(v,i,a){ return a.indexOf(v)===i; });
-    var userMap = {};
-    if (_uniqueIds.length > 0) {
-      var { data: _profiles } = await sb.from('profiles').select('id,name,email');
-      (_profiles||[]).forEach(function(u){ userMap[u.id]=u; });
-    }
+  // Batch-fetch profiles
+  var _allUserIds = [];
+  (auditData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
+  (histData||[]).forEach(function(l){ if(l.user_id) _allUserIds.push(l.user_id); });
+  var _uniqueIds = _allUserIds.filter(function(v,i,a){ return a.indexOf(v)===i; });
+  var userMap = {};
+  if (_uniqueIds.length > 0) {
+    var { data: _profiles } = await sb.from('profiles').select('id,name,email');
+    (_profiles||[]).forEach(function(u){ userMap[u.id]=u; });
+  }
+  var userOptions = Object.values(userMap);
 
-    var userOptions = Object.values(userMap);
+  function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
+  function _formatDate(ts){
+    if(!ts) return '—';
+    try {
+      var d=new Date(ts); if(isNaN(d)) return ts;
+      var dd=String(d.getDate()).padStart(2,'0');
+      var mm=String(d.getMonth()+1).padStart(2,'0');
+      var yy=d.getFullYear();
+      var hh=String(d.getHours()).padStart(2,'0');
+      var mi=String(d.getMinutes()).padStart(2,'0');
+      return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
+    } catch(_){ return ts; }
+  }
+  function _formatAction(row) {
+    var type=row.action_type||''; var details={};
+    try { details=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
+    var adminName=_userName(row.user_id);
+    var targetUser=userMap[details.target_user_id]||null;
+    var targetName=(targetUser&&(targetUser.name||targetUser.email))||details.username||'مستخدم محذوف';
+    if(type==='delete_invoices'){ var ids=(details.ids||[]); return '🧾 '+adminName+' حذف الفاتورة '+(ids.length?ids.join('، '):'—'); }
+    if(type==='delete_invoice')  return '🧾 حذف فاتورة: '+(details.id||'—');
+    if(type==='undo_delete'){ var ids2=(details.ids||[]); return '↩️ استرجاع: '+(ids2.length?ids2.join('، '):'—'); }
+    if(type==='create_user') return '👤 '+adminName+' أنشأ المستخدم '+(details.username||'—');
+    if(type==='delete_user') return '🗑️ '+adminName+' حذف المستخدم '+targetName;
+    if(type==='update_role') return '🔄 '+adminName+' غيّر دور '+targetName+' إلى '+(details.new_role||'—');
+    if(type==='update_permissions') return '🔑 '+adminName+' عدّل صلاحيات '+targetName;
+    if(type==='set_password') return '🔒 '+adminName+' غيّر كلمة مرور '+targetName;
+    return type;
+  }
+  function _histLabel(row){
+    var a=row.action==='create'?'➕ إنشاء':row.action==='update'?'✏️ تعديل':'🗑️ حذف';
+    return a+' فاتورة '+(row.invoice_id||'—');
+  }
+  function _actionColor(action){
+    if(action==='create') return '#16a34a';
+    if(action==='update') return '#ea580c';
+    if(action==='delete') return '#dc2626';
+    return 'var(--text3)';
+  }
 
-    function _userName(uid){ var u=userMap[uid]; return u?(u.name||u.email||'مجهول'):'مجهول'; }
-    function _formatDate(ts){
-      if(!ts) return '—';
-      try {
-        var d=new Date(ts);
-        if(isNaN(d)) return ts;
-        var dd=String(d.getDate()).padStart(2,'0');
-        var mm=String(d.getMonth()+1).padStart(2,'0');
-        var yy=d.getFullYear();
-        var hh=String(d.getHours()).padStart(2,'0');
-        var mi=String(d.getMinutes()).padStart(2,'0');
-        return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
-      }
-      catch(_){ return ts; }
-    }
+  // ── Modal data engine (field labels + formatters) ──
+  var _HIDDEN_FIELDS = new Set([
+    'id','user_id','created_by','updated_by','owner_id',
+    'updated_at','deleted_by','soft_deleted','__v',
+    'customer_id','is_deleted','public_link_enabled','invoice_type','created_date'
+  ]);
+  var _IMPORTANT_ZERO = new Set([
+    'total','cost_amount','sale_amount',
+    'comm_omar_pct','comm_sini_pct','comm_hussain_pct','comm_kapt_pct',
+    'discount','tax','paid_amount','remaining','balance',
+    'quantity','unit_price','net_profit','profit','subtotal'
+  ]);
+  var _fieldLabels = {
+    invoice_id:'رقم الفاتورة',invoice_number:'رقم الفاتورة',id:'المعرّف',reference:'المرجع',
+    date:'التاريخ',invoice_date:'تاريخ الفاتورة',created_at:'تاريخ الإنشاء',created_date:'تاريخ الإنشاء',
+    updated_at:'تاريخ التحديث',deleted_at:'تاريخ الحذف',due_date:'تاريخ الاستحقاق',
+    payment_date:'تاريخ الدفع',required_delivery:'تاريخ التسليم المطلوب',
+    client_id:'العميل',customer_id:'العميل',customer_name:'اسم العميل',name:'الاسم',
+    sale_amount:'سعر البيع',cost_amount:'الكلفة',total:'المبلغ الإجمالي',subtotal:'المجموع الفرعي',
+    amount:'المبلغ',paid_amount:'المبلغ المدفوع',remaining:'المتبقي',balance:'الرصيد',
+    discount:'الخصم',tax:'الضريبة',
+    comm_omar_pct:'عمولة عمر %',comm_hussain_pct:'عمولة حسين %',comm_sini_pct:'عمولة الصيني %',comm_kapt_pct:'عمولة الكابتن %',
+    comm_omar:'عمولة عمر',comm_hussain:'عمولة حسين',comm_sini:'عمولة الصيني',comm_kapt:'عمولة الكابتن',
+    profit:'الربح',profit_pct:'نسبة الربح %',profit_hussain:'أرباح حسين',profit_nowar:'أرباح نوار',net_profit:'صافي الربح',
+    status:'الحالة',stage:'المرحلة',type:'نوع الفاتورة',invoice_type:'نوع الفاتورة',currency:'العملة',deleted:'محذوف',
+    payment_terms:'شروط الدفع',credit_days:'أيام الائتمان',notes:'ملاحظات',description:'الوصف',
+    next_action:'الإجراء التالي',site:'الموقع / المشروع',
+    lpo_number:'رقم أمر الشراء',order_number:'رقم الأمر',delivery_to:'التسليم إلى',
+    payment_method:'طريقة الدفع',email:'البريد الإلكتروني',phone:'الهاتف',address:'العنوان',
+    invoice_lines:'بنود الفاتورة',quantity:'الكمية',unit_price:'سعر الوحدة',
+    product_name:'اسم المنتج / الخدمة',category:'الفئة',
+    extra_expenses:'مصاريف إضافية',transport_cost:'أجور النقل',gift_expense:'هدايا / صرفيات',
+    created_by:'أنشأ بواسطة',user_id:'المستخدم'
+  };
+  var _uuidRx  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var _isoDateRx = /^(\d{4})-(\d{2})-(\d{2})/;
+  function _fieldLabel(k){ return _fieldLabels[k]||k; }
+  function _fmtDate(s){ var m=_isoDateRx.exec(s); if(!m) return s; return m[3]+'/'+m[2]+'/'+m[1]; }
+  function _fmtVal(v,fieldKey){
+    if(v===null||v===undefined||v==='') return null;
+    if(typeof v==='boolean') return v?'نعم':'لا';
+    var s=String(v).trim(); if(s==='') return null;
+    if(s==='null'||s==='undefined'||s==='false') return null;
+    if(s==='0'||s==='0.00'||s==='0.0') return (fieldKey&&_IMPORTANT_ZERO.has(fieldKey))?'0':null;
+    if(_uuidRx.test(s)) return null;
+    if(_isoDateRx.test(s)) return _fmtDate(s);
+    if((s.startsWith('{')&&s.endsWith('}'))||(s.startsWith('[')&&s.endsWith(']'))) return null;
+    return s;
+  }
+  function _shouldShow(key,val){ if(_HIDDEN_FIELDS.has(key)) return false; return _fmtVal(val,key)!==null; }
 
-    function _formatAction(row) {
-      var type=row.action_type||''; var details={};
-      try { details=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
-      var adminName=_userName(row.user_id);
-      var targetUser=userMap[details.target_user_id]||null;
-      var targetName=(targetUser&&(targetUser.name||targetUser.email))||details.username||'مستخدم محذوف';
-      if(type==='delete_invoices'){ var ids=(details.ids||[]); return '🧾 '+adminName+' حذف الفاتورة '+(ids.length?ids.join('، '):'—'); }
-      if(type==='delete_invoice')  return '🧾 حذف فاتورة: '+(details.id||'—');
-      if(type==='undo_delete'){ var ids2=(details.ids||[]); return '↩️ استرجاع: '+(ids2.length?ids2.join('، '):'—'); }
-      if(type==='create_user') return '👤 '+adminName+' أنشأ المستخدم '+(details.username||'—');
-      if(type==='delete_user') return '🗑️ '+adminName+' حذف المستخدم '+targetName;
-      if(type==='update_role') return '🔄 '+adminName+' غيّر دور '+targetName+' إلى '+(details.new_role||'—');
-      if(type==='update_permissions') return '🔑 '+adminName+' عدّل صلاحيات '+targetName;
-      if(type==='set_password') return '🔒 '+adminName+' غيّر كلمة مرور '+targetName;
-      return type;
-    }
+  return { auditData, histData, userMap, userOptions,
+           _userName, _formatDate, _formatAction, _histLabel, _actionColor,
+           _HIDDEN_FIELDS, _IMPORTANT_ZERO, _fieldLabels,
+           _uuidRx, _isoDateRx, _fieldLabel, _fmtDate, _fmtVal, _shouldShow };
+}
 
-    function _histLabel(row){
-      var a=row.action==='create'?'➕ إنشاء':row.action==='update'?'✏️ تعديل':'🗑️ حذف';
-      return a+' فاتورة '+( row.invoice_id||'—');
-    }
+// ── Shared: build the diff modal (used by renderInvoiceHistory) ──
+function _buildDiffModal(row, helpers) {
+  var { _userName, _formatDate, _HIDDEN_FIELDS, _fieldLabel, _fmtVal, _shouldShow } = helpers;
+  var before=row.before||{}; var after=row.after||{};
+  var changes=diffObjects(before,after);
+  var color=row.action==='create'?'#16a34a':row.action==='update'?'#ea580c':'#dc2626';
+  var bgColor=row.action==='create'?'#f0fdf4':row.action==='update'?'#fff7ed':'#fff5f5';
+  var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
+  var actionLabel=row.action==='create'?'إنشاء فاتورة':row.action==='update'?'تعديل فاتورة':'حذف فاتورة';
 
-    function _actionColor(action){
-      if(action==='create') return '#16a34a';
-      if(action==='update') return '#ea580c';
-      if(action==='delete') return '#dc2626';
-      return 'var(--text3)';
-    }
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);';
+  var modal=document.createElement('div');
+  modal.style.cssText='background:#fff;border-radius:14px;width:100%;max-width:580px;max-height:85vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);display:flex;flex-direction:column;';
 
-    // ── فلترة audit_logs ──
-    var auditRows = auditData||[];
-    if(_savedFilter!=='all') auditRows=auditRows.filter(function(l){ return l.action_type===_savedFilter; });
-    if(_savedUser!=='all')   auditRows=auditRows.filter(function(l){ return l.user_id===_savedUser; });
-    if(_savedDate)           auditRows=auditRows.filter(function(l){ return (l.created_at||'').startsWith(_savedDate); });
-    if(_savedSearch){
-      var _s=_savedSearch.toLowerCase();
-      auditRows=auditRows.filter(function(l){ return _formatAction(l).toLowerCase().includes(_s); });
-    }
+  var hd=document.createElement('div');
+  hd.style.cssText='padding:18px 22px;border-bottom:3px solid '+color+';display:flex;align-items:center;justify-content:space-between;background:'+bgColor+';border-radius:14px 14px 0 0;flex-shrink:0;';
+  var htitle=document.createElement('div');
+  htitle.innerHTML='<div style="font-size:15px;font-weight:800;color:'+color+'">'+actionIcon+' '+actionLabel+'</div>'+
+    '<div style="font-size:12px;color:var(--text3);margin-top:2px;font-weight:500">رقم الفاتورة: <b style="color:var(--text)">'+(row.invoice_id||'—')+'</b></div>';
+  var closeBtn=document.createElement('button');
+  closeBtn.innerHTML='✕';
+  closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px;border-radius:6px;transition:background .15s;line-height:1;';
+  closeBtn.onmouseenter=function(){ this.style.background='rgba(0,0,0,.08)'; };
+  closeBtn.onmouseleave=function(){ this.style.background='none'; };
+  closeBtn.onclick=function(){ document.body.removeChild(overlay); };
+  hd.appendChild(htitle); hd.appendChild(closeBtn); modal.appendChild(hd);
 
-    // ── فلترة invoice_history ──
-    var histRows = histData||[];
-    if(_savedUser!=='all') histRows=histRows.filter(function(l){ return l.user_id===_savedUser; });
-    if(_savedDate)         histRows=histRows.filter(function(l){ return (l.created_at||'').startsWith(_savedDate); });
-    if(_savedSearch){
-      var _s2=_savedSearch.toLowerCase();
-      histRows=histRows.filter(function(l){ return _histLabel(l).toLowerCase().includes(_s2); });
-    }
-    // فلتر نوع العملية على invoice_history
-    if(_savedFilter==='invoice_create') histRows=histRows.filter(function(l){ return l.action==='create'; });
-    else if(_savedFilter==='invoice_update') histRows=histRows.filter(function(l){ return l.action==='update'; });
-    else if(_savedFilter==='invoice_delete') histRows=histRows.filter(function(l){ return l.action==='delete'; });
-    else if(_savedFilter!=='all'&&!['invoice_create','invoice_update','invoice_delete'].includes(_savedFilter)) histRows=[];
+  var meta=document.createElement('div');
+  meta.style.cssText='padding:10px 22px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;gap:18px;flex-wrap:wrap;flex-shrink:0;';
+  meta.innerHTML='<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">👤 <b style="color:var(--text)">'+_userName(row.user_id)+'</b></span>'+
+    '<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">🕒 <b style="color:var(--text);direction:ltr;display:inline-block">'+_formatDate(row.created_at)+'</b></span>';
+  modal.appendChild(meta);
 
-    // ══════════════════════════════════════════════
-    // 🗂️ FIELD LABELS + VALUE FORMATTER — v67.4
-    // ══════════════════════════════════════════════
+  var body=document.createElement('div');
+  body.style.cssText='padding:16px 22px 20px;flex:1;';
 
-    // Fields to NEVER show in any modal
-    // Fields that must NEVER appear in any modal
-    // ══════════════════════════════════════════════════════════
-    // 🗂️ MODAL DATA ENGINE — v67.14
-    // Handles field visibility, labelling, and value formatting
-    // ══════════════════════════════════════════════════════════
+  function _mkRow(labelText,valueHtml,valueColor){
+    if(valueHtml===null||valueHtml===undefined) return null;
+    var r=document.createElement('div');
+    r.style.cssText='display:flex;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px solid #f3f3f2;';
+    r.innerHTML='<div style="min-width:120px;max-width:44%;font-size:11.5px;font-weight:500;color:#9ca3af;flex-shrink:0;line-height:1.6;text-align:right;">'+labelText+'</div>'+
+      '<div style="flex:1;font-size:13px;font-weight:600;color:'+(valueColor||'#111111')+';direction:ltr;text-align:left;line-height:1.6;word-break:break-word;">'+valueHtml+'</div>';
+    return r;
+  }
 
-    // Fields that must NEVER appear in any modal (system/internal)
-    var _HIDDEN_FIELDS = new Set([
-      'id', 'user_id', 'created_by', 'updated_by', 'owner_id',
-      'updated_at', 'deleted_by', 'soft_deleted', '__v',
-      'customer_id',          // shown via customer_name instead
-      'is_deleted',           // internal flag
-      'public_link_enabled',  // internal flag
-      'invoice_type',         // shown via type label instead
-      'created_date'          // shown via created_at
-    ]);
-
-    // Fields where 0 is a meaningful business value (must NOT be hidden)
-    var _IMPORTANT_ZERO = new Set([
-      'total', 'cost_amount', 'sale_amount',
-      'comm_omar_pct', 'comm_sini_pct', 'comm_hussain_pct', 'comm_kapt_pct',
-      'discount', 'tax', 'paid_amount', 'remaining', 'balance',
-      'quantity', 'unit_price', 'net_profit', 'profit', 'subtotal'
-    ]);
-
-    // ── Complete Arabic label map (ALL fields) ──
-    var _fieldLabels = {
-      // ── Invoice identifiers ──
-      invoice_id       : 'رقم الفاتورة',
-      invoice_number   : 'رقم الفاتورة',
-      id               : 'المعرّف',
-      reference        : 'المرجع',
-      // ── Dates ──
-      date             : 'التاريخ',
-      invoice_date     : 'تاريخ الفاتورة',
-      created_at       : 'تاريخ الإنشاء',
-      created_date     : 'تاريخ الإنشاء',
-      updated_at       : 'تاريخ التحديث',
-      deleted_at       : 'تاريخ الحذف',
-      due_date         : 'تاريخ الاستحقاق',
-      payment_date     : 'تاريخ الدفع',
-      required_delivery: 'تاريخ التسليم المطلوب',
-      // ── Customer ──
-      client_id        : 'العميل',
-      customer_id      : 'العميل',
-      customer_name    : 'اسم العميل',
-      name             : 'الاسم',
-      // ── Amounts ──
-      sale_amount      : 'سعر البيع',
-      cost_amount      : 'الكلفة',
-      total            : 'المبلغ الإجمالي',
-      subtotal         : 'المجموع الفرعي',
-      amount           : 'المبلغ',
-      paid_amount      : 'المبلغ المدفوع',
-      remaining        : 'المتبقي',
-      balance          : 'الرصيد',
-      discount         : 'الخصم',
-      tax              : 'الضريبة',
-      // ── Commissions (corrected labels) ──
-      comm_omar_pct    : 'عمولة عمر %',
-      comm_hussain_pct : 'عمولة حسين %',
-      comm_sini_pct    : 'عمولة الصيني %',
-      comm_kapt_pct    : 'عمولة الكابتن %',
-      comm_omar        : 'عمولة عمر',
-      comm_hussain     : 'عمولة حسين',
-      comm_sini        : 'عمولة الصيني',
-      comm_kapt        : 'عمولة الكابتن',
-      // ── Profit ──
-      profit           : 'الربح',
-      profit_pct       : 'نسبة الربح %',
-      profit_hussain   : 'أرباح حسين',
-      profit_nowar     : 'أرباح نوار',
-      net_profit       : 'صافي الربح',
-      // ── Status / Stage / Type ──
-      status           : 'الحالة',
-      stage            : 'المرحلة',
-      type             : 'نوع الفاتورة',
-      invoice_type     : 'نوع الفاتورة',
-      currency         : 'العملة',
-      deleted          : 'محذوف',
-      // ── Terms / Notes ──
-      payment_terms    : 'شروط الدفع',
-      credit_days      : 'أيام الائتمان',
-      notes            : 'ملاحظات',
-      description      : 'الوصف',
-      next_action      : 'الإجراء التالي',
-      site             : 'الموقع / المشروع',
-      // ── PO / Delivery ──
-      lpo_number       : 'رقم أمر الشراء',
-      order_number     : 'رقم الأمر',
-      delivery_to      : 'التسليم إلى',
-      // ── Payment ──
-      payment_method   : 'طريقة الدفع',
-      // ── Contact ──
-      email            : 'البريد الإلكتروني',
-      phone            : 'الهاتف',
-      address          : 'العنوان',
-      // ── Line items ──
-      invoice_lines    : 'بنود الفاتورة',
-      quantity         : 'الكمية',
-      unit_price       : 'سعر الوحدة',
-      product_name     : 'اسم المنتج / الخدمة',
-      category         : 'الفئة',
-      // ── Expenses ──
-      extra_expenses   : 'مصاريف إضافية',
-      transport_cost   : 'أجور النقل',
-      gift_expense     : 'هدايا / صرفيات',
-      // ── System (for display only where needed) ──
-      created_by       : 'أنشأ بواسطة',
-      user_id          : 'المستخدم'
-    };
-
-    // UUID regex
-    var _uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    // ISO date — YYYY-MM-DD
-    var _isoDateRx = /^(\d{4})-(\d{2})-(\d{2})/;
-
-    // Return Arabic label, or the raw key if unmapped
-    function _fieldLabel(k){ return _fieldLabels[k] || k; }
-
-    // Format date value → DD/MM/YYYY (English digits, LTR)
-    function _fmtDate(s){
-      var m = _isoDateRx.exec(s);
-      if(!m) return s;
-      return m[3]+'/'+m[2]+'/'+m[1];
-    }
-
-    // Format any value for display
-    // Returns: string to show | null (= hide this row entirely)
-    function _fmtVal(v, fieldKey){
-      if(v === null || v === undefined || v === '') return null;
-      if(typeof v === 'boolean') return v ? 'نعم' : 'لا';
-      var s = String(v).trim();
-      if(s === '') return null;
-      if(s === 'null' || s === 'undefined' || s === 'false') return null;
-      // Zero: show only for important numeric fields
-      if(s === '0' || s === '0.00' || s === '0.0'){
-        return (fieldKey && _IMPORTANT_ZERO.has(fieldKey)) ? '0' : null;
-      }
-      // UUID → always hide (never show raw IDs)
-      if(_uuidRx.test(s)) return null;
-      // ISO date → DD/MM/YYYY
-      if(_isoDateRx.test(s)) return _fmtDate(s);
-      // Raw JSON blob → hide
-      if((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) return null;
-      return s;
-    }
-
-    // Final gate: should this field row be visible?
-    function _shouldShow(key, val){
-      if(_HIDDEN_FIELDS.has(key)) return false;
-      return _fmtVal(val, key) !== null;
-    }
-
-    // ── Modal موحد لتفاصيل التغيير ──
-    function _openDiffModal(row){
-      var before=row.before||{};
-      var after=row.after||{};
-      var changes=diffObjects(before,after);
-      var color=row.action==='create'?'#16a34a':row.action==='update'?'#ea580c':'#dc2626';
-      var bgColor=row.action==='create'?'#f0fdf4':row.action==='update'?'#fff7ed':'#fff5f5';
-      var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
-      var actionLabel=row.action==='create'?'إنشاء فاتورة':row.action==='update'?'تعديل فاتورة':'حذف فاتورة';
-
-      var overlay=document.createElement('div');
-      overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);';
-
-      var modal=document.createElement('div');
-      modal.style.cssText='background:#fff;border-radius:14px;width:100%;max-width:580px;max-height:85vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);display:flex;flex-direction:column;';
-
-      // Header
-      var hd=document.createElement('div');
-      hd.style.cssText='padding:18px 22px;border-bottom:3px solid '+color+';display:flex;align-items:center;justify-content:space-between;background:'+bgColor+';border-radius:14px 14px 0 0;flex-shrink:0;';
-      var htitle=document.createElement('div');
-      htitle.innerHTML='<div style="font-size:15px;font-weight:800;color:'+color+'">'+actionIcon+' '+actionLabel+'</div>'+
-        '<div style="font-size:12px;color:var(--text3);margin-top:2px;font-weight:500">رقم الفاتورة: <b style="color:var(--text)">'+(row.invoice_id||'—')+'</b></div>';
-      var closeBtn=document.createElement('button');
-      closeBtn.innerHTML='✕';
-      closeBtn.style.cssText='background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px 8px;border-radius:6px;transition:background .15s;line-height:1;';
-      closeBtn.onmouseenter=function(){ this.style.background='rgba(0,0,0,.08)'; };
-      closeBtn.onmouseleave=function(){ this.style.background='none'; };
-      closeBtn.onclick=function(){ document.body.removeChild(overlay); };
-      hd.appendChild(htitle); hd.appendChild(closeBtn);
-      modal.appendChild(hd);
-
-      // Meta info
-      var meta=document.createElement('div');
-      meta.style.cssText='padding:10px 22px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;gap:18px;flex-wrap:wrap;flex-shrink:0;';
-      meta.innerHTML='<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">👤 <b style="color:var(--text)">'+_userName(row.user_id)+'</b></span>'+
-        '<span style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px">🕒 <b style="color:var(--text);direction:ltr;display:inline-block">'+_formatDate(row.created_at)+'</b></span>';
-      modal.appendChild(meta);
-
-      var body=document.createElement('div');
-      body.style.cssText='padding:16px 22px 20px;flex:1;';
-
-      // ── Notion-style field row: label (muted) + value (bold) ──
-      function _mkRow(labelText, valueHtml, valueColor){
-        if(valueHtml === null || valueHtml === undefined) return null;
-        var row=document.createElement('div');
-        row.style.cssText=[
-          'display:flex',
-          'align-items:baseline',
-          'gap:12px',
-          'padding:9px 0',
-          'border-bottom:1px solid #f3f3f2'  // Notion-soft border
-        ].join(';');
-        row.innerHTML=
-          '<div style="min-width:120px;max-width:44%;font-size:11.5px;font-weight:500;'+
-            'color:#9ca3af;flex-shrink:0;line-height:1.6;text-align:right;">'+labelText+'</div>'+
-          '<div style="flex:1;font-size:13px;font-weight:600;'+
-            'color:'+(valueColor||'#111111')+';direction:ltr;text-align:left;'+
-            'line-height:1.6;word-break:break-word;">'+valueHtml+'</div>';
-        return row;
-      }
-
-      if(row.action==='create'){
-        // ── إنشاء: بيانات after — business fields only ──
-        var entries=Object.entries(after).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
-        if(entries.length===0){
-          body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد بيانات</div>';
-        } else {
-          entries.forEach(function(kv){
-            var _cr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#16a34a');
-            if(_cr) body.appendChild(_cr);
-          });
-        }
-
-      } else if(row.action==='delete'){
-        // ── حذف: تنبيه + بيانات before ──
-        var note=document.createElement('div');
-        note.style.cssText=[
-          'color:#dc2626','font-size:12.5px','font-weight:600',
-          'padding:9px 13px','background:#fff5f5',
-          'border:1px solid #fecaca','border-radius:8px',
-          'margin-bottom:14px','display:flex','align-items:center','gap:8px'
-        ].join(';');
-        note.innerHTML='🗑️ تم حذف هذه الفاتورة';
-        body.appendChild(note);
-        var bEntries=Object.entries(before).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
-        if(bEntries.length===0){
-          body.innerHTML+='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0;">لا توجد بيانات</div>';
-        } else {
-          bEntries.forEach(function(kv){
-            var _dr=_mkRow(_fieldLabel(kv[0]), _fmtVal(kv[1],kv[0]), '#111111');
-            if(_dr) body.appendChild(_dr);
-          });
-        }
-
-      } else {
-        // ── تعديل: Notion-style diff table ──
-        var visibleChanges=changes.filter(function(c){
-          if(_HIDDEN_FIELDS.has(c.field)) return false;
-          var bv=_fmtVal(c.before,c.field), av=_fmtVal(c.after,c.field);
-          return !(bv===null && av===null);
-        });
-        if(visibleChanges.length===0){
-          body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد تغييرات</div>';
-        } else {
-          // Table header
-          var tblWrap=document.createElement('div');
-          tblWrap.style.cssText='border-radius:8px;overflow:hidden;border:1px solid #f0f0ee;';
-          var tblHead=document.createElement('div');
-          tblHead.style.cssText=[
-            'display:grid','grid-template-columns:2fr 3fr 3fr',
-            'background:#f9f9f8','padding:8px 12px',
-            'border-bottom:1px solid #e9e9e7'
-          ].join(';');
-          tblHead.innerHTML=
-            '<div style="font-size:10.5px;font-weight:700;color:#9ca3af;text-align:right;">الحقل</div>'+
-            '<div style="font-size:10.5px;font-weight:700;color:#dc2626;text-align:left;padding-right:8px">قبل</div>'+
-            '<div style="font-size:10.5px;font-weight:700;color:#16a34a;text-align:left;">بعد</div>';
-          tblWrap.appendChild(tblHead);
-
-          visibleChanges.forEach(function(c, idx){
-            var bv=_fmtVal(c.before,c.field)||'—';
-            var av=_fmtVal(c.after,c.field)||'—';
-            var diffRow=document.createElement('div');
-            var isLast=(idx===visibleChanges.length-1);
-            diffRow.style.cssText=[
-              'display:grid','grid-template-columns:2fr 3fr 3fr',
-              'padding:9px 12px',
-              'transition:background .1s',
-              isLast?'':'border-bottom:1px solid #f3f3f2'
-            ].join(';');
-            diffRow.onmouseenter=function(){ this.style.background='#f9f9f8'; };
-            diffRow.onmouseleave=function(){ this.style.background=''; };
-            diffRow.innerHTML=
-              '<div style="font-size:11.5px;font-weight:500;color:#6b7280;text-align:right;line-height:1.6;align-self:center;">'+_fieldLabel(c.field)+'</div>'+
-              '<div style="font-size:12.5px;color:#dc2626;text-decoration:line-through;opacity:.8;direction:ltr;text-align:left;padding-right:8px;line-height:1.6;align-self:center;word-break:break-word;">'+bv+'</div>'+
-              '<div style="font-size:12.5px;font-weight:700;color:#16a34a;direction:ltr;text-align:left;line-height:1.6;align-self:center;word-break:break-word;">'+av+'</div>';
-            tblWrap.appendChild(diffRow);
-          });
-          body.appendChild(tblWrap);
-        }
-      }
-
-      modal.appendChild(body);
-      overlay.appendChild(modal);
-      overlay.addEventListener('click',function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
-      document.body.appendChild(overlay);
-    }
-
-    // ── بناء الـ UI ──
-    var pc=document.getElementById('page-content');
-    pc.innerHTML='';
-
-    // Filter Bar
-    var filterBar=document.createElement('div');
-    filterBar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);';
-
-    var filterSelect=document.createElement('select');
-    filterSelect.id='activityFilter'; filterSelect.className='form-select';
-    filterSelect.style.cssText='min-width:170px;font-size:13px;';
-    [
-      ['all','الكل'],['create_user','إنشاء مستخدم'],['delete_user','حذف مستخدم'],
-      ['update_role','تغيير دور'],['update_permissions','تعديل صلاحيات'],
-      ['set_password','تغيير كلمة المرور'],['delete_invoices','حذف فواتير'],
-      ['invoice_create','إنشاء فاتورة'],['invoice_update','تعديل فاتورة'],['invoice_delete','حذف فاتورة'],
-    ].forEach(function(opt){
-      var o=document.createElement('option');
-      o.value=opt[0]; o.textContent=opt[1];
-      if(opt[0]===_savedFilter) o.selected=true;
-      filterSelect.appendChild(o);
+  if(row.action==='create'){
+    var entries=Object.entries(after).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
+    if(entries.length===0){ body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد بيانات</div>'; }
+    else { entries.forEach(function(kv){ var cr=_mkRow(_fieldLabel(kv[0]),_fmtVal(kv[1],kv[0]),'#16a34a'); if(cr) body.appendChild(cr); }); }
+  } else if(row.action==='delete'){
+    var note=document.createElement('div');
+    note.style.cssText='color:#dc2626;font-size:12.5px;font-weight:600;padding:9px 13px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;';
+    note.innerHTML='🗑️ تم حذف هذه الفاتورة'; body.appendChild(note);
+    var bEntries=Object.entries(before).filter(function(kv){ return _shouldShow(kv[0],kv[1]); });
+    if(bEntries.length===0){ body.innerHTML+='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0;">لا توجد بيانات</div>'; }
+    else { bEntries.forEach(function(kv){ var dr=_mkRow(_fieldLabel(kv[0]),_fmtVal(kv[1],kv[0]),'#111111'); if(dr) body.appendChild(dr); }); }
+  } else {
+    var visibleChanges=changes.filter(function(c){
+      if(_HIDDEN_FIELDS.has(c.field)) return false;
+      var bv=_fmtVal(c.before,c.field), av=_fmtVal(c.after,c.field);
+      return !(bv===null&&av===null);
     });
+    if(visibleChanges.length===0){ body.innerHTML='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:28px 0;">لا توجد تغييرات</div>'; }
+    else {
+      var tblWrap=document.createElement('div'); tblWrap.style.cssText='border-radius:8px;overflow:hidden;border:1px solid #f0f0ee;';
+      var tblHead=document.createElement('div');
+      tblHead.style.cssText='display:grid;grid-template-columns:2fr 3fr 3fr;background:#f9f9f8;padding:8px 12px;border-bottom:1px solid #e9e9e7;';
+      tblHead.innerHTML='<div style="font-size:10.5px;font-weight:700;color:#9ca3af;text-align:right;">الحقل</div>'+
+        '<div style="font-size:10.5px;font-weight:700;color:#dc2626;text-align:left;padding-right:8px">قبل</div>'+
+        '<div style="font-size:10.5px;font-weight:700;color:#16a34a;text-align:left;">بعد</div>';
+      tblWrap.appendChild(tblHead);
+      visibleChanges.forEach(function(c,idx){
+        var bv=_fmtVal(c.before,c.field)||'—'; var av=_fmtVal(c.after,c.field)||'—';
+        var diffRow=document.createElement('div'); var isLast=(idx===visibleChanges.length-1);
+        diffRow.style.cssText='display:grid;grid-template-columns:2fr 3fr 3fr;padding:9px 12px;transition:background .1s;'+(isLast?'':'border-bottom:1px solid #f3f3f2;');
+        diffRow.onmouseenter=function(){ this.style.background='#f9f9f8'; };
+        diffRow.onmouseleave=function(){ this.style.background=''; };
+        diffRow.innerHTML='<div style="font-size:11.5px;font-weight:500;color:#6b7280;text-align:right;line-height:1.6;align-self:center;">'+_fieldLabel(c.field)+'</div>'+
+          '<div style="font-size:12.5px;color:#dc2626;text-decoration:line-through;opacity:.8;direction:ltr;text-align:left;padding-right:8px;line-height:1.6;align-self:center;word-break:break-word;">'+bv+'</div>'+
+          '<div style="font-size:12.5px;font-weight:700;color:#16a34a;direction:ltr;text-align:left;line-height:1.6;align-self:center;word-break:break-word;">'+av+'</div>';
+        tblWrap.appendChild(diffRow);
+      });
+      body.appendChild(tblWrap);
+    }
+  }
+  modal.appendChild(body);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click',function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
+  document.body.appendChild(overlay);
+}
 
-    var userSelect=document.createElement('select');
-    userSelect.id='activityUserFilter'; userSelect.className='form-select';
-    userSelect.style.cssText='min-width:150px;font-size:13px;';
-    var allOpt=document.createElement('option'); allOpt.value='all'; allOpt.textContent='كل المستخدمين';
-    if(_savedUser==='all') allOpt.selected=true;
+// ── Filter state (persisted across tab switches) ────────────────
+var _logsFilterState = { filter:'all', user:'all', date:'', search:'' };
+
+// ── renderInvoiceHistory(container) ─────────────────────────────
+// Renders سجل الفواتير (invoice_history) into the given container.
+async function renderInvoiceHistory(container) {
+  container.innerHTML = '';
+  setLoading('جاري تحميل سجل الفواتير...');
+  try {
+    var h = await _logsSharedFetch();
+    var { histData, userOptions, _userName, _formatDate, _histLabel, _shouldShow } = h;
+
+    // ── Filter bar ──
+    var filterBar = document.createElement('div');
+    filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);';
+
+    var userSelect = document.createElement('select');
+    userSelect.className = 'form-select'; userSelect.style.cssText = 'min-width:150px;font-size:13px;';
+    var allOpt = document.createElement('option'); allOpt.value = 'all'; allOpt.textContent = 'كل المستخدمين';
+    if (_logsFilterState.user === 'all') allOpt.selected = true;
     userSelect.appendChild(allOpt);
     userOptions.forEach(function(u){
-      var o=document.createElement('option'); o.value=u.id; o.textContent=u.name||u.email||u.id;
-      if(u.id===_savedUser) o.selected=true;
+      var o = document.createElement('option'); o.value = u.id; o.textContent = u.name||u.email||u.id;
+      if (u.id === _logsFilterState.user) o.selected = true;
       userSelect.appendChild(o);
     });
 
-    var dateWrap=document.createElement('div');
-    dateWrap.className='date-input-wrap';
-    var dateInput=document.createElement('input');
-    dateInput.id='activityDateFilter'; dateInput.type='date'; dateInput.className='form-input';
-    dateInput.style.cssText='font-size:13px;'; dateInput.value=_savedDate;
+    var dateWrap = document.createElement('div'); dateWrap.className = 'date-input-wrap';
+    var dateInput = document.createElement('input');
+    dateInput.type = 'date'; dateInput.className = 'form-input';
+    dateInput.style.cssText = 'font-size:13px;'; dateInput.value = _logsFilterState.date;
     dateWrap.appendChild(dateInput);
 
-    var searchInput=document.createElement('input');
-    searchInput.id='activitySearch'; searchInput.className='form-input';
-    searchInput.placeholder='🔍 بحث...'; searchInput.value=_savedSearch;
-    searchInput.style.cssText='min-width:180px;font-size:13px;';
+    var searchInput = document.createElement('input');
+    searchInput.className = 'form-input'; searchInput.placeholder = '🔍 بحث...';
+    searchInput.value = _logsFilterState.search; searchInput.style.cssText = 'min-width:180px;font-size:13px;';
 
-    filterBar.appendChild(filterSelect);
-    filterBar.appendChild(userSelect);
-    filterBar.appendChild(dateWrap);
-    filterBar.appendChild(searchInput);
-    pc.appendChild(filterBar);
+    filterBar.appendChild(userSelect); filterBar.appendChild(dateWrap); filterBar.appendChild(searchInput);
+    container.appendChild(filterBar);
 
-    filterSelect.addEventListener('change',renderActivity);
-    userSelect.addEventListener('change',renderActivity);
-    dateInput.addEventListener('change',renderActivity);
-    searchInput.addEventListener('input',renderActivity);
+    userSelect.addEventListener('change', function(){ _logsFilterState.user = userSelect.value; renderInvoiceHistory(container); });
+    dateInput.addEventListener('change', function(){ _logsFilterState.date = dateInput.value; renderInvoiceHistory(container); });
+    searchInput.addEventListener('input', function(){ _logsFilterState.search = searchInput.value; renderInvoiceHistory(container); });
 
-    // ── قسم invoice_history ──
-    if(histRows.length>0){
-      var hcard=document.createElement('div'); hcard.className='table-card'; hcard.style.cssText='margin-bottom:16px;overflow:hidden;';
-      var hhd=document.createElement('div'); hhd.className='table-header';
-      var htt=document.createElement('div'); htt.className='table-title'; htt.textContent='🧾 سجل الفواتير';
-      var hct=document.createElement('div'); hct.className='table-count'; hct.textContent=histRows.length+' عملية';
-      hhd.appendChild(htt); hhd.appendChild(hct); hcard.appendChild(hhd);
-      var hlist=document.createElement('div'); hlist.style.cssText='display:flex;flex-direction:column;';
-      histRows.forEach(function(row){
-        var actionCls=row.action==='create'?'create':row.action==='update'?'update':'delete';
-        var actionIcon=row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
-        var actionAr=(row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف')+' فاتورة '+(row.invoice_id||'—');
-        var item=document.createElement('div');
-        item.className='activity-log-item';
-        var dot=document.createElement('div');
-        dot.className='activity-log-dot '+actionCls;
-        dot.textContent=actionIcon;
-        var body=document.createElement('div'); body.className='activity-log-body';
-        var lbl=document.createElement('div'); lbl.className='activity-log-label '+actionCls; lbl.textContent=actionAr;
-        var meta=document.createElement('div'); meta.className='activity-log-meta';
-        meta.innerHTML='<span>👤 '+_userName(row.user_id)+'</span><span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
-        body.appendChild(lbl); body.appendChild(meta);
-        var detBtn=document.createElement('button');
-        detBtn.innerHTML='تفاصيل →';
-        detBtn.style.cssText='padding:5px 13px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--text2);transition:all .12s;white-space:nowrap;flex-shrink:0;';
-        (function(r,b,c){ 
-          b.onmouseenter=function(){ b.style.borderColor=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; b.style.color=c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; };
-          b.onmouseleave=function(){ b.style.borderColor='var(--border2)'; b.style.color='var(--text2)'; };
-          b.addEventListener('click',function(e){ e.stopPropagation(); _openDiffModal(r); });
-          item.addEventListener('click',function(){ _openDiffModal(r); });
-        })(row,detBtn,actionCls);
-        item.appendChild(dot); item.appendChild(body); item.appendChild(detBtn);
-        hlist.appendChild(item);
-      });
-      hcard.appendChild(hlist); pc.appendChild(hcard);
+    // ── Filter invoice_history rows ──
+    var histRows = histData||[];
+    if (_logsFilterState.user !== 'all') histRows = histRows.filter(function(l){ return l.user_id === _logsFilterState.user; });
+    if (_logsFilterState.date)           histRows = histRows.filter(function(l){ return (l.created_at||'').startsWith(_logsFilterState.date); });
+    if (_logsFilterState.search){
+      var _s = _logsFilterState.search.toLowerCase();
+      histRows = histRows.filter(function(l){ return _histLabel(l).toLowerCase().includes(_s); });
     }
 
-    // ── قسم audit_logs ──
-    var card=document.createElement('div'); card.className='table-card';
-    var header=document.createElement('div'); header.className='table-header';
-    var title=document.createElement('div'); title.className='table-title'; title.textContent='📊 سجل النشاط';
-    var countBadge=document.createElement('div'); countBadge.className='table-count'; countBadge.textContent=auditRows.length+' / '+(auditData||[]).length+' عملية';
+    // ── Card ──
+    var hcard = document.createElement('div'); hcard.className = 'table-card'; hcard.style.cssText = 'overflow:hidden;';
+    var hhd = document.createElement('div'); hhd.className = 'table-header';
+    var htt = document.createElement('div'); htt.className = 'table-title'; htt.textContent = '🧾 سجل الفواتير';
+    var hct = document.createElement('div'); hct.className = 'table-count'; hct.textContent = histRows.length + ' عملية';
+    hhd.appendChild(htt); hhd.appendChild(hct); hcard.appendChild(hhd);
+
+    if (histRows.length === 0) {
+      var empty = document.createElement('div'); empty.className = 'empty-state'; empty.textContent = 'لا توجد نتائج';
+      hcard.appendChild(empty);
+    } else {
+      var hlist = document.createElement('div'); hlist.style.cssText = 'display:flex;flex-direction:column;';
+      histRows.forEach(function(row){
+        var actionCls = row.action==='create'?'create':row.action==='update'?'update':'delete';
+        var actionIcon = row.action==='create'?'➕':row.action==='update'?'✏️':'🗑️';
+        var actionAr = (row.action==='create'?'إنشاء':row.action==='update'?'تعديل':'حذف')+' فاتورة '+(row.invoice_id||'—');
+        var item = document.createElement('div'); item.className = 'activity-log-item';
+        var dot = document.createElement('div'); dot.className = 'activity-log-dot '+actionCls; dot.textContent = actionIcon;
+        var bd = document.createElement('div'); bd.className = 'activity-log-body';
+        var lbl = document.createElement('div'); lbl.className = 'activity-log-label '+actionCls; lbl.textContent = actionAr;
+        var meta = document.createElement('div'); meta.className = 'activity-log-meta';
+        meta.innerHTML = '<span>👤 '+_userName(row.user_id)+'</span><span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
+        bd.appendChild(lbl); bd.appendChild(meta);
+        var detBtn = document.createElement('button'); detBtn.innerHTML = 'تفاصيل →';
+        detBtn.style.cssText = 'padding:5px 13px;font-size:12px;font-weight:600;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-family:var(--font);color:var(--text2);transition:all .12s;white-space:nowrap;flex-shrink:0;';
+        (function(r,b,c){
+          b.onmouseenter = function(){ b.style.borderColor = c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; b.style.color = c==='create'?'#16a34a':c==='update'?'#ea580c':'#dc2626'; };
+          b.onmouseleave = function(){ b.style.borderColor = 'var(--border2)'; b.style.color = 'var(--text2)'; };
+          b.addEventListener('click', function(e){ e.stopPropagation(); _buildDiffModal(r, h); });
+          item.addEventListener('click', function(){ _buildDiffModal(r, h); });
+        })(row, detBtn, actionCls);
+        item.appendChild(dot); item.appendChild(bd); item.appendChild(detBtn);
+        hlist.appendChild(item);
+      });
+      hcard.appendChild(hlist);
+    }
+    container.appendChild(hcard);
+  } catch(e) { handleError(e, 'خطأ في تحميل سجل الفواتير'); }
+}
+
+// ── renderAuditLogs(container) ───────────────────────────────────
+// Renders سجل النشاط (audit_logs) into the given container.
+async function renderAuditLogs(container) {
+  container.innerHTML = '';
+  setLoading('جاري تحميل سجل النشاط...');
+  try {
+    var h = await _logsSharedFetch();
+    var { auditData, userOptions, _userName, _formatDate, _formatAction } = h;
+
+    // ── Filter bar ──
+    var filterBar = document.createElement('div');
+    filterBar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);';
+
+    var filterSelect = document.createElement('select');
+    filterSelect.className = 'form-select'; filterSelect.style.cssText = 'min-width:170px;font-size:13px;';
+    [['all','الكل'],['create_user','إنشاء مستخدم'],['delete_user','حذف مستخدم'],
+     ['update_role','تغيير دور'],['update_permissions','تعديل صلاحيات'],
+     ['set_password','تغيير كلمة المرور'],['delete_invoices','حذف فواتير'],['undo_delete','استرجاع فواتير'],
+    ].forEach(function(opt){
+      var o = document.createElement('option'); o.value = opt[0]; o.textContent = opt[1];
+      if (opt[0] === _logsFilterState.filter) o.selected = true;
+      filterSelect.appendChild(o);
+    });
+
+    var userSelect = document.createElement('select');
+    userSelect.className = 'form-select'; userSelect.style.cssText = 'min-width:150px;font-size:13px;';
+    var allOpt = document.createElement('option'); allOpt.value = 'all'; allOpt.textContent = 'كل المستخدمين';
+    if (_logsFilterState.user === 'all') allOpt.selected = true;
+    userSelect.appendChild(allOpt);
+    userOptions.forEach(function(u){
+      var o = document.createElement('option'); o.value = u.id; o.textContent = u.name||u.email||u.id;
+      if (u.id === _logsFilterState.user) o.selected = true;
+      userSelect.appendChild(o);
+    });
+
+    var dateWrap = document.createElement('div'); dateWrap.className = 'date-input-wrap';
+    var dateInput = document.createElement('input');
+    dateInput.type = 'date'; dateInput.className = 'form-input';
+    dateInput.style.cssText = 'font-size:13px;'; dateInput.value = _logsFilterState.date;
+    dateWrap.appendChild(dateInput);
+
+    var searchInput = document.createElement('input');
+    searchInput.className = 'form-input'; searchInput.placeholder = '🔍 بحث...';
+    searchInput.value = _logsFilterState.search; searchInput.style.cssText = 'min-width:180px;font-size:13px;';
+
+    filterBar.appendChild(filterSelect); filterBar.appendChild(userSelect);
+    filterBar.appendChild(dateWrap); filterBar.appendChild(searchInput);
+    container.appendChild(filterBar);
+
+    filterSelect.addEventListener('change', function(){ _logsFilterState.filter = filterSelect.value; renderAuditLogs(container); });
+    userSelect.addEventListener('change',   function(){ _logsFilterState.user   = userSelect.value;   renderAuditLogs(container); });
+    dateInput.addEventListener('change',    function(){ _logsFilterState.date   = dateInput.value;    renderAuditLogs(container); });
+    searchInput.addEventListener('input',   function(){ _logsFilterState.search = searchInput.value;  renderAuditLogs(container); });
+
+    // ── Filter audit_logs rows ──
+    var auditRows = auditData||[];
+    if (_logsFilterState.filter !== 'all') auditRows = auditRows.filter(function(l){ return l.action_type === _logsFilterState.filter; });
+    if (_logsFilterState.user !== 'all')   auditRows = auditRows.filter(function(l){ return l.user_id === _logsFilterState.user; });
+    if (_logsFilterState.date)             auditRows = auditRows.filter(function(l){ return (l.created_at||'').startsWith(_logsFilterState.date); });
+    if (_logsFilterState.search){
+      var _s = _logsFilterState.search.toLowerCase();
+      auditRows = auditRows.filter(function(l){ return _formatAction(l).toLowerCase().includes(_s); });
+    }
+
+    // ── Card ──
+    var card = document.createElement('div'); card.className = 'table-card';
+    var header = document.createElement('div'); header.className = 'table-header';
+    var title = document.createElement('div'); title.className = 'table-title'; title.textContent = '📊 سجل النشاط';
+    var countBadge = document.createElement('div'); countBadge.className = 'table-count';
+    countBadge.textContent = auditRows.length + ' / ' + (auditData||[]).length + ' عملية';
     header.appendChild(title); header.appendChild(countBadge); card.appendChild(header);
 
-    if(auditRows.length===0){
-      var empty=document.createElement('div'); empty.className='empty-state'; empty.textContent='لا توجد نتائج';
+    if (auditRows.length === 0) {
+      var empty = document.createElement('div'); empty.className = 'empty-state'; empty.textContent = 'لا توجد نتائج';
       card.appendChild(empty);
     } else {
-      var list=document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;';
+      var list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;';
       function sameIds(a,b){ if(!Array.isArray(a)||!Array.isArray(b)) return false; if(a.length!==b.length) return false; var s=new Set(a); return b.every(function(id){ return s.has(id); }); }
       auditRows.forEach(function(row){
-        // تحديد نوع العملية ولون وأيقونة
-        var aType=row.action_type||'';
-        var aIcon='⚙️'; var aBg='#f1f5f9'; var aColor='var(--text3)';
-        if(aType==='create_user'){ aIcon='👤'; aBg='#dcfce7'; aColor='#16a34a'; }
-        else if(aType==='delete_user'){ aIcon='🗑️'; aBg='#fee2e2'; aColor='#dc2626'; }
-        else if(aType==='delete_invoices'||aType==='delete_invoice'){ aIcon='🧾'; aBg='#fee2e2'; aColor='#dc2626'; }
-        else if(aType==='undo_delete'){ aIcon='↩️'; aBg='#dbeafe'; aColor='#2563eb'; }
-        else if(aType==='update_role'||aType==='update_permissions'){ aIcon='🔑'; aBg='#ffedd5'; aColor='#ea580c'; }
-        else if(aType==='set_password'){ aIcon='🔒'; aBg='#ede9fe'; aColor='#7c3aed'; }
-
-        // determine CSS class
-        var aCls='system';
+        var aType = row.action_type||'';
+        var aIcon = '⚙️';
+        if(aType==='create_user'){ aIcon='👤'; }
+        else if(aType==='delete_user'){ aIcon='🗑️'; }
+        else if(aType==='delete_invoices'||aType==='delete_invoice'){ aIcon='🧾'; }
+        else if(aType==='undo_delete'){ aIcon='↩️'; }
+        else if(aType==='update_role'||aType==='update_permissions'){ aIcon='🔑'; }
+        else if(aType==='set_password'){ aIcon='🔒'; }
+        var aCls = 'system';
         if(aType.includes('create')) aCls='create';
         else if(aType.includes('delete')||aType.includes('undo')) aCls='delete';
         else if(aType.includes('update')||aType.includes('role')||aType.includes('perm')||aType.includes('password')) aCls='update';
-        var item=document.createElement('div');
-        item.className='activity-log-item';
-        var dot=document.createElement('div');
-        dot.className='activity-log-dot '+aCls;
-        dot.textContent=aIcon;
-        var body=document.createElement('div'); body.className='activity-log-body';
-        var lbl=document.createElement('div'); lbl.className='activity-log-label '+aCls; lbl.textContent=_formatAction(row);
-        var sub=document.createElement('div'); sub.className='activity-log-meta';
-        sub.innerHTML='<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
-        body.appendChild(lbl); body.appendChild(sub);
-        var right=document.createElement('div'); right.style.cssText='display:flex;align-items:center;gap:8px;flex-shrink:0;';
-        if(row.action_type==='delete_invoices'){
-          var rowDetails={}; try { rowDetails=typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
-          if(rowDetails.snapshot){
-            var ids=rowDetails.ids||[];
-            var isAlreadyRestored=auditRows.some(function(l){ if(l.action_type!=='undo_delete') return false; var ld={}; try{ ld=typeof l.details==='string'?JSON.parse(l.details):(l.details||{}); }catch(_){} return sameIds(ld.ids,ids)&&new Date(l.created_at)>new Date(row.created_at); });
-            if(rowDetails.restored===true||isAlreadyRestored){
-              var doneLabel=document.createElement('span'); doneLabel.textContent='✓ تم الاسترجاع'; doneLabel.style.cssText='padding:4px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:6px;'; right.appendChild(doneLabel);
+
+        var item = document.createElement('div'); item.className = 'activity-log-item';
+        var dot = document.createElement('div'); dot.className = 'activity-log-dot '+aCls; dot.textContent = aIcon;
+        var bd = document.createElement('div'); bd.className = 'activity-log-body';
+        var lbl = document.createElement('div'); lbl.className = 'activity-log-label '+aCls; lbl.textContent = _formatAction(row);
+        var sub = document.createElement('div'); sub.className = 'activity-log-meta';
+        sub.innerHTML = '<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span>';
+        bd.appendChild(lbl); bd.appendChild(sub);
+        var right = document.createElement('div'); right.style.cssText = 'display:flex;align-items:center;gap:8px;flex-shrink:0;';
+        if (row.action_type === 'delete_invoices') {
+          var rowDetails = {}; try { rowDetails = typeof row.details==='string'?JSON.parse(row.details):(row.details||{}); } catch(_){}
+          if (rowDetails.snapshot) {
+            var ids = rowDetails.ids||[];
+            var isAlreadyRestored = auditRows.some(function(l){
+              if(l.action_type!=='undo_delete') return false;
+              var ld={}; try{ ld=typeof l.details==='string'?JSON.parse(l.details):(l.details||{}); }catch(_){}
+              return sameIds(ld.ids,ids)&&new Date(l.created_at)>new Date(row.created_at);
+            });
+            if (rowDetails.restored===true||isAlreadyRestored) {
+              var doneLabel = document.createElement('span'); doneLabel.textContent = '✓ تم الاسترجاع';
+              doneLabel.style.cssText = 'padding:4px 10px;font-size:12px;font-weight:700;color:var(--green);background:var(--green-light,#f0fdf4);border:1px solid var(--green);border-radius:6px;';
+              right.appendChild(doneLabel);
             } else {
-              var undoBtn=document.createElement('button'); undoBtn.textContent='↩️ استرجاع'; undoBtn.style.cssText='padding:4px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
-              (function(cr,cb){ cb.addEventListener('click',function(){ _restoreFromAudit(cr,cb); }); })(row,undoBtn);
+              var undoBtn = document.createElement('button'); undoBtn.textContent = '↩️ استرجاع';
+              undoBtn.style.cssText = 'padding:4px 10px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:opacity .15s;font-family:var(--font);';
+              (function(cr,cb){ cb.addEventListener('click', function(){ _restoreFromAudit(cr,cb); }); })(row, undoBtn);
               right.appendChild(undoBtn);
             }
           }
         }
-        item.appendChild(dot); item.appendChild(body); item.appendChild(right); list.appendChild(item);
+        item.appendChild(dot); item.appendChild(bd); item.appendChild(right);
+        list.appendChild(item);
       });
       card.appendChild(list);
     }
-    pc.appendChild(card);
-
-  } catch(e) {
-    handleError(e, 'خطأ في تحميل سجل النشاط');
-  }
+    container.appendChild(card);
+  } catch(e) { handleError(e, 'خطأ في تحميل سجل النشاط'); }
 }
 
-// ── Login Log Page ──
-async function renderLoginLog() {
+// ── renderLoginLog(container) ────────────────────────────────────
+// Renders سجل الدخول (login_logs) into the given container.
+// container is optional — if omitted falls back to #page-content
+// (preserves backward compatibility with direct showPage calls).
+async function renderLoginLog(container) {
+  var target = container || document.getElementById('page-content');
+  target.innerHTML = '';
   setLoading('جاري تحميل سجل الدخول...');
   try {
     var { data, error } = await sb
@@ -7412,201 +7295,128 @@ async function renderLoginLog() {
       .order('created_at', { ascending: false })
       .limit(100);
     if (error) throw error;
-
-    var rows = data || [];
+    var rows = data||[];
 
     function _formatDate(ts){
       if(!ts) return '—';
       try {
-        var d=new Date(ts);
-        if(isNaN(d)) return ts;
+        var d=new Date(ts); if(isNaN(d)) return ts;
         var dd=String(d.getDate()).padStart(2,'0');
         var mm=String(d.getMonth()+1).padStart(2,'0');
         var yy=d.getFullYear();
         var hh=String(d.getHours()).padStart(2,'0');
         var mi=String(d.getMinutes()).padStart(2,'0');
         return dd+'/'+mm+'/'+yy+' '+hh+':'+mi;
-      }
-      catch(_){ return ts; }
+      } catch(_){ return ts; }
     }
-
     function _parseDevice(ua){
       if(!ua) return { icon:'💻', label:'غير معروف' };
       if(/iPhone|iPad|iPod/i.test(ua)) return { icon:'📱', label:'iOS' };
-      if(/Android/i.test(ua)) return { icon:'📱', label:'أندرويد' };
-      if(/Windows/i.test(ua)) return { icon:'💻', label:'ويندوز' };
-      if(/Mac/i.test(ua)) return { icon:'🍎', label:'Mac' };
-      if(/Linux/i.test(ua)) return { icon:'🐧', label:'لينكس' };
+      if(/Android/i.test(ua))          return { icon:'📱', label:'أندرويد' };
+      if(/Windows/i.test(ua))          return { icon:'💻', label:'ويندوز' };
+      if(/Mac/i.test(ua))              return { icon:'🍎', label:'Mac' };
+      if(/Linux/i.test(ua))            return { icon:'🐧', label:'لينكس' };
       return { icon:'💻', label:'متصفح' };
     }
 
-    var pc = document.getElementById('page-content');
-    pc.innerHTML = '';
-
     var card = document.createElement('div'); card.className = 'table-card';
     var hd = document.createElement('div'); hd.className = 'table-header';
-    var title = document.createElement('div'); title.className = 'table-title'; title.textContent = '🔐 سجل الدخول';
+    var ttl = document.createElement('div'); ttl.className = 'table-title'; ttl.textContent = '🔐 سجل الدخول';
     var cnt = document.createElement('div'); cnt.className = 'table-count'; cnt.textContent = rows.length + ' تسجيل';
-    hd.appendChild(title); hd.appendChild(cnt); card.appendChild(hd);
+    hd.appendChild(ttl); hd.appendChild(cnt); card.appendChild(hd);
 
-    if(rows.length === 0){
+    if (rows.length === 0) {
       var empty = document.createElement('div'); empty.className = 'empty-state'; empty.textContent = 'لا توجد تسجيلات دخول بعد';
       card.appendChild(empty);
     } else {
-      var list = document.createElement('div'); list.style.cssText='display:flex;flex-direction:column;gap:0;';
+      var list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:0;';
       rows.forEach(function(row){
         var dev = _parseDevice(row.user_agent);
         var item = document.createElement('div');
-        item.style.cssText='display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .12s;';
-        item.onmouseenter=function(){ this.style.background='var(--bg3)'; };
-        item.onmouseleave=function(){ this.style.background=''; };
+        item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background .12s;';
+        item.onmouseenter = function(){ this.style.background = 'var(--bg3)'; };
+        item.onmouseleave = function(){ this.style.background = ''; };
         var dot = document.createElement('div');
-        dot.style.cssText='width:34px;height:34px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;';
-        dot.textContent=dev.icon;
-        var info = document.createElement('div'); info.style.cssText='flex:1;min-width:0;';
-        var email = document.createElement('div');
-        email.style.cssText='font-weight:700;color:var(--text);font-size:13px;direction:ltr;text-align:right;';
-        email.textContent=row.email||'—';
+        dot.style.cssText = 'width:34px;height:34px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;';
+        dot.textContent = dev.icon;
+        var info = document.createElement('div'); info.style.cssText = 'flex:1;min-width:0;';
+        var emailEl = document.createElement('div');
+        emailEl.style.cssText = 'font-weight:700;color:var(--text);font-size:13px;direction:ltr;text-align:right;';
+        emailEl.textContent = row.email||'—';
         var sub = document.createElement('div');
-        sub.style.cssText='font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;';
-        sub.innerHTML='<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span><span>'+dev.icon+' '+dev.label+'</span>';
-        info.appendChild(email); info.appendChild(sub);
+        sub.style.cssText = 'font-size:11px;color:var(--text3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;';
+        sub.innerHTML = '<span style="direction:ltr;unicode-bidi:plaintext">🕒 '+_formatDate(row.created_at)+'</span><span>'+dev.icon+' '+dev.label+'</span>';
+        info.appendChild(emailEl); info.appendChild(sub);
         item.appendChild(dot); item.appendChild(info);
         list.appendChild(item);
       });
       card.appendChild(list);
     }
-
-    pc.appendChild(card);
-  } catch(e) {
-    handleError(e, 'خطأ في تحميل سجل الدخول');
-  }
+    target.appendChild(card);
+  } catch(e) { handleError(e, 'خطأ في تحميل سجل الدخول'); }
 }
 
-// ══════════════════════════════════════════
-// 📋 LOGS PAGE WRAPPER — v76.9.3
-// Wraps renderActivity + renderLoginLog into
-// a tabbed view. ZERO changes to originals.
-// ══════════════════════════════════════════
+// ── renderActivity() — backward-compat wrapper ───────────────────
+// Kept so existing callers (showPage('activity'), undo refresh, etc.)
+// still work without any change to the rest of the codebase.
+async function renderActivity() {
+  var pc = document.getElementById('page-content');
+  pc.innerHTML = '';
+  await renderInvoiceHistory(pc);
+  var auditContainer = document.createElement('div');
+  auditContainer.style.cssText = 'margin-top:16px;';
+  pc.appendChild(auditContainer);
+  await renderAuditLogs(auditContainer);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 📋 showLogsPage(tab) — clean tab shell  v76.9.3
+// ══════════════════════════════════════════════════════════════
 var _logsActiveTab = 'invoices';
 
 async function showLogsPage(tab) {
   _logsActiveTab = tab || _logsActiveTab || 'invoices';
 
   var pc = document.getElementById('page-content');
-
-  // ── 1. Build tab bar ──
-  var tabs = [
-    { key: 'invoices', label: '🧾 سجل الفواتير', color: '#16a34a' },
-    { key: 'audit',    label: '📊 سجل النشاط',  color: '#2563eb' },
-    { key: 'login',    label: '🔐 سجل الدخول',  color: '#7c3aed' }
-  ];
-
   pc.innerHTML = '';
 
+  // ── Tab bar ──
+  var tabDefs = [
+    { key:'invoices', label:'🧾 سجل الفواتير', color:'#16a34a' },
+    { key:'audit',    label:'📊 سجل النشاط',  color:'#2563eb' },
+    { key:'login',    label:'🔐 سجل الدخول',  color:'#7c3aed' }
+  ];
   var tabBar = document.createElement('div');
-  tabBar.id = 'logs-tab-bar';
-  tabBar.style.cssText = [
-    'display:flex', 'gap:4px', 'margin-bottom:20px',
-    'background:#fff', 'border:1px solid var(--border)',
-    'border-radius:10px', 'padding:6px',
-    'box-shadow:0 1px 3px rgba(0,0,0,.04)'
-  ].join(';');
-
-  tabs.forEach(function(t) {
+  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:20px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.04);';
+  tabDefs.forEach(function(t){
     var btn = document.createElement('button');
-    btn.dataset.logsTab = t.key;
     var isActive = (t.key === _logsActiveTab);
     btn.style.cssText = [
-      'flex:1', 'padding:9px 12px', 'border-radius:7px',
-      'border:none', 'cursor:pointer', 'font-family:var(--font)',
-      'font-size:13px', 'font-weight:' + (isActive ? '700' : '500'),
+      'flex:1','padding:9px 12px','border-radius:7px','border:none','cursor:pointer',
+      'font-family:var(--font)','font-size:13px',
+      'font-weight:'+(isActive?'700':'500'),
       'transition:all .15s',
-      'background:' + (isActive ? t.color : 'transparent'),
-      'color:' + (isActive ? '#fff' : 'var(--text3)'),
-      'box-shadow:' + (isActive ? '0 2px 6px rgba(0,0,0,.12)' : 'none')
+      'background:'+(isActive?t.color:'transparent'),
+      'color:'+(isActive?'#fff':'var(--text3)'),
+      'box-shadow:'+(isActive?'0 2px 6px rgba(0,0,0,.12)':'none')
     ].join(';');
     btn.textContent = t.label;
-    btn.addEventListener('click', function() { showLogsPage(t.key); });
+    btn.addEventListener('click', function(){ showLogsPage(t.key); });
     tabBar.appendChild(btn);
   });
-
   pc.appendChild(tabBar);
 
-  // ── 2. Content area ──
-  var contentArea = document.createElement('div');
-  contentArea.id = 'logs-content-area';
-  pc.appendChild(contentArea);
+  // ── Content container ──
+  var content = document.createElement('div');
+  pc.appendChild(content);
 
-  // ── 3. Loading placeholder ──
-  contentArea.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
-
-  // ── 4. Dispatch to correct renderer ──
-  if (_logsActiveTab === 'login') {
-    // renderLoginLog writes directly to #page-content — re-route by swapping
-    // Temporarily set pc to contentArea, call, then restore
-    var realPc = document.getElementById('page-content');
-
-    // Override getElementById for 'page-content' temporarily
-    var _origGetEl = document.getElementById.bind(document);
-    var _pcProxy = contentArea;
-    document.getElementById = function(id) {
-      if (id === 'page-content') return _pcProxy;
-      return _origGetEl(id);
-    };
-
-    try {
-      await renderLoginLog();
-    } finally {
-      document.getElementById = _origGetEl;
-    }
-
-    // Re-inject tab bar since renderLoginLog wiped page-content
-    // (actually it wiped contentArea now, so tab bar is safe)
-
-  } else {
-    // renderActivity writes to #page-content — same proxy trick
-    var _origGetEl2 = document.getElementById.bind(document);
-    document.getElementById = function(id) {
-      if (id === 'page-content') return contentArea;
-      return _origGetEl2(id);
-    };
-
-    try {
-      await renderActivity();
-    } finally {
-      document.getElementById = _origGetEl2;
-    }
-
-    // ── 5. Hide the unwanted section ──
-    // renderActivity renders: filterBar, hcard (سجل الفواتير), card (سجل النشاط)
-    // Find them by their table-title text content
-    var titles = contentArea.querySelectorAll('.table-title');
-    titles.forEach(function(titleEl) {
-      var card = titleEl.closest('.table-card');
-      if (!card) return;
-      var txt = titleEl.textContent || '';
-      if (_logsActiveTab === 'invoices') {
-        // show invoice_history (🧾 سجل الفواتير), hide audit_logs (📊 سجل النشاط)
-        card.style.display = txt.indexOf('سجل النشاط') !== -1 ? 'none' : '';
-      } else if (_logsActiveTab === 'audit') {
-        // show audit_logs (📊 سجل النشاط), hide invoice_history (🧾 سجل الفواتير)
-        card.style.display = txt.indexOf('سجل الفواتير') !== -1 ? 'none' : '';
-      }
-    });
-    // ── 6. Re-wire filter listeners so rerenders preserve the tab bar ──
-    // renderActivity attaches: change on activityFilter, activityUserFilter, activityDateFilter
-    //                          input  on activitySearch
-    // These listeners call renderActivity() directly — we redirect to showLogsPage.
-    var _rewireIds = ['activityFilter','activityUserFilter','activityDateFilter','activitySearch'];
-    _rewireIds.forEach(function(elId) {
-      var el = contentArea.querySelector('#'+elId);
-      if (!el) return;
-      var newEl = el.cloneNode(true); // removes old listeners
-      el.parentNode.replaceChild(newEl, el);
-      var evtType = (elId === 'activitySearch') ? 'input' : 'change';
-      newEl.addEventListener(evtType, function() { showLogsPage(_logsActiveTab); });
-    });
+  // ── Dispatch to the correct renderer — clean, no hacks ──
+  if (_logsActiveTab === 'invoices') {
+    await renderInvoiceHistory(content);
+  } else if (_logsActiveTab === 'audit') {
+    await renderAuditLogs(content);
+  } else if (_logsActiveTab === 'login') {
+    await renderLoginLog(content);
   }
 }
 
