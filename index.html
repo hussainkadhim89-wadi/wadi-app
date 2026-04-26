@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.19">
+<meta name="app-version" content="v76.19.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4034,15 +4034,15 @@ body.dark .pd-actions-grid{background:#334155;}body.dark .pd-action:hover{backgr
 body.dark .pd-act-item:hover{background:#263548;}
 body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{background:#14432a;}body.dark .pd-act-dot.wd{background:#44330a;}
 /* ═══ v76.17 UX ENHANCEMENTS ═══ */
-@keyframes pd-kpi-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.pd-kpi{animation:pd-kpi-in .35s cubic-bezier(.16,1,.3,1) both;}
-.pd-kpi:nth-child(1){animation-delay:.04s}.pd-kpi:nth-child(2){animation-delay:.08s}
-.pd-kpi:nth-child(3){animation-delay:.12s}.pd-kpi:nth-child(4){animation-delay:.16s}
-.pd-kpi:nth-child(5){animation-delay:.20s}.pd-kpi:nth-child(6){animation-delay:.24s}
-.pd-kpi:nth-child(7){animation-delay:.28s}.pd-kpi:nth-child(8){animation-delay:.32s}
+@keyframes pd-kpi-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.pd-kpi{animation:pd-kpi-in .45s cubic-bezier(.16,1,.3,1) both;}
+.pd-kpi:nth-child(1){animation-delay:.30s}.pd-kpi:nth-child(2){animation-delay:.40s}
+.pd-kpi:nth-child(3){animation-delay:.50s}.pd-kpi:nth-child(4){animation-delay:.60s}
+.pd-kpi:nth-child(5){animation-delay:.70s}.pd-kpi:nth-child(6){animation-delay:.80s}
+.pd-kpi:nth-child(7){animation-delay:.90s}.pd-kpi:nth-child(8){animation-delay:1.0s}
 .pd-kpi-vs{font-size:9.5px;color:var(--text4);margin-top:2px;letter-spacing:.2px;}
-@keyframes pd-chart-fade{from{opacity:0}to{opacity:1}}
-.pd-canvas-fade{animation:pd-chart-fade .25s ease;}
+@keyframes pd-chart-fade{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+.pd-canvas-fade{animation:pd-chart-fade 280ms var(--ease-smooth);}
 .pd-today-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
 .pd-today-chip{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;transition:all .15s;}
 .pd-today-chip:hover{border-color:var(--border2);box-shadow:0 3px 10px rgba(0,0,0,.06);}
@@ -4104,15 +4104,15 @@ html { scroll-behavior: smooth; }
 /* ── 3. KPI CARD — ELEVATED HOVER ── */
 .pd-kpi {
   box-shadow: var(--shadow-1);
-  transition: transform var(--dur-mid) var(--ease-smooth),
-              box-shadow var(--dur-mid) var(--ease-smooth),
-              border-color var(--dur-mid) ease;
+  transition: transform 200ms var(--ease-smooth),
+              box-shadow 200ms var(--ease-smooth),
+              border-color 200ms ease;
   will-change: transform;
 }
 .pd-kpi:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-3);
-  border-color: rgba(37,99,235,.2);
+  transform: translateY(-6px);
+  box-shadow: 0 16px 48px rgba(0,0,0,.13), 0 6px 16px rgba(0,0,0,.08);
+  border-color: rgba(37,99,235,.25);
 }
 .pd-kpi:active { transform: translateY(-2px); box-shadow: var(--shadow-2); }
 
@@ -4165,30 +4165,30 @@ html { scroll-behavior: smooth; }
 
 /* ── 7. PAGE ENTER ANIMATION ── */
 @keyframes wow-section-in {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.pd-header      { animation: wow-section-in var(--dur-slow) var(--ease-smooth) both; animation-delay: 0ms; }
-.pd-alert-strip { animation: wow-section-in var(--dur-slow) var(--ease-smooth) both; animation-delay: 60ms; }
-.pd-today-bar   { animation: wow-section-in var(--dur-slow) var(--ease-smooth) both; animation-delay: 100ms; }
-.pd-kpi-strip   { animation: wow-section-in var(--dur-slow) var(--ease-smooth) both; animation-delay: 140ms; }
-.pd-main-grid   { animation: wow-section-in var(--dur-slow) var(--ease-smooth) both; animation-delay: 200ms; }
-.pd-bottom-grid { animation: wow-section-in var(--dur-slow) var(--ease-smooth) both; animation-delay: 260ms; }
+.pd-header      { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 0ms; }
+.pd-alert-strip { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 80ms; }
+.pd-today-bar   { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 160ms; }
+.pd-kpi-strip   { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 240ms; }
+.pd-main-grid   { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 340ms; }
+.pd-bottom-grid { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 440ms; }
 
 /* ── 8. ACTIVITY FEED ITEMS ── */
 .pd-act-item {
-  transition: background var(--dur-fast) ease,
-              transform var(--dur-fast) var(--ease-smooth);
+  transition: background 150ms ease,
+              transform 160ms var(--ease-smooth);
 }
-.pd-act-item:hover { transform: translateX(-3px); }
+.pd-act-item:hover { transform: translateX(-5px); }
 
 /* ── 9. ALERT STRIP ── */
 @keyframes wow-pulse-critical {
   0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
-  50%       { box-shadow: 0 0 0 4px rgba(220,38,38,.08); }
+  50%       { box-shadow: 0 0 0 8px rgba(220,38,38,.12); }
 }
 .pd-alert.critical {
-  animation: pd-alert-in .3s ease both, wow-pulse-critical 3s ease infinite;
+  animation: pd-alert-in .3s ease both, wow-pulse-critical 2.5s ease infinite;
   border-left: 3px solid #fca5a5;
 }
 .pd-alert.warn { border-left: 3px solid #fde68a; }
@@ -10273,7 +10273,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.19';
+const APP_VERSION = 'v76.19.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
