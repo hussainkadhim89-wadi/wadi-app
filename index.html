@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.10.2">
+<meta name="app-version" content="v76.11">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -13815,6 +13815,309 @@ async function _copyPublicLink(invId){
 }
 
 
+
+// ══════════════════════════════════════════
+// 🔒 SESSION MANAGER — v76.11
+// Phase 1 + 4: Inactivity Timer + Auto Logout
+// ── ISOLATED IIFE — لا يلمس أي كود موجود ──
+// ══════════════════════════════════════════
+(function initSessionManager() {
+
+  // ════════════════════════════════
+  // ⚙️ CONFIG — قابل للتعديل
+  // ════════════════════════════════
+  var CFG = {
+    // ⏱️ التوقيتات — بالميلي ثانية
+    INACTIVITY_LIMIT : 60 * 60 * 1000,  // 60 دقيقة → logout
+    WARNING_BEFORE   : 5  * 60 * 1000,  // تحذير قبل 5 دقائق من الـ logout
+    // 👆 للتجربة: غيّر INACTIVITY_LIMIT إلى 3*60*1000 (3 دقائق)
+
+    // 🔁 Debounce على activity events
+    ACTIVITY_DEBOUNCE: 3 * 1000,        // 3 ثواني — تحقق التعديل المطلوب
+
+    // 🎭 أحداث تُعتبر نشاطاً
+    ACTIVITY_EVENTS  : ['mousemove','keydown','click','scroll','touchstart'],
+
+    // 🆔 ID الـ warning modal
+    WARN_MODAL_ID    : 'sm-warn-modal',
+  };
+
+  // ════════════════════════════════
+  // 📦 STATE — معزول بالكامل
+  // ════════════════════════════════
+  var _logoutTimer   = null;   // Timer الـ auto logout
+  var _warnTimer     = null;   // Timer الـ warning
+  var _debounceTimer = null;   // Timer الـ debounce
+  var _warnShown     = false;  // هل الـ warning ظاهر حالياً؟
+  var _active        = false;  // هل الـ session manager شغّال؟
+
+  // ════════════════════════════════
+  // 🎨 CSS — Warning Modal
+  // ════════════════════════════════
+  function _injectCSS() {
+    if (document.getElementById('sm-style')) return;
+    var s = document.createElement('style');
+    s.id = 'sm-style';
+    s.textContent = [
+      // Overlay
+      '#sm-warn-modal{',
+        'display:none;position:fixed;inset:0;z-index:99999;',
+        'background:rgba(0,0,0,.45);backdrop-filter:blur(3px);',
+        'align-items:center;justify-content:center;',
+        'animation:smFadeIn .2s ease;',
+      '}',
+      '#sm-warn-modal.sm-open{display:flex;}',
+
+      // Card
+      '#sm-warn-card{',
+        'background:#fff;border-radius:16px;',
+        'box-shadow:0 24px 64px rgba(0,0,0,.18);',
+        'padding:36px 32px 28px;max-width:380px;width:90%;',
+        'text-align:center;',
+        'animation:smSlideUp .25s cubic-bezier(.16,1,.3,1);',
+      '}',
+
+      // Icon
+      '#sm-warn-icon{font-size:48px;margin-bottom:14px;',
+        'animation:smPulse 1.5s ease-in-out infinite;}',
+
+      // Text
+      '#sm-warn-title{font-size:18px;font-weight:700;color:#111;margin-bottom:8px;}',
+      '#sm-warn-sub{font-size:13px;color:#6b7280;margin-bottom:6px;}',
+      '#sm-warn-countdown{',
+        'font-size:28px;font-weight:800;color:#dc2626;',
+        'font-family:monospace;margin:14px 0;',
+        'background:#fff5f5;border-radius:8px;padding:8px 20px;',
+        'display:inline-block;',
+      '}',
+
+      // Buttons
+      '#sm-warn-btns{display:flex;gap:10px;justify-content:center;margin-top:20px;}',
+      '#sm-btn-stay{',
+        'flex:1;padding:11px;border-radius:10px;border:none;cursor:pointer;',
+        'background:#2563eb;color:#fff;font-size:14px;font-weight:700;',
+        'font-family:inherit;transition:background .15s;',
+      '}',
+      '#sm-btn-stay:hover{background:#1d4ed8;}',
+      '#sm-btn-logout{',
+        'padding:11px 18px;border-radius:10px;',
+        'border:1.5px solid #e5e7eb;cursor:pointer;',
+        'background:#fff;color:#6b7280;font-size:13px;',
+        'font-family:inherit;transition:all .15s;',
+      '}',
+      '#sm-btn-logout:hover{border-color:#dc2626;color:#dc2626;}',
+
+      // Keyframes
+      '@keyframes smFadeIn{from{opacity:0}to{opacity:1}}',
+      '@keyframes smSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}',
+      '@keyframes smPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  // ════════════════════════════════
+  // 🏗️ Warning Modal — HTML
+  // ════════════════════════════════
+  function _buildModal() {
+    if (document.getElementById(CFG.WARN_MODAL_ID)) return;
+    var el = document.createElement('div');
+    el.id  = CFG.WARN_MODAL_ID;
+    el.innerHTML = [
+      '<div id="sm-warn-card">',
+        '<div id="sm-warn-icon">⏰</div>',
+        '<div id="sm-warn-title">ما زلت موجود؟</div>',
+        '<div id="sm-warn-sub">سيتم تسجيل خروجك تلقائياً بعد:</div>',
+        '<div id="sm-warn-countdown">05:00</div>',
+        '<div id="sm-warn-note" style="font-size:12px;color:#9ca3af;margin-top:-6px;">',
+          'حرك الماوس أو اضغط أي زر للاستمرار',
+        '</div>',
+        '<div id="sm-warn-btns">',
+          '<button id="sm-btn-stay">✅ أنا هنا — استمر</button>',
+          '<button id="sm-btn-logout">تسجيل الخروج</button>',
+        '</div>',
+      '</div>',
+    ].join('');
+    document.body.appendChild(el);
+
+    // Events
+    document.getElementById('sm-btn-stay').onclick   = _onUserStay;
+    document.getElementById('sm-btn-logout').onclick = _doLogout;
+  }
+
+  // ════════════════════════════════
+  // ⏱️ TIMER LOGIC
+  // ════════════════════════════════
+
+  // يبدأ / يعيد ضبط الـ timers
+  function _resetTimers() {
+    // امسح الـ timers القديمة
+    if (_logoutTimer) clearTimeout(_logoutTimer);
+    if (_warnTimer)   clearTimeout(_warnTimer);
+
+    // لو الـ warning ظاهر — أخفيه لأن المستخدم نشط
+    if (_warnShown) _hideWarning();
+
+    // Warning Timer — يُطلق قبل الـ logout بـ WARNING_BEFORE
+    _warnTimer = setTimeout(function() {
+      _showWarning();
+    }, CFG.INACTIVITY_LIMIT - CFG.WARNING_BEFORE);
+
+    // Logout Timer — بعد INACTIVITY_LIMIT كامل
+    _logoutTimer = setTimeout(function() {
+      _doLogout();
+    }, CFG.INACTIVITY_LIMIT);
+  }
+
+  // ════════════════════════════════
+  // 📣 Activity Detection
+  // ════════════════════════════════
+  function _onActivity() {
+    if (!_active) return;
+
+    // Debounce — ما نعيد الضبط لكل حركة فأرة
+    if (_debounceTimer) clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(function() {
+      _resetTimers();
+    }, CFG.ACTIVITY_DEBOUNCE);
+  }
+
+  function _attachEvents() {
+    CFG.ACTIVITY_EVENTS.forEach(function(ev) {
+      window.addEventListener(ev, _onActivity, { passive: true });
+    });
+  }
+
+  function _detachEvents() {
+    CFG.ACTIVITY_EVENTS.forEach(function(ev) {
+      window.removeEventListener(ev, _onActivity);
+    });
+  }
+
+  // ════════════════════════════════
+  // 🚨 Warning Modal — Show/Hide
+  // ════════════════════════════════
+  var _countdownInterval = null;
+
+  function _showWarning() {
+    _warnShown = true;
+    var modal = document.getElementById(CFG.WARN_MODAL_ID);
+    if (!modal) return;
+    modal.classList.add('sm-open');
+
+    // Countdown — كم ثانية تبقت
+    var remaining = CFG.WARNING_BEFORE;
+    _updateCountdown(remaining);
+
+    if (_countdownInterval) clearInterval(_countdownInterval);
+    _countdownInterval = setInterval(function() {
+      remaining -= 1000;
+      if (remaining <= 0) {
+        clearInterval(_countdownInterval);
+        return;
+      }
+      _updateCountdown(remaining);
+    }, 1000);
+  }
+
+  function _hideWarning() {
+    _warnShown = false;
+    if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+    var modal = document.getElementById(CFG.WARN_MODAL_ID);
+    if (modal) modal.classList.remove('sm-open');
+  }
+
+  function _updateCountdown(ms) {
+    var el = document.getElementById('sm-warn-countdown');
+    if (!el) return;
+    var totalSec = Math.max(0, Math.ceil(ms / 1000));
+    var m = Math.floor(totalSec / 60);
+    var s = totalSec % 60;
+    el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    // لون أحمر غامق لو أقل من دقيقة
+    el.style.color = totalSec <= 60 ? '#7f1d1d' : '#dc2626';
+  }
+
+  // ════════════════════════════════
+  // 🔘 Button Actions
+  // ════════════════════════════════
+  function _onUserStay() {
+    // المستخدم قال "أنا هنا" → أعد ضبط الكل
+    _hideWarning();
+    _resetTimers();
+  }
+
+  function _doLogout() {
+    // استخدام الـ doLogout الموجودة بالنظام — لا نكتب logout جديد
+    _stop();
+    try {
+      if (typeof doLogout === 'function') {
+        doLogout();
+      } else if (typeof sb !== 'undefined' && sb && typeof sb.auth !== 'undefined') {
+        sb.auth.signOut();
+      } else {
+        // Fallback أخير
+        location.reload();
+      }
+    } catch(e) {
+      console.warn('[SessionManager] logout error:', e);
+      location.reload();
+    }
+  }
+
+  // ════════════════════════════════
+  // ▶️ Start / ⏹️ Stop
+  // ════════════════════════════════
+  function _start() {
+    if (_active) return; // منع double-start
+    _active = true;
+    _injectCSS();
+    _buildModal();
+    _attachEvents();
+    _resetTimers();
+    if (window.DEBUG) console.log('[SessionManager] ▶️ started — timeout:', CFG.INACTIVITY_LIMIT / 60000, 'min');
+  }
+
+  function _stop() {
+    _active = false;
+    _detachEvents();
+    if (_logoutTimer)       { clearTimeout(_logoutTimer);        _logoutTimer = null; }
+    if (_warnTimer)         { clearTimeout(_warnTimer);          _warnTimer   = null; }
+    if (_debounceTimer)     { clearTimeout(_debounceTimer);      _debounceTimer = null; }
+    if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+    _hideWarning();
+  }
+
+  // ════════════════════════════════
+  // 🔗 Integration — ربط مع Auth
+  // ════════════════════════════════
+  // نراقب window.currentUser بدلاً من تعديل onAuthStateChange
+  // هذا يحافظ على الـ auth flow الحالي بدون أي تعديل
+
+  var _authCheckInterval = setInterval(function() {
+    var isLoggedIn = !!(window.currentUser && window._appInitialized);
+
+    if (isLoggedIn && !_active) {
+      // المستخدم سجّل دخول → ابدأ الـ session manager
+      _start();
+    } else if (!isLoggedIn && _active) {
+      // المستخدم سجّل خروج → أوقف الـ session manager
+      _stop();
+    }
+  }, 2000); // فحص كل ثانيتين — خفيف جداً على الأداء
+
+  // ════════════════════════════════
+  // 🌐 Expose — للتجربة من Console
+  // ════════════════════════════════
+  window._sessionManager = {
+    start  : _start,
+    stop   : _stop,
+    config : CFG,
+    // للتجربة السريعة من Console:
+    // _sessionManager.config.INACTIVITY_LIMIT = 2 * 60 * 1000
+    // _sessionManager.stop(); _sessionManager.start();
+  };
+
+})();
 
 // ══════════════════════════════════════════
 // 🤖 WADI ASSISTANT — v65.8
