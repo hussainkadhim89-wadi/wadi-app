@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.21">
+<meta name="app-version" content="v76.25">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3702,6 +3702,7 @@ function showApp(){
   // Smart Reminders Live — كل 60 ثانية (event-ready)
   setInterval(runSmartReminders, _S31.reminderInterval);
   _gsearchLoaded=false;
+  // v76.22: re-sync memory search on next open
 }
 function showLoginScreen(){document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';}
 
@@ -4282,6 +4283,86 @@ body.dark .pd-ins-item.good{background:rgba(22,163,74,.1);border-color:rgba(22,1
 body.dark .pd-ins-item.warning{background:rgba(234,88,12,.1);border-color:rgba(234,88,12,.25);}
 body.dark .pd-ins-item.critical{background:rgba(220,38,38,.1);border-color:rgba(220,38,38,.25);}
 body.dark .pd-ins-item.info{background:rgba(37,99,235,.1);border-color:rgba(37,99,235,.2);}
+/* === v76.25 SMART REPORTS DATE FILTER === */
+.rp-filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;background:#fff;border-radius:10px;border:1px solid var(--border);margin-bottom:14px;}
+.rp-label{font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap;}
+.rp-presets{display:flex;gap:4px;}
+.rp-preset{padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2);transition:all 120ms;}
+.rp-preset:hover{background:#eff6ff;border-color:#93c5fd;color:var(--accent);}
+.rp-preset.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.rp-sep{width:1px;height:24px;background:var(--border);flex-shrink:0;}
+.rp-active-banner{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:12px;font-size:12px;color:#1e40af;font-weight:600;}
+.rp-active-banner .rp-clear{margin-right:auto;padding:3px 8px;border-radius:5px;border:1px solid #93c5fd;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#1e40af;font-family:inherit;transition:all 120ms;}
+.rp-active-banner .rp-clear:hover{background:#dbeafe;}
+.rp-err{color:#dc2626;font-size:11px;font-weight:700;white-space:nowrap;}
+body.dark .rp-filter-bar{background:#1e293b;border-color:#334155;}
+body.dark .rp-preset{background:#1e293b;border-color:#334155;}
+body.dark .rp-preset:hover{background:#1e3a5f;}
+body.dark .rp-preset.active{background:var(--accent);}
+/* === v76.24 CLIENT PROFILE PANEL === */
+#cp-overlay{position:fixed;inset:0;z-index:3000;display:none;}
+#cp-overlay.open{display:block;}
+#cp-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);}
+#cp-panel{position:absolute;top:0;right:0;bottom:0;width:420px;max-width:95vw;background:#fff;box-shadow:-8px 0 40px rgba(0,0,0,.14);display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform 280ms cubic-bezier(.16,1,.3,1);}
+#cp-overlay.open #cp-panel{transform:translateX(0);}
+#cp-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;flex-shrink:0;}
+#cp-avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#0891b2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+#cp-head-body{flex:1;min-width:0;}
+#cp-name{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+#cp-status{margin-top:3px;}
+#cp-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 140ms;}
+#cp-close:hover{background:var(--bg2);}
+#cp-kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.cp-kpi{background:var(--bg3);border-radius:8px;padding:10px 12px;}
+.cp-kpi-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.cp-kpi-val{font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);}
+#cp-body{flex:1;overflow-y:auto;padding:14px 16px;}
+.cp-section-hd{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;display:flex;align-items:center;gap:6px;}
+.cp-inv-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:5px;background:#fff;transition:background 120ms;}
+.cp-inv-row:hover{background:var(--bg2);}
+.cp-inv-id{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--accent);min-width:90px;}
+.cp-inv-name{flex:1;font-size:12px;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cp-inv-amt{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text);}
+.cp-inv-date{font-size:10.5px;color:var(--text4);white-space:nowrap;}
+.cp-pay-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:7px;background:#f0fdf4;border:1px solid #bbf7d0;margin-bottom:5px;}
+.cp-pay-label{font-size:11px;color:#166534;font-weight:600;}
+.cp-pay-amt{font-size:12px;font-weight:700;font-family:var(--mono);color:#059669;}
+#cp-actions{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
+.cp-action-btn{flex:1;padding:9px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 140ms;}
+.cp-action-btn.primary{background:var(--accent);color:#fff;}
+.cp-action-btn.primary:hover{background:#1d4ed8;}
+.cp-action-btn.secondary{background:var(--bg2);color:var(--text2);border:1px solid var(--border2);}
+.cp-action-btn.secondary:hover{background:var(--bg3);}
+#cp-loader{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3);font-size:13px;}
+body.dark #cp-panel{background:#1e293b;}
+body.dark .cp-kpi{background:#0f172a;}
+body.dark .cp-inv-row{background:#1e293b;border-color:#334155;}
+body.dark .cp-inv-row:hover{background:#263548;}
+body.dark #cp-close{background:#1e293b;border-color:#334155;}
+/* === v76.23 RECEIVABLES CONTROL === */
+.rec-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.rec-filter-tabs{display:flex;background:#f1f5f9;border-radius:8px;padding:3px;gap:2px;}
+.rec-tab{padding:5px 14px;border-radius:6px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:#64748b;background:transparent;transition:all 140ms ease;}
+.rec-tab.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+.rec-tab.overdue.active{background:#fff;color:#dc2626;}
+.rec-tab.due-soon.active{background:#fff;color:#d97706;}
+.rec-summary{display:flex;gap:10px;margin-bottom:12px;}
+.rec-sum-chip{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.rec-sum-chip.critical{background:#fef2f2;color:#9b1c1c;border:1px solid #fca5a5;}
+.rec-sum-chip.warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+.rec-sum-chip.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+.rec-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;white-space:nowrap;}
+.rec-badge.overdue{background:#fee2e2;color:#9b1c1c;}
+.rec-badge.due-soon{background:#fef3c7;color:#92400e;}
+.rec-badge.ok{background:#dcfce7;color:#166534;}
+.rec-badge.paid{background:#f0f9ff;color:#0369a1;}
+.rec-qa{display:flex;gap:4px;}
+.rec-qa-btn{padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:#fff;font-size:10.5px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2);transition:all 120ms ease;white-space:nowrap;}
+.rec-qa-btn:hover{background:#eff6ff;border-color:#93c5fd;color:var(--accent);}
+body.dark .rec-filter-tabs{background:#1e293b;}
+body.dark .rec-tab.active{background:#0f172a;}
+body.dark .rec-qa-btn{background:#1e293b;border-color:#334155;}
+body.dark .rec-qa-btn:hover{background:#1e3a5f;}
 /* v76.21 — Insight Actions */
 .pd-ins-action{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 10px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 140ms ease;white-space:nowrap;flex-shrink:0;}
 .pd-ins-action.critical{background:#fef2f2;color:#9b1c1c;border:1px solid #fca5a5;}
@@ -5803,7 +5884,27 @@ async function printQuotation(qtId,internal=false){
   </table></div>
   ${!internal?`<div style="margin:16px 28px;padding:10px 0;border-top:1px solid #eee;font-size:10px;color:#64748b">All prices in IQD. Subject to change without prior notice.</div>`:''}
   <div style="text-align:center;margin:20px;font-size:9px;color:#94a3b8">Wadi Al-Taqaa For General Trade · Basra, Iraq · ${new Date().toLocaleDateString('en-GB')}</div>
-  </div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  </div><script>window.onload=()=>window.print()<\/script><!-- v76.24 Client Profile Panel -->
+<div id="cp-overlay" onclick="_cpClose(event)">
+  <div id="cp-backdrop"></div>
+  <div id="cp-panel">
+    <div id="cp-head">
+      <div id="cp-avatar">??</div>
+      <div id="cp-head-body">
+        <div id="cp-name">—</div>
+        <div id="cp-status"></div>
+      </div>
+      <button id="cp-close" onclick="closeClientProfile()">×</button>
+    </div>
+    <div id="cp-kpis"></div>
+    <div id="cp-body"><div id="cp-loader">⏳ جاري التحميل...</div></div>
+    <div id="cp-actions">
+      <button class="cp-action-btn primary" onclick="showPage('invoices');closeClientProfile()">?? عرض الفواتير</button>
+      <button class="cp-action-btn secondary" onclick="showPage('receivables');closeClientProfile()">?? عرض الذمم</button>
+    </div>
+  </div>
+</div>
+</body></html>`);
   pw.document.close();
 }
 
@@ -6432,6 +6533,164 @@ async function renderReceivables(filterStatus='',filterCustomer=''){
   }
 }
 
+// ═══════════════════════════════════════════════════
+// 🏦 RECEIVABLES CONTROL LAYER — v76.23
+// Post-processes renderReceivables output
+// ZERO changes to renderReceivables logic
+// ═══════════════════════════════════════════════════
+
+// Active filter state (client-side only)
+var _recFilter = 'all'; // 'all' | 'overdue' | 'due-soon'
+
+// Called after renderReceivables() renders the HTML
+function _recEnhance() {
+  var pc = document.getElementById('page-content');
+  if(!pc) return;
+
+  // ── Collect all TR rows ──
+  var rows = Array.from(pc.querySelectorAll('table tbody tr[data-inv]'));
+  if(!rows.length) return;
+
+  var today = new Date(); today.setHours(0,0,0,0);
+  var soon  = new Date(today); soon.setDate(soon.getDate()+7);
+
+  // ── Tag each row ──
+  rows.forEach(function(tr) {
+    var invId = tr.dataset.inv || '';
+    // Read due_date from 7th TD (index 6)
+    var tds = tr.querySelectorAll('td');
+    // days-left td is index 7 — already colored; due_date td is index 6
+    var daysCell = tds[7];
+    var remCell  = tds[5];
+    var rem = parseFloat((remCell && remCell.textContent.replace(/[^\d.]/g,'')) || '0');
+    // Determine status from days cell text
+    var daysText = daysCell ? daysCell.textContent.trim() : '';
+    var isOverdue  = rem > 0 && daysText.includes('\u0645\u062a\u0623\u062e\u0631'); // 'متأخر'
+    var isDueSoon  = rem > 0 && !isOverdue && daysText.match(/^\d+/) && parseInt(daysText) <= 7;
+    var isPaid     = rem <= 0;
+    tr.dataset.recStatus = isOverdue ? 'overdue' : isDueSoon ? 'due-soon' : isPaid ? 'paid' : 'ok';
+
+    // ── Inject status badge into status cell (td index 8) ──
+    var statusTd = tds[8];
+    if(statusTd && !statusTd.querySelector('.rec-badge')) {
+      var cls = isOverdue ? 'overdue' : isDueSoon ? 'due-soon' : isPaid ? 'paid' : 'ok';
+      var lbl = isOverdue ? '\uD83D\uDD34 \u0645\u062a\u0623\u062e\u0631' : isDueSoon ? '\uD83D\uDFE1 \u0642\u0631\u064a\u0628' : isPaid ? '\uD83D\uDFE2 \u0645\u0633\u062f\u062f' : '\uD83D\uDFE2 \u0637\u0628\u064a\u0639\u064a';
+      var badge = document.createElement('span');
+      badge.className = 'rec-badge ' + cls;
+      badge.innerHTML = lbl;
+      statusTd.insertBefore(badge, statusTd.firstChild);
+    }
+
+    // ── Inject Quick Actions into action cell (last TD) ──
+    var actionTd = tds[tds.length - 1];
+    if(actionTd && !actionTd.querySelector('.rec-qa')) {
+      var qa = document.createElement('div');
+      qa.className = 'rec-qa';
+      qa.style.marginTop = '4px';
+      // Invoice quick action
+      var btnInv = document.createElement('button');
+      btnInv.className = 'rec-qa-btn';
+      btnInv.textContent = '\uD83E\uDDFE \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629';
+      btnInv.onclick = function() { showPage('invoices'); };
+      // Client quick action
+      var btnCl = document.createElement('button');
+      btnCl.className = 'rec-qa-btn';
+      btnCl.textContent = '\uD83D\uDC64 \u0627\u0644\u0639\u0645\u064a\u0644';
+      btnCl.onclick = function() { showPage('clients'); };
+      qa.appendChild(btnInv);
+      qa.appendChild(btnCl);
+      actionTd.appendChild(qa);
+    }
+  });
+
+  // ── Sort rows: overdue first, then due-soon, then ok, then paid ──
+  var sortOrder = {overdue:0,'due-soon':1,ok:2,paid:3};
+  var tbody = pc.querySelector('table tbody');
+  if(tbody) {
+    var sorted = rows.slice().sort(function(a,b) {
+      return (sortOrder[a.dataset.recStatus]||2) - (sortOrder[b.dataset.recStatus]||2);
+    });
+    sorted.forEach(function(tr) { tbody.appendChild(tr); });
+  }
+
+  // ── Build summary strip ──
+  var overdueRows   = rows.filter(function(r){ return r.dataset.recStatus==='overdue'; });
+  var dueSoonRows   = rows.filter(function(r){ return r.dataset.recStatus==='due-soon'; });
+  var overdueAmt    = overdueRows.reduce(function(s,r){
+    var td=r.querySelectorAll('td')[5]; return s+(td?parseFloat(td.textContent.replace(/[^\d.]/g,''))||0:0);
+  },0);
+
+  // ── Build filter tabs + summary ──
+  var ctrl = document.createElement('div');
+  ctrl.className = 'rec-ctrl';
+
+  var tabs = document.createElement('div');
+  tabs.className = 'rec-filter-tabs';
+  [
+    {k:'all',      lbl:'\uD83D\uDCCB \u0627\u0644\u0643\u0644 ('+rows.length+')',      cls:''},
+    {k:'overdue',  lbl:'\uD83D\uDD34 \u0645\u062a\u0623\u062e\u0631 ('+overdueRows.length+')',  cls:'overdue'},
+    {k:'due-soon', lbl:'\uD83D\uDFE1 \u0642\u0631\u064a\u0628 ('+dueSoonRows.length+')', cls:'due-soon'},
+  ].forEach(function(t) {
+    var btn = document.createElement('button');
+    btn.className = 'rec-tab ' + t.cls + (_recFilter===t.k?' active':'');
+    btn.innerHTML = t.lbl;
+    btn.onclick = function() {
+      _recFilter = t.k;
+      _recApplyFilter();
+      document.querySelectorAll('.rec-tab').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    };
+    tabs.appendChild(btn);
+  });
+  ctrl.appendChild(tabs);
+
+  // Summary chips
+  if(overdueRows.length > 0) {
+    var chip = document.createElement('span');
+    chip.className = 'rec-sum-chip critical';
+    chip.innerHTML = '\u23F0 ' + overdueRows.length + ' \u0645\u062a\u0623\u062e\u0631\u0629 &mdash; ' + fmtM(overdueAmt);
+    ctrl.appendChild(chip);
+  }
+  if(dueSoonRows.length > 0) {
+    var chip2 = document.createElement('span');
+    chip2.className = 'rec-sum-chip warn';
+    chip2.innerHTML = '\u23F3 ' + dueSoonRows.length + ' \u062a\u0633\u062a\u062d\u0642 \u062e\u0644\u0627\u0644 7 \u0623\u064a\u0627\u0645';
+    ctrl.appendChild(chip2);
+  }
+
+  // Insert ctrl before first .table-card
+  var tableCard = pc.querySelector('.table-card');
+  if(tableCard) pc.insertBefore(ctrl, tableCard);
+}
+
+// Apply active filter to rows (show/hide)
+function _recApplyFilter() {
+  var rows = Array.from(document.querySelectorAll('table tbody tr[data-inv]'));
+  rows.forEach(function(tr) {
+    var show = _recFilter === 'all' || tr.dataset.recStatus === _recFilter;
+    tr.style.display = show ? '' : 'none';
+  });
+  // Update count in header
+  var visible = rows.filter(function(r){ return r.style.display!=='none'; }).length;
+  var countEl = document.querySelector('.table-count');
+  if(countEl) countEl.textContent = visible + ' \u0633\u062c\u0644';
+}
+
+// Monkey-patch renderReceivables to call _recEnhance after render
+(function(){
+  var _origRec = typeof renderReceivables === 'function' ? renderReceivables : null;
+  if(!_origRec || _origRec._rec23) return;
+  window.renderReceivables = async function() {
+    _recFilter = 'all'; // reset filter on full reload
+    var result = await _origRec.apply(this, arguments);
+    // Wait one tick for DOM to settle
+    setTimeout(_recEnhance, 0);
+    return result;
+  };
+  window.renderReceivables._rec23 = true;
+  window.renderReceivables._orig  = _origRec;
+})();
+
 // ── AGING ──
 async function renderAging(){
   setLoading();
@@ -7006,6 +7265,193 @@ async function renderClientsWithRisk(search=''){
   }
 }
 
+
+// ═══════════════════════════════════════════════════
+// ?? CLIENT PROFILE ENGINE — v76.24
+// Lazy-load panel — opens on click, fetches on demand
+// — ZERO changes to renderClientsWithRisk
+// — Double-patch guard: _cp24
+// — Session cache: _cpCache
+// — Keyboard: Escape closes
+// — No global state pollution
+// ═══════════════════════════════════════════════════
+
+var _cpCache = {}; // {clientName: {invs, pays}}
+
+async function openClientProfile(clientId, clientName) {
+  if(!clientName) return;
+  var overlay = document.getElementById('cp-overlay');
+  if(!overlay) return;
+
+  // Reset UI
+  document.getElementById('cp-name').textContent = clientName;
+  document.getElementById('cp-status').innerHTML = '';
+  document.getElementById('cp-kpis').innerHTML = '';
+  document.getElementById('cp-body').innerHTML = '<div id="cp-loader">⏳ جاري التحميل...</div>';
+  overlay.classList.add('open');
+
+  // Escape to close
+  document.addEventListener('keydown', _cpEsc, {once: true});
+
+  // Use cache if available
+  if(_cpCache[clientName]) {
+    _cpRender(clientName, _cpCache[clientName]);
+    return;
+  }
+
+  // Lazy fetch: invoices + payments for this client
+  try {
+    var results = await Promise.all([
+      safeQuery(function(){
+        return sb.from('invoices')
+          .select('id,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,date,stage')
+          .eq('customer_name', clientName)
+          .eq('is_deleted', false)
+          .neq('invoice_type','quotation')
+          .order('date', {ascending:false})
+          .limit(20);
+      }),
+      safeQuery(function(){
+        return sb.from('payments')
+          .select('invoice_id,amount,payment_date')
+          .eq('customer_name', clientName)
+          .order('payment_date', {ascending:false})
+          .limit(10);
+      }),
+    ]);
+    var data = {invs: results[0]||[], pays: results[1]||[]};
+    _cpCache[clientName] = data; // cache for session
+    _cpRender(clientName, data);
+  } catch(e) {
+    document.getElementById('cp-body').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">⚠️ فشل تحميل بيانات العميل</div>';
+  }
+}
+
+function _cpRender(clientName, data) {
+  var invs = data.invs || [];
+  var pays = data.pays || [];
+
+  // ── KPIs ──
+  var totalSales   = invs.reduce(function(s,i){ return s+(+i.sale_amount||0); }, 0);
+  var totalProfit  = invs.reduce(function(s,i){ return s+calcInvoiceProfit(i).netProfit; }, 0);
+  var totalPaid    = pays.reduce(function(s,p){ return s+(+p.amount||0); }, 0);
+  var totalRem     = Math.max(0, totalSales - totalPaid);
+  var margin       = totalSales > 0 ? (totalProfit/totalSales*100) : 0;
+
+  document.getElementById('cp-kpis').innerHTML = [
+    {l:'إجمالي المبيعات', v:fmtM(totalSales)},
+    {l:'إجمالي المدفوع', v:fmtM(totalPaid)},
+    {l:'المتبقي', v:fmtM(totalRem), red:totalRem>0},
+    {l:'هامش الربح', v:margin.toFixed(1)+'%', red:margin<0},
+  ].map(function(k){
+    return '<div class="cp-kpi"><div class="cp-kpi-label">'+k.l+'</div>'
+      +'<div class="cp-kpi-val" style="color:'+(k.red?'var(--red)':'var(--text)')+'">'+k.v+'</div></div>';
+  }).join('');
+
+  // ── Status badge ──
+  var today    = new Date(); today.setHours(0,0,0,0);
+  var overdueCount = invs.filter(function(i){
+    return i.stage && !i.stage.includes('??');
+  }).length;
+  var payRatio = totalSales > 0 ? totalPaid/totalSales : 0;
+  var statusHtml;
+  if(totalRem <= 0 && invs.length > 0){
+    statusHtml = '<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">?? ممتاز — جميع الفواتير مسددة</span>';
+  } else if(payRatio >= 0.7){
+    statusHtml = '<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">?? متوسط — يدفع بشكل جيد</span>';
+  } else if(totalRem > 0){
+    statusHtml = '<span style="background:#fee2e2;color:#9b1c1c;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">?? متأخر — يحتاج متابعة</span>';
+  } else {
+    statusHtml = '<span style="background:#f1f5f9;color:#64748b;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">— لا توجد بيانات كافية</span>';
+  }
+  document.getElementById('cp-status').innerHTML = statusHtml;
+
+  // ── Body ──
+  var bodyHtml = '';
+
+  // Last 5 invoices
+  bodyHtml += '<div class="cp-section-hd">?? آخر الفواتير ('+Math.min(invs.length,5)+')</div>';
+  if(invs.length === 0) {
+    bodyHtml += '<div style="color:var(--text3);font-size:12px;padding:8px 0">لا توجد فواتير</div>';
+  } else {
+    invs.slice(0,5).forEach(function(inv){
+      var stageIcon = inv.stage && inv.stage.includes('??') ? '??' : '??';
+      bodyHtml += '<div class="cp-inv-row">'
+        +'<span class="cp-inv-id">'+stageIcon+' '+(inv.id||'—')+'</span>'
+        +'<span class="cp-inv-amt">'+fmtM(inv.sale_amount)+'</span>'
+        +'<span class="cp-inv-date">'+fmtD(inv.date)+'</span>'
+        +'</div>';
+    });
+  }
+
+  // Last 5 payments
+  bodyHtml += '<div class="cp-section-hd">?? آخر الدفعات ('+Math.min(pays.length,5)+')</div>';
+  if(pays.length === 0) {
+    bodyHtml += '<div style="color:var(--text3);font-size:12px;padding:8px 0">لا توجد دفعات مسجلة</div>';
+  } else {
+    pays.slice(0,5).forEach(function(p,i){
+      bodyHtml += '<div class="cp-pay-row">'
+        +'<span class="cp-pay-label">دفعة '+(i+1)+' · '+fmtD(p.payment_date)+'</span>'
+        +'<span class="cp-pay-amt">'+fmtM(p.amount)+'</span>'
+        +'</div>';
+    });
+  }
+
+  document.getElementById('cp-body').innerHTML = bodyHtml;
+}
+
+function closeClientProfile() {
+  var overlay = document.getElementById('cp-overlay');
+  if(overlay) overlay.classList.remove('open');
+}
+function _cpClose(e) {
+  if(e.target.id==='cp-overlay'||e.target.id==='cp-backdrop') closeClientProfile();
+}
+function _cpEsc(e) {
+  if(e.key==='Escape') closeClientProfile();
+}
+
+// ── Monkey-patch renderClientsWithRisk ──
+// Adds 'open profile' button to each row after render
+(function(){
+  var _origCl = typeof renderClientsWithRisk==='function' ? renderClientsWithRisk : null;
+  if(!_origCl || _origCl._cp24) return;
+  window.renderClientsWithRisk = async function(){
+    var result = await _origCl.apply(this, arguments);
+    setTimeout(_cpInjectButtons, 80); // after DOM settled + ranking
+    return result;
+  };
+  window.renderClientsWithRisk._cp24 = true;
+  window.renderClientsWithRisk._orig = _origCl;
+})();
+
+function _cpInjectButtons() {
+  // Find each client row and inject profile button
+  var rows = document.querySelectorAll('#page-content table tbody tr');
+  rows.forEach(function(tr) {
+    if(tr.querySelector('.cp-profile-btn')) return; // already done
+    var tds = tr.querySelectorAll('td');
+    if(tds.length < 4) return;
+    // Name is in TD[1]
+    var nameCell = tds[1];
+    var name = nameCell ? nameCell.textContent.trim() : '';
+    // Action cell is last TD
+    var actionTd = tds[tds.length - 1];
+    if(!actionTd || !name || name==='—') return;
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-info btn-sm cp-profile-btn';
+    btn.style.cssText = 'background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;padding:3px 8px;';
+    btn.textContent = '?? الملف';
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      var idTd = tds[0];
+      var clientId = idTd ? idTd.textContent.trim() : '';
+      openClientProfile(clientId, name);
+    };
+    actionTd.appendChild(btn);
+  });
+}
+
 // ── REPORTS ──
 async function renderReports(dateFrom='',dateTo='',filterType=''){
   setLoading();
@@ -7033,22 +7479,29 @@ async function renderReports(dateFrom='',dateTo='',filterType=''){
   const months=Object.keys(monthly).sort().slice(-6);
 
   document.getElementById('page-content').innerHTML=`
-  <div class="date-range-bar">
-    <label>من:</label>
-    <input type="date" class="form-input" id="rep-from" value="${dateFrom}" style="width:150px;padding:7px 10px">
-    <label>إلى:</label>
-    <input type="date" class="form-input" id="rep-to" value="${dateTo}" style="width:150px;padding:7px 10px">
-    <select class="form-select" id="rep-type" style="width:160px;padding:7px 10px;border-color:${filterType==='simple'?'var(--teal)':filterType==='detailed'?'var(--purple)':'var(--border)'};color:${filterType==='simple'?'var(--teal)':filterType==='detailed'?'var(--purple)':'var(--text)'};font-weight:${filterType?'700':'400'}" onchange="updateRepTypeColor(this)">
-      <option value="">📊 كل الأنواع</option>
-      <option value="simple" ${filterType==='simple'?'selected':''}>📄 بسيطة (Simple)</option>
-      <option value="detailed" ${filterType==='detailed'?'selected':''}>📋 تفصيلية (Detailed)</option>
+  <div class="rp-filter-bar">
+    <span class="rp-label">?? الفترة:</span>
+    <div class="rp-presets">
+      <button class="rp-preset" onclick="_rpSetPreset('today')">• اليوم</button>
+      <button class="rp-preset" onclick="_rpSetPreset('week')">?? هذا الأسبوع</button>
+      <button class="rp-preset active" onclick="_rpSetPreset('month')">?? هذا الشهر</button>
+      <button class="rp-preset" onclick="_rpSetPreset('all')">?? الكل</button>
+    </div>
+    <div class="rp-sep"></div>
+    <span class="rp-label">من:</span>
+    <input type="date" class="form-input" id="rep-from" value="${dateFrom}" style="width:140px;padding:6px 10px" onchange="_rpClearPreset()">
+    <span class="rp-label">إلى:</span>
+    <input type="date" class="form-input" id="rep-to" value="${dateTo}" style="width:140px;padding:6px 10px" onchange="_rpClearPreset()">
+    <select class="form-select" id="rep-type" style="width:150px;padding:6px 10px" onchange="updateRepTypeColor(this)">
+      <option value="">?? كل الأنواع</option>
+      <option value="simple" ${filterType==='simple'?'selected':''} >?? بسيطة</option>
+      <option value="detailed" ${filterType==='detailed'?'selected':''} >?? تفصيلية</option>
     </select>
-    <button class="btn btn-primary btn-sm" onclick="renderReports(document.getElementById('rep-from').value,document.getElementById('rep-to').value,document.getElementById('rep-type').value)">🔍 تطبيق</button>
-    <button class="btn btn-secondary btn-sm" onclick="renderReports('','','')">↺ الكل</button>
-    <div style="margin-right:auto;display:flex;gap:6px">
-      <button class="btn btn-secondary btn-sm" onclick="exportInvoicesCSV()">⬇️ CSV الفواتير</button>
-      <button class="btn btn-secondary btn-sm" onclick="exportSummaryCSV()">⬇️ CSV الملخص</button>
-      <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ PDF</button>
+    <span id="rep-err" class="rp-err" style="display:none">⚠️ التاريخ غير صحيح</span>
+    <button class="btn btn-primary btn-sm" onclick="_rpApply()">?? تطبيق</button>
+    <div style="margin-right:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="exportInvoicesCSV()">⬇️ CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="window.print()">??️ PDF</button>
     </div>
   </div>
   ${(dateFrom||dateTo||filterType)?`<div style="background:#eff6ff;padding:8px 16px;border-radius:8px;margin-bottom:16px;font-size:12px;color:#1d4ed8;font-weight:600;display:flex;gap:12px;align-items:center">
@@ -7105,6 +7558,87 @@ async function renderReports(dateFrom='',dateTo='',filterType=''){
   // تخزين البيانات للـ export
   window._reportData={invs,byC,byE,totalSales,totalProfit,totalRem,totalExp};
 }
+
+
+// ═══════════════════════════════════════════════════
+// ?? SMART REPORTS DATE FILTER — v76.25
+// Preset buttons, validation, default = current month
+// ═══════════════════════════════════════════════════
+
+var _rpActivePreset = 'month'; // current active preset
+
+// Date helpers
+function _rpToday()   { return new Date().toISOString().slice(0,10); }
+function _rpMonday()  { var d=new Date();d.setDate(d.getDate()-d.getDay()+1);return d.toISOString().slice(0,10); }
+function _rpMonthStart(){ var d=new Date();d.setDate(1);return d.toISOString().slice(0,10); }
+
+// Set preset and apply
+function _rpSetPreset(key) {
+  _rpActivePreset = key;
+  document.querySelectorAll('.rp-preset').forEach(function(b){ b.classList.remove('active'); });
+  var from='', to=_rpToday();
+  if(key==='today')  { from=_rpToday(); }
+  else if(key==='week')  { from=_rpMonday(); }
+  else if(key==='month') { from=_rpMonthStart(); }
+  else                   { from=''; to=''; } // all
+  var fromEl=document.getElementById('rep-from');
+  var toEl  =document.getElementById('rep-to');
+  if(fromEl) fromEl.value=from;
+  if(toEl)   toEl.value  =to;
+  // Mark active button
+  var btns=document.querySelectorAll('.rp-preset');
+  var idx={today:0,week:1,month:2,all:3}[key];
+  if(btns[idx]) btns[idx].classList.add('active');
+  _rpApply();
+}
+
+// Clear preset active state when user manually changes dates
+function _rpClearPreset() {
+  _rpActivePreset = '';
+  document.querySelectorAll('.rp-preset').forEach(function(b){ b.classList.remove('active'); });
+}
+
+// Apply with validation
+function _rpApply() {
+  var fromEl = document.getElementById('rep-from');
+  var toEl   = document.getElementById('rep-to');
+  var typeEl = document.getElementById('rep-type');
+  var errEl  = document.getElementById('rep-err');
+  if(!fromEl || !toEl) { renderReports('','',''); return; }
+  var from = fromEl.value;
+  var to   = toEl.value;
+  var type = typeEl ? typeEl.value : '';
+  // Validation: from must be <= to
+  if(from && to && from > to) {
+    if(errEl) errEl.style.display = 'inline';
+    fromEl.style.borderColor = '#dc2626';
+    return;
+  }
+  if(errEl) errEl.style.display = 'none';
+  if(fromEl) fromEl.style.borderColor = '';
+  renderReports(from, to, type);
+}
+
+// Default: open reports with current month selected
+// Monkey-patch showPage to set defaults when reports page opens
+(function(){
+  var _origRenderRep = typeof renderReports==='function' ? renderReports : null;
+  if(!_origRenderRep || _origRenderRep._rp25) return;
+  window.renderReports = async function(df, dt, ft) {
+    // Apply default month range if called with no args
+    if(df===undefined || df===null) df='';
+    if(dt===undefined || dt===null) dt='';
+    if(ft===undefined || ft===null) ft='';
+    var firstOpen = !df && !dt && !ft;
+    if(firstOpen) {
+      df = _rpMonthStart();
+      dt = _rpToday();
+    }
+    return await _origRenderRep.call(this, df, dt, ft);
+  };
+  window.renderReports._rp25 = true;
+  window.renderReports._orig = _origRenderRep;
+})();
 
 // ── CSV EXPORT ──
 function downloadCSV(rows,filename){
@@ -10403,7 +10937,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.21';
+const APP_VERSION = 'v76.25';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -13122,21 +13656,40 @@ function _gSection(label){
 }
 let _gsearchIndex=-1;
 
-async function openGSearch(){
+// v76.22 — memory-sync helper: feeds search from window.invs + window.biCustomers
+function _gsearchSyncMemory(){
+  // Use dashboard data already in memory — zero Supabase calls
+  var memInvs = window.invs || [];
+  var memClients = (window.biCustomers || []).map(function(c){
+    return {id: c.name, name: c.name, address: ''};
+  });
+  var memPays = _gsearchData.pays || []; // keep existing pays if loaded
+  if(memInvs.length > 0 || memClients.length > 0){
+    _gsearchData = {invs: memInvs, clients: memClients, pays: memPays};
+    _gsearchLoaded = true;
+  }
+}
+
+function openGSearch(){
   document.getElementById('gsearch-overlay').classList.add('open');
   document.getElementById('gsearch-input').value='';
   _gsearchIndex=-1;
   document.getElementById('gsearch-input').focus();
+  // v76.22: sync from memory first (instant — no Supabase)
+  _gsearchSyncMemory();
   showRecentSearches();
   _showQuickActions();
+  // Fallback: if no memory data yet (opened before dashboard loaded)
+  // load from Supabase silently in background — non-blocking
   if(!_gsearchLoaded){
-    const[invs,clients,pays]=await Promise.all([
-      safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false})),
+    Promise.all([
+      safeQuery(()=>sb.from('invoices').select('id,customer_name,sale_amount,date,stage').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(200)),
       safeQuery(()=>sb.from('clients').select('id,name,address')),
-      safeQuery(()=>sb.from('payments').select('invoice_id,customer_name,amount,payment_date').order('payment_date',{ascending:false}).limit(200)),
-    ]);
-    _gsearchData={invs,clients,pays};
-    _gsearchLoaded=true;
+    ]).then(function(res){
+      var invs=res[0]||[], clients=res[1]||[];
+      _gsearchData={invs:invs, clients:clients, pays:_gsearchData.pays||[]};
+      _gsearchLoaded=true;
+    }).catch(function(){});
   }
 }
 function closeGSearch(){
@@ -13158,48 +13711,76 @@ function _showQuickActions(){
         <span class="gsearch-item-name">${label}</span>
       </div>`).join('');
 }
+// v76.22 — debounced doGSearch (150ms)
+var _gsearchDbTimer;
 function doGSearch(q){
-  _gsearchIndex=-1;
+  clearTimeout(_gsearchDbTimer);
   if(!q||q.length<1){showRecentSearches();_showQuickActions();return;}
-  const ql=q.toLowerCase();
-  // Smart ranking: exact id match first, then startsWith, then includes
-  const _rank=(str,q)=>{
-    const s=(str||'').toLowerCase();
+  _gsearchDbTimer=setTimeout(function(){ _doGSearchNow(q); }, 150);
+}
+function _doGSearchNow(q){
+  _gsearchIndex=-1;
+  var ql=q.toLowerCase();
+  // Sync memory before searching (captures latest dashboard data)
+  _gsearchSyncMemory();
+  var _rank=function(str,q){
+    var s=(str||'').toLowerCase();
     if(s===q) return 0;
     if(s.startsWith(q)) return 1;
     return 2;
   };
-  const invMatches=[..._gsearchData.invs.filter(i=>(i.id||'').toLowerCase().includes(ql)||(i.customer_name||'').toLowerCase().includes(ql))]
-    .sort((a,b)=>Math.min(_rank(a.id,ql),_rank(a.customer_name,ql))-Math.min(_rank(b.id,ql),_rank(b.customer_name,ql))).slice(0,6);
-  const clMatches=[..._gsearchData.clients.filter(c=>(c.name||'').toLowerCase().includes(ql)||(c.id||'').toLowerCase().includes(ql))]
-    .sort((a,b)=>Math.min(_rank(a.name,ql),_rank(a.id,ql))-Math.min(_rank(b.name,ql),_rank(b.id,ql))).slice(0,4);
-  const payMatches=(_gsearchData.pays||[]).filter(p=>(p.customer_name||'').toLowerCase().includes(ql)||(p.invoice_id||'').toLowerCase().includes(ql)).slice(0,3);
-  let html='';
+  // Invoices: filter + rank + slice 5
+  var invMatches=(_gsearchData.invs||[]).filter(function(i){
+    return (i.id||'').toLowerCase().includes(ql)||(i.customer_name||'').toLowerCase().includes(ql);
+  }).sort(function(a,b){
+    return Math.min(_rank(a.id,ql),_rank(a.customer_name,ql))-Math.min(_rank(b.id,ql),_rank(b.customer_name,ql));
+  }).slice(0,5);
+  // Clients: filter + rank + slice 5
+  var clMatches=(_gsearchData.clients||[]).filter(function(c){
+    return (c.name||'').toLowerCase().includes(ql)||(c.id||'').toLowerCase().includes(ql);
+  }).sort(function(a,b){
+    return Math.min(_rank(a.name,ql),_rank(a.id,ql))-Math.min(_rank(b.name,ql),_rank(b.id,ql));
+  }).slice(0,5);
+  // Payments: slice 3
+  var payMatches=(_gsearchData.pays||[]).filter(function(p){
+    return (p.customer_name||'').toLowerCase().includes(ql)||(p.invoice_id||'').toLowerCase().includes(ql);
+  }).slice(0,3);
+  var html='';
   if(invMatches.length>0){
-    html+=_gSection('فواتير');
-    html+=invMatches.map(i=>`<div class="gsearch-item" onclick="saveRecentSearch('${(i.id||'').replace(/'/g,'')}');closeGSearch();showPage('invoices')">
-      <span class="gsearch-item-id">${_ghl(i.id||'—',q)}</span>
-      <span class="gsearch-item-name">${_ghl(i.customer_name||'—',q)}</span>
-      <span class="gsearch-item-meta">${fmtM(i.sale_amount)} · ${fmtD(i.date)}</span>
-    </div>`).join('');
+    html+=_gSection('?? فواتير');
+    html+=invMatches.map(function(i){
+      var safeId=(i.id||'').replace(/'/g,'');
+      var stageIcon=i.stage&&i.stage.includes('??')?'??':i.stage?'??':'??';
+      return '<div class="gsearch-item" onclick="saveRecentSearch(\''+safeId+'\');closeGSearch();showPage(\'invoices\')">'  
+        +'<span class="gsearch-item-id">'+stageIcon+' '+_ghl(i.id||'—',q)+'</span>'
+        +'<span class="gsearch-item-name">'+_ghl(i.customer_name||'—',q)+'</span>'
+        +'<span class="gsearch-item-meta">'+fmtM(i.sale_amount)+' · '+fmtD(i.date)+'</span>'
+        +'</div>';
+    }).join('');
   }
   if(clMatches.length>0){
-    html+=_gSection('عملاء');
-    html+=clMatches.map(c=>`<div class="gsearch-item" onclick="saveRecentSearch('${(c.name||'').replace(/'/g,'')}');closeGSearch();showPage('clients')">
-      <span class="gsearch-item-id">${_ghl(c.id||'—',q)}</span>
-      <span class="gsearch-item-name">${_ghl(c.name||'—',q)}</span>
-      <span class="gsearch-item-meta">${c.address||''}</span>
-    </div>`).join('');
+    html+=_gSection('?? عملاء');
+    html+=clMatches.map(function(c){
+      var safeName=(c.name||'').replace(/'/g,'');
+      return '<div class="gsearch-item" onclick="saveRecentSearch(\''+safeName+'\');closeGSearch();showPage(\'clients\')">'  
+        +'<span class="gsearch-item-id">??</span>'
+        +'<span class="gsearch-item-name">'+_ghl(c.name||'—',q)+'</span>'
+        +'<span class="gsearch-item-meta">'+(c.address||'')+'</span>'
+        +'</div>';
+    }).join('');
   }
   if(payMatches.length>0){
-    html+=_gSection('دفعات');
-    html+=payMatches.map(p=>`<div class="gsearch-item" onclick="saveRecentSearch('${(p.customer_name||'').replace(/'/g,'')}');closeGSearch();showPage('receivables')">
-      <span class="gsearch-item-id">${_ghl(p.invoice_id||'—',q)}</span>
-      <span class="gsearch-item-name">${_ghl(p.customer_name||'—',q)}</span>
-      <span class="gsearch-item-meta">${fmtM(p.amount)} · ${fmtD(p.payment_date)}</span>
-    </div>`).join('');
+    html+=_gSection('?? دفعات');
+    html+=payMatches.map(function(p){
+      var safeName=(p.customer_name||'').replace(/'/g,'');
+      return '<div class="gsearch-item" onclick="saveRecentSearch(\''+safeName+'\');closeGSearch();showPage(\'receivables\')">'  
+        +'<span class="gsearch-item-id">?? '+_ghl(p.invoice_id||'—',q)+'</span>'
+        +'<span class="gsearch-item-name">'+_ghl(p.customer_name||'—',q)+'</span>'
+        +'<span class="gsearch-item-meta">'+fmtM(p.amount)+' · '+fmtD(p.payment_date)+'</span>'
+        +'</div>';
+    }).join('');
   }
-  if(!html) html='<div id="gsearch-hint">لا توجد نتائج لـ «'+q+'»</div>';
+  if(!html) html='<div id="gsearch-hint">?? لا توجد نتائج لـ «'+q+'»</div>';
   document.getElementById('gsearch-results').innerHTML=html;
 }
 
