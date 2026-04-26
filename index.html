@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.5">
+<meta name="app-version" content="v75.9">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3885,7 +3885,7 @@ async function renderDashboard(){
   if(!_biData){
     setLoading('تحليل البيانات...');
     [biLines,biPays,biExpsBI,biWdsBI,biRecsBI]=await Promise.all([
-      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id')), // filtered client-side via activeInvIds
+      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!inner(is_deleted)').eq('invoices.is_deleted',false).then(r=>({...r,data:(r.data||[]).map(({invoices:_,...l})=>l)}))), // server-side JOIN — active invoices only
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date,customer_name')),
       safeQuery(()=>sb.from('expenses').select('amount,expense_date')),
       safeQuery(()=>sb.from('withdrawals').select('amount,date,partner')),
@@ -5268,6 +5268,7 @@ async function _qtBulkDelete(){
       {okText:'حسناً',cancelText:null}
     );
   }
+  clearCache();
   renderQuotations();
 }
 
@@ -5359,10 +5360,16 @@ async function renderLines(page=0,filterInv=''){
   setLoading();
   try{
   const from=page*PS,to=from+PS-1;
-  let q=sb.from('invoice_lines').select('*',{count:'exact'}).order('invoice_id').range(from,to);
+  // server-side JOIN — استبعاد بنود الفواتير المحذوفة
+  let q=sb.from('invoice_lines')
+    .select('*,invoices!inner(id,is_deleted)',{count:'exact'})
+    .eq('invoices.is_deleted',false)
+    .order('invoice_id')
+    .range(from,to);
   if(filterInv)q=q.ilike('invoice_id',`%${filterInv}%`);
-  const{data,count,error}=await q;
+  const{data:rawData,count,error}=await q;
   if(error){showToast('خطأ في جلب البنود: '+error.message,'error');return;}
+  const data=(rawData||[]).map(l=>{const{invoices:_,...rest}=l;return rest;});
   const rows=data||[];
 
   // جلب قائمة الفواتير للـ Quick Add
@@ -8089,6 +8096,7 @@ async function saveInvoice(existingId, goToLines=false){
         if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
       }
       await _qtMarkConverted(_qtIdNow,_savedData.id);
+      clearCache(); // invalidate after quotation revert
     }
     // ── audit trail → logInvoiceAction ──
     if(typeof logInvoiceAction === 'function'){
@@ -8601,7 +8609,8 @@ async function _loadPendingInvoices() {
 
     const { data: lineData, error: lineErr } = await sb
       .from('invoice_lines')
-      .select('invoice_id');
+      .select('invoice_id,invoices!inner(is_deleted)')
+      .eq('invoices.is_deleted', false);
     if (lineErr) throw lineErr;
 
     const allIds = (invData || []).map(i => i.id);
@@ -8972,7 +8981,13 @@ async function _qaDescInputCore(val){
     const myId = ++_qaReqId;
     box.innerHTML=`<div style="padding:10px 14px;font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px"><div class="spinner" style="width:12px;height:12px;border-width:1.5px"></div> جاري البحث...</div>`;
     box.style.display='block';
-    const{data}=await sb.from('invoice_lines').select('description,unit_price,cost_unit,id').ilike('description',`%${val}%`).order('id',{ascending:false}).limit(20);
+    const{data:_rawAuto}=await sb.from('invoice_lines')
+      .select('description,unit_price,cost_unit,id,invoice_id,invoices!inner(is_deleted)')
+      .eq('invoices.is_deleted',false)
+      .ilike('description',`%${val}%`)
+      .order('id',{ascending:false})
+      .limit(20);
+    const data=(_rawAuto||[]).map(l=>{const{invoices:_,...rest}=l;return rest;});
     // تجاهل النتيجة لو جاء request أحدث
     if(myId !== _qaReqId) return;
     if(!data||data.length===0){
@@ -9241,9 +9256,11 @@ async function bulkDeleteInvoices(){
   const btn=document.getElementById('bulk-delete-btn');
   const restore=btnLoad(btn);
   try{
-    // 0. حفظ البيانات قبل الحذف — undo buffer
-    const{data:invSnap,error:snapErr1}=await sb.from('invoices').select('*').in('id',selectedIds);
-    const{data:linesSnap,error:snapErr2}=await sb.from('invoice_lines').select('*').in('invoice_id',selectedIds);
+    // 0. حفظ البيانات قبل الحذف — undo buffer (validate IDs first)
+    const cleanIds=selectedIds.filter(id=>id&&typeof id==='string'&&id.trim());
+    if(!cleanIds.length){showToast('لم تحدد فواتير صالحة','warning');restore();return;}
+    const{data:invSnap,error:snapErr1}=await sb.from('invoices').select('*').in('id',cleanIds).eq('is_deleted',false);
+    const{data:linesSnap,error:snapErr2}=await sb.from('invoice_lines').select('*').in('invoice_id',cleanIds);
     if(snapErr1||snapErr2) throw snapErr1||snapErr2;
     _lastDeleted={
       invoices:Array.isArray(invSnap)?invSnap:[],
@@ -9922,7 +9939,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.5';
+const APP_VERSION = 'v75.9';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12129,8 +12146,14 @@ async function suggestLinePrice(val){
     showLinePriceHint(hint,_linePriceHistory[key]);
     return;
   }
-  // بحث في قاعدة البيانات
-  const{data}=await sb.from('invoice_lines').select('description,unit_price,unit_cost').ilike('description',`%${val.trim()}%`).order('id',{ascending:false}).limit(5);
+  // بحث في قاعدة البيانات — server-side JOIN (active invoices only)
+  const{data:_rawCache}=await sb.from('invoice_lines')
+    .select('description,unit_price,unit_cost,invoices!inner(is_deleted)')
+    .eq('invoices.is_deleted',false)
+    .ilike('description',`%${val.trim()}%`)
+    .order('id',{ascending:false})
+    .limit(5);
+  const data=(_rawCache||[]).map(l=>{const{invoices:_,...rest}=l;return rest;});
   if(!data||data.length===0)return hint&&(hint.style.display='none');
   const avgPrice=Math.round(data.reduce((s,r)=>s+(+r.unit_price||0),0)/data.length);
   const avgCost=Math.round(data.reduce((s,r)=>s+(+r.unit_cost||0),0)/data.length);
