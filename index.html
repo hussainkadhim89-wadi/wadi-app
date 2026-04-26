@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.9.3">
+<meta name="app-version" content="v75.9.4">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -5869,11 +5869,15 @@ async function renderReceivables(filterStatus='',filterCustomer=''){
   _filterState.receivables={filterStatus,filterCustomer};
   setLoading();
   try{
-  const[recs,pays]=await Promise.all([
+  const[recs,pays,activeInvs]=await Promise.all([
     safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,invoice_date,total_amount,due_date').order('due_date')),
     safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date')),
+    safeQuery(()=>sb.from('invoices').select('id').eq('is_deleted',false).neq('invoice_type','quotation')),
   ]);
+  const _activeRecSet=new Set((activeInvs||[]).map(i=>i.id));
+  const recsFiltered=recs.filter(r=>_activeRecSet.has(r.invoice_id));
   // بناء map للمدفوعات
+  const recs=recsFiltered; // فواتير نشطة فقط
   const paidMap={};
   pays.forEach(p=>{
     if(!paidMap[p.invoice_id])paidMap[p.invoice_id]={total:0,payments:[]};
@@ -5972,10 +5976,13 @@ async function renderReceivables(filterStatus='',filterCustomer=''){
 // ── AGING ──
 async function renderAging(){
   setLoading();
-  const[recs,pays]=await Promise.all([
+  const[recs,pays,activeInvsAging]=await Promise.all([
     safeQuery(()=>sb.from('receivables').select('invoice_id,customer_name,total_amount,due_date')),
     safeQuery(()=>sb.from('payments').select('invoice_id,amount')),
+    safeQuery(()=>sb.from('invoices').select('id').eq('is_deleted',false).neq('invoice_type','quotation')),
   ]);
+  const _activeAgingSet=new Set((activeInvsAging||[]).map(i=>i.id));
+  const recs=(recs||[]).filter(r=>_activeAgingSet.has(r.invoice_id));
   const paidMap={};
   pays.forEach(p=>{paidMap[p.invoice_id]=(paidMap[p.invoice_id]||0)+(+p.amount||0);});
   const rows=recs.map(r=>{
@@ -9940,7 +9947,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.9.3';
+const APP_VERSION = 'v75.9.4';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
