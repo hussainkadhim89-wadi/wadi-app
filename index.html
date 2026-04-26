@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.14">
+<meta name="app-version" content="v76.15">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -6800,18 +6800,44 @@ async function renderSettings(){
   settingsCard.className = 'table-card';
   settingsCard.style.marginTop = '20px';
   settingsCard.innerHTML = `
-  <div class="table-header"><div class="table-title">⚙️ إعدادات الذكاء الاصطناعي</div></div>
-  <div style="padding:20px 24px;display:grid;gap:16px">
-    <div class="form-group">
-      <label class="form-label">حد تحذير الربح المنخفض (%)</label>
-      <input type="number" class="form-input" id="set-profit-warn" value="${_S31.profitWarnThreshold}" min="0" max="50" style="max-width:120px">
-      <div class="form-hint">التحذير يظهر إذا الهامش أقل من هذه النسبة</div>
+  <div class="table-header"><div class="table-title">⚙️ إعدادات النظام</div></div>
+  <div style="padding:20px 24px;display:grid;gap:20px">
+
+    <div style="border-bottom:1px solid var(--border);padding-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">📊 إعدادات الربحية والتنبيهات</div>
+      <div style="display:grid;gap:12px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">حد تحذير الربح المنخفض (%)</label>
+          <input type="number" class="form-input" id="set-profit-warn" value="${_S31.profitWarnThreshold}" min="0" max="50" style="max-width:120px">
+          <div class="form-hint">التحذير يظهر إذا الهامش أقل من هذه النسبة</div>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">حساسية تنبيهات التأخير (عدد الفواتير)</label>
+          <input type="number" class="form-input" id="set-reminder-sens" value="${_S31.reminderSensitivity}" min="1" max="20" style="max-width:120px">
+          <div class="form-hint">Toast يظهر إذا الفواتير المتأخرة أكثر من هذا العدد</div>
+        </div>
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">حساسية تنبيهات التأخير (عدد الفواتير)</label>
-      <input type="number" class="form-input" id="set-reminder-sens" value="${_S31.reminderSensitivity}" min="1" max="20" style="max-width:120px">
-      <div class="form-hint">Toast يظهر إذا الفواتير المتأخرة أكثر من هذا العدد</div>
+
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">⏱️ إعدادات الجلسة — v76.15</div>
+      <div style="display:grid;gap:12px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">مهلة الخمول قبل الخروج (دقائق)</label>
+          <input type="number" class="form-input" id="set-session-timeout" value="${_S31.sessionTimeoutMin||60}" min="5" max="480" style="max-width:120px">
+          <div class="form-hint">الحد الأدنى 5 دقائق · الحد الأقصى 8 ساعات · الافتراضي 60 دقيقة</div>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">وقت ظهور التحذير قبل الخروج (دقائق)</label>
+          <input type="number" class="form-input" id="set-session-warning" value="${_S31.sessionWarningMin||5}" min="1" max="60" style="max-width:120px">
+          <div class="form-hint">لازم يكون أقل من وقت الجلسة · الافتراضي 5 دقائق</div>
+        </div>
+        <div style="background:var(--accent-light);border:1px solid rgba(37,99,235,.15);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--accent)">
+          ℹ️ الجلسة الحالية: خمول <b>${_S31.sessionTimeoutMin||60} دقيقة</b> · تحذير قبل <b>${_S31.sessionWarningMin||5} دقائق</b> — التغيير يُطبَّق فوراً بدون reload
+        </div>
+      </div>
     </div>
+
     <div>
       <button class="btn btn-primary" onclick="savePhase31Settings()">💾 حفظ الإعدادات</button>
       <button class="btn btn-secondary" style="margin-right:8px" onclick="resetPhase31Settings()">↺ إعادة تعيين</button>
@@ -8755,6 +8781,8 @@ const _S31 = {
   reminderInterval: 60000,
   reminderSensitivity: 3,
   cacheMaxAge: 120000,
+  sessionTimeoutMin: 60,   // v76.15 — مهلة الخمول (دقائق)
+  sessionWarningMin: 5,    // v76.15 — تحذير قبل الخروج (دقائق)
 };
 // الإعدادات تُحمَّل من Supabase بعد تسجيل الدخول (loadSettingsFromSupabase)
 // localStorage كـ fallback مؤقت فقط
@@ -8778,17 +8806,49 @@ async function loadSettingsFromSupabase(){
       Object.assign(_S31,p);
       // Supabase هو المصدر الرئيسي — تحديث localStorage للمزامنة
       localStorage.setItem('wadi_s31',JSON.stringify(p));
+      // v76.15 — تطبيق session config بعد التحميل
+      _applySessionConfig();
     }
   }catch(e){
     console.error('[loadSettingsFromSupabase]', e);
   }
 }
+
+// ── v76.15: Apply Session Config ──────────────────────────
+// تطبيق قيم الـ session من _S31 على Session Manager
+// معزولة — لا تلمس Session Manager logic
+function _applySessionConfig(){
+  if(typeof _sessionManager==='undefined'||!_sessionManager) return;
+
+  // قراءة من _S31 مع fallback آمن
+  var t=+(_S31.sessionTimeoutMin)||60;
+  var w=+(_S31.sessionWarningMin)||5;
+
+  // ── Validation ──
+  if(t<5)  t=60;   // minimum 5 دقائق
+  if(w<1)  w=5;    // minimum دقيقة
+  if(w>=t) w=Math.max(1,t-2); // warning لازم أقل من timeout
+
+  var newLimit=t*60*1000;
+  var newWarn =w*60*1000;
+
+  // لو القيم ما تغيرت → لا نعيد التشغيل (أداء)
+  if(_sessionManager.config.INACTIVITY_LIMIT===newLimit &&
+     _sessionManager.config.WARNING_BEFORE  ===newWarn) return;
+
+  // تحديث الـ config
+  _sessionManager.config.INACTIVITY_LIMIT=newLimit;
+  _sessionManager.config.WARNING_BEFORE  =newWarn;
+
+  // إعادة تشغيل بدون reload
+  _sessionManager.stop();
+  _sessionManager.start();
+
+  if(window.DEBUG) console.log('[SessionConfig] applied: timeout='+t+'min, warning='+w+'min');
+}
 async function saveSettingsToSupabase(){
   if(!window.currentUser) return;
-  const val={
-    profitWarnThreshold:_S31.profitWarnThreshold,
-    reminderSensitivity:_S31.reminderSensitivity
-  };
+  const val={..._S31}; // v76.15 — full object: مستقبلاً أي حقل جديد يُحفظ تلقائياً
   try{
     await sb.from('settings').upsert(
       {user_id:window.currentUser.id, key:'wadi_s31', value:val},
@@ -9938,7 +9998,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.14';
+const APP_VERSION = 'v76.15';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12078,14 +12138,29 @@ function savePhase31Settings(){
   const s=+document.getElementById('set-reminder-sens')?.value;
   if(w>=0&&w<=50) _S31.profitWarnThreshold=w;
   if(s>=1&&s<=20) _S31.reminderSensitivity=s;
+  // v76.15 — session timeout fields
+  const st=+document.getElementById('set-session-timeout')?.value;
+  const sw=+document.getElementById('set-session-warning')?.value;
+  // Validation: timeout ≥ 5, warning ≥ 1, timeout > warning
+  if(st>=5&&st<=480)  _S31.sessionTimeoutMin=st;
+  if(sw>=1&&sw<=60)   _S31.sessionWarningMin=sw;
+  if(_S31.sessionWarningMin>=_S31.sessionTimeoutMin){
+    showToast('وقت التحذير لازم يكون أقل من وقت الجلسة','warning');
+    return;
+  }
   // حفظ في localStorage (فوري) + Supabase (مشترك بين الأجهزة)
-  localStorage.setItem('wadi_s31',JSON.stringify({profitWarnThreshold:_S31.profitWarnThreshold,reminderSensitivity:_S31.reminderSensitivity}));
+  localStorage.setItem('wadi_s31',JSON.stringify({..._S31})); // v76.15: full object
   saveSettingsToSupabase();
+  _applySessionConfig(); // v76.15: تطبيق فوري بدون reload
   showToast('تم حفظ الإعدادات ✅','success');
 }
 function resetPhase31Settings(){
-  _S31.profitWarnThreshold=10;_S31.reminderSensitivity=3;
+  _S31.profitWarnThreshold=10;
+  _S31.reminderSensitivity=3;
+  _S31.sessionTimeoutMin=60;  // v76.15 — reset to default
+  _S31.sessionWarningMin=5;   // v76.15 — reset to default
   localStorage.removeItem('wadi_s31');
+  _applySessionConfig(); // v76.15 — تطبيق الـ defaults فوراً
   renderSettings();
   showToast('تم إعادة تعيين الإعدادات','info');
 }
