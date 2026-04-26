@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.9.3">
+<meta name="app-version" content="v76.10">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -7063,8 +7063,7 @@ var _logsFilterState = { filter:'all', user:'all', date:'', search:'' };
 // ── renderInvoiceHistory(container) ─────────────────────────────
 // Renders سجل الفواتير (invoice_history) into the given container.
 async function renderInvoiceHistory(container) {
-  container.innerHTML = '';
-  setLoading('جاري تحميل سجل الفواتير...');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري تحميل سجل الفواتير...</span></div>';
   try {
     var h = await _logsSharedFetch();
     var { histData, userOptions, _userName, _formatDate, _histLabel, _shouldShow } = h;
@@ -7153,8 +7152,7 @@ async function renderInvoiceHistory(container) {
 // ── renderAuditLogs(container) ───────────────────────────────────
 // Renders سجل النشاط (audit_logs) into the given container.
 async function renderAuditLogs(container) {
-  container.innerHTML = '';
-  setLoading('جاري تحميل سجل النشاط...');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري تحميل سجل النشاط...</span></div>';
   try {
     var h = await _logsSharedFetch();
     var { auditData, userOptions, _userName, _formatDate, _formatAction } = h;
@@ -7286,8 +7284,7 @@ async function renderAuditLogs(container) {
 // (preserves backward compatibility with direct showPage calls).
 async function renderLoginLog(container) {
   var target = container || document.getElementById('page-content');
-  target.innerHTML = '';
-  setLoading('جاري تحميل سجل الدخول...');
+  target.innerHTML = '<div class="loading"><div class="spinner"></div><span>جاري تحميل سجل الدخول...</span></div>';
   try {
     var { data, error } = await sb
       .from('login_logs')
@@ -9932,7 +9929,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.9.3';
+const APP_VERSION = 'v76.10';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
