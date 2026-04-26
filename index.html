@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.15">
+<meta name="app-version" content="v76.16">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3878,7 +3878,6 @@ function _filterPageAction(page, rawA) {
 async function renderDashboard(){
   setLoading('جاري تحميل البيانات...');
   try{
-  // ── v73: Data Fetching (unchanged queries) ──
   const invs=await safeQuery(()=>sb.from('invoices').select('id,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name,invoice_type,quotation_id').eq('is_deleted',false).neq('invoice_type','quotation'));
   setLoading('الذمم...');
   const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
@@ -3888,11 +3887,11 @@ async function renderDashboard(){
   const prevKey=prevDate.toISOString().slice(0,7);
   const _biCacheKey='bi_dash_'+nowKey;
   let _biData=_smartCache.get(_biCacheKey);
-  let biLines=[], biPays=[], biExpsBI=[], biWdsBI=[], biRecsBI=[];
+  let biLines=[],biPays=[],biExpsBI=[],biWdsBI=[],biRecsBI=[];
   if(!_biData){
     setLoading('تحليل البيانات...');
     [biLines,biPays,biExpsBI,biWdsBI,biRecsBI]=await Promise.all([
-      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)').eq('invoices.is_deleted',false).then(r=>({...r,data:(r.data||[]).map(({invoices:_,...l})=>l)}))), // server-side JOIN — active invoices only
+      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)').eq('invoices.is_deleted',false).then(r=>({...r,data:(r.data||[]).map(({invoices:_,...l})=>l)}))),
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date,customer_name')),
       safeQuery(()=>sb.from('expenses').select('amount,expense_date')),
       safeQuery(()=>sb.from('withdrawals').select('amount,date,partner')),
@@ -3902,8 +3901,6 @@ async function renderDashboard(){
   } else {
     ({biLines,biPays,biExpsBI,biWdsBI,biRecsBI}=_biData);
   }
-
-  // ── v73: Calculations (unchanged logic) ──
   const totalSales=invs.reduce((s,i)=>s+(+i.sale_amount||0),0);
   const totalProfit=invs.reduce((s,i)=>s+calcInvoiceProfit(i).netProfit,0);
   const recCalc=recs.map(r=>calcPay(r));
@@ -3911,353 +3908,231 @@ async function renderDashboard(){
   const overdue=recs.filter((r,i)=>recCalc[i].rem>0&&r.due_date&&new Date(r.due_date)<new Date()).length;
   const totalExp=biExpsBI.reduce((s,e)=>s+(+e.amount||0),0);
   const totalWd=biWdsBI.reduce((s,w)=>s+(+w.amount||0),0);
-  const active=invs.filter(i=>i.stage&&!i.stage.includes('🏁')).length;
+  const active=invs.filter(i=>i.stage&&!i.stage.includes('\uD83C\uDFC1')).length;
   const monthly={};
-  invs.forEach(i=>{
-    if(!i.date) return;
-    const k=i.date.slice(0,7);
-    if(!monthly[k])monthly[k]={s:0,p:0};
-    monthly[k].s+=(+i.sale_amount||0);
-    monthly[k].p+=calcInvoiceProfit(i).netProfit;
-  });
+  invs.forEach(i=>{if(!i.date)return;const k=i.date.slice(0,7);if(!monthly[k])monthly[k]={s:0,p:0};monthly[k].s+=(+i.sale_amount||0);monthly[k].p+=calcInvoiceProfit(i).netProfit;});
   const months=[];
-  for(let i=5;i>=0;i--){
-    const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);
-    months.push(d.toISOString().slice(0,7));
-  }
+  for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);months.push(d.toISOString().slice(0,7));}
   months.forEach(m=>{if(!monthly[m])monthly[m]={s:0,p:0};});
-  const biAnalytics  = calcProfitAnalytics(invs, monthly);
-  const biCustomers  = calcCustomerRanking(invs, biRecsBI, biPays);
-  const biProducts   = calcProductIntelligence(biLines);
-  const biForecast   = calcForecast(monthly);
-  const biCashflow   = calcCashflow(biPays, biExpsBI, biWdsBI, nowKey);
-  const biDecisions  = calcDecisions(biCustomers, biAnalytics, biForecast, biCashflow);
+  const biAnalytics=calcProfitAnalytics(invs,monthly);
+  const biCustomers=calcCustomerRanking(invs,biRecsBI,biPays);
+  const biProducts=calcProductIntelligence(biLines);
+  const biForecast=calcForecast(monthly);
+  const biCashflow=calcCashflow(biPays,biExpsBI,biWdsBI,nowKey);
+  const biDecisions=calcDecisions(biCustomers,biAnalytics,biForecast,biCashflow);
   const thisM=monthly[nowKey]||{s:0,p:0};
   const prevM=monthly[prevKey]||{s:0,p:0};
   const salesDelta=prevM.s>0?((thisM.s-prevM.s)/prevM.s*100):0;
   const profitMargin=totalSales>0?(totalProfit/totalSales*100):0;
   const collectionRate=totalSales>0?((totalSales-totalRem)/totalSales*100):0;
-  const delta=(a,b)=>{
-    if(!b||b===0)return{pct:'—',cls:'flat',sign:'→'};
-    const p=((a-b)/b*100);
-    if(!isFinite(p)||isNaN(p))return{pct:'—',cls:'flat',sign:'→'};
-    return{pct:Math.abs(p).toFixed(1),cls:p>0?'up':p<0?'down':'flat',sign:p>0?'↑':p<0?'↓':'→'};
-  };
+  const delta=(a,b)=>{if(!b||b===0)return{pct:'_',cls:'flat',sign:'->'};const p=((a-b)/b*100);if(!isFinite(p)||isNaN(p))return{pct:'_',cls:'flat',sign:'->'};return{pct:Math.abs(p).toFixed(1),cls:p>0?'up':p<0?'down':'flat',sign:p>0?'\u2191':p<0?'\u2193':'->'}; };
   const dSales=delta(thisM.s,prevM.s);
   const dProfit=delta(thisM.p,prevM.p);
-
-  // ── v73: SMART HERO — ONE message only ──
-  let heroEmoji='✅', heroTitle='كل المؤشرات طبيعية', heroSub='الأداء مستقر';
-  let heroBg='#f0fdf4', heroBorder='#bbf7d0', heroColor='#166534';
-  if(invs.length===0){
-    heroEmoji='🚀'; heroTitle='أهلاً — ابدأ بإضافة أول فاتورة'; heroSub='النظام جاهز';
-    heroBg='#f8fafc'; heroBorder='#e2e8f0'; heroColor='var(--text2)';
-  } else if(totalProfit<0){
-    heroEmoji='🚨'; heroTitle='الأرباح سالبة — مراجعة عاجلة'; heroSub='راجع التكاليف والمصروفات';
-    heroBg='#fff5f5'; heroBorder='#fca5a5'; heroColor='#991b1b';
-  } else if(salesDelta>=20){
-    heroEmoji='🔥'; heroTitle=`أداء قوي — مبيعات أعلى بـ ${salesDelta.toFixed(0)}%`; heroSub='الزخم في صفّك هذا الشهر';
-    heroBg='#f0fdf4'; heroBorder='#86efac'; heroColor='#166534';
-  } else if(salesDelta>=5){
-    heroEmoji='📈'; heroTitle=`نمو جيد — ارتفاع ${salesDelta.toFixed(0)}% عن الشهر السابق`; heroSub='استمر على هذا المنوال';
-    heroBg='#f0fdf4'; heroBorder='#86efac'; heroColor='#166534';
-  } else if(salesDelta<=-20){
-    heroEmoji='📉'; heroTitle=`انخفاض ملحوظ — ${Math.abs(salesDelta).toFixed(0)}% أقل من الشهر السابق`; heroSub='مراجعة مطلوبة';
-    heroBg='#fff7ed'; heroBorder='#fed7aa'; heroColor='#9a3412';
-  } else if(salesDelta<=-5){
-    heroEmoji='⚡'; heroTitle=`تراجع بسيط — ${Math.abs(salesDelta).toFixed(0)}% مقارنة بالشهر السابق`; heroSub='راقب الأداء خلال الأيام القادمة';
-    heroBg='#fefce8'; heroBorder='#fde68a'; heroColor='#854d0e';
-  } else if(overdue>0){
-    heroEmoji='⏰'; heroTitle=`${overdue} فاتورة متأخرة — متابعة مطلوبة`; heroSub='تحقق من الذمم';
-    heroBg='#fff5f5'; heroBorder='#fca5a5'; heroColor='#9b1c1c';
-  } else if(profitMargin>=20){
-    heroEmoji='💎'; heroTitle=`هامش ربح ممتاز ${profitMargin.toFixed(1)}%`; heroSub='حافظ على هذا المستوى';
-    heroBg='#f0fdf4'; heroBorder='#86efac'; heroColor='#166534';
-  }
-
-  // ── v73: SMART INSIGHTS — max 2, actionable ──
-  const insights=[];
-  if(collectionRate<70&&totalRem>0){
-    insights.push({icon:'💡',bg:'#fef9c3',msg:'التحصيل منخفض — تابع العملاء المتأخرين',hint:`نسبة التحصيل ${collectionRate.toFixed(1)}% فقط`});
-  }
-  if(totalExp>0&&totalSales>0&&(totalExp/totalSales)>0.3){
-    insights.push({icon:'💡',bg:'#fee2e2',msg:'المصاريف مرتفعة مقارنة بالمبيعات',hint:`${((totalExp/totalSales)*100).toFixed(1)}% من المبيعات مصاريف`});
-  }
-  if(overdue>0&&insights.length<2){
-    insights.push({icon:'⚠️',bg:'#fef3c7',msg:`${overdue} فاتورة تجاوزت تاريخ الاستحقاق`,hint:'اضغط على الذمم للتفاصيل'});
-  }
-  if(profitMargin>0&&profitMargin<10&&insights.length<2){
-    insights.push({icon:'💡',bg:'#fee2e2',msg:'هامش الربح أقل من 10% — راجع التسعير',hint:`الهامش الحالي ${profitMargin.toFixed(1)}%`});
-  }
-  if(insights.length===0){
-    insights.push({icon:'✅',bg:'#d1fae5',msg:'الوضع المالي سليم — لا توجد تنبيهات عاجلة',hint:'استمر في المتابعة الدورية'});
-  }
-
-  // ── v73: FORECAST ──
   const forecastVal=biForecast&&biForecast.nextMonthSales?biForecast.nextMonthSales:0;
   const forecastPct=biForecast&&biForecast.trend?biForecast.trend:0;
-
-  // ── v73: ACTIVITY ──
   const recentPays=[...biPays].sort((a,b)=>b.payment_date>a.payment_date?1:-1).slice(0,3);
   const recentWds=await safeQuery(()=>sb.from('withdrawals').select('partner,amount,date').order('date',{ascending:false}).limit(2));
   const activities=[];
-  (last||[]).slice(0,4).forEach(i=>activities.push({dot:'inv',icon:'🧾',label:'فاتورة',name:i.customer_name||'—',amount:fmtM(i.sale_amount),meta:fmtD(i.date),ts:i.date||'',page:'invoices'}));
-  recentPays.forEach(p=>activities.push({dot:'pay',icon:'💳',label:'دفعة',name:p.customer_name||'—',amount:fmtM(p.amount),meta:fmtD(p.payment_date),ts:p.payment_date||'',page:'invoices'}));
-  recentWds.forEach(w=>activities.push({dot:'wd',icon:'💼',label:'سحب',name:w.partner||'—',amount:fmtM(w.amount),meta:fmtD(w.date),ts:w.date||'',page:'invoices'}));
+  (last||[]).slice(0,4).forEach(i=>activities.push({dot:'inv',icon:'\uD83E\uDDFE',label:'\u0641\u0627\u062a\u0648\u0631\u0629',name:i.customer_name||'_',amount:fmtM(i.sale_amount),meta:fmtD(i.date),ts:i.date||'',page:'invoices'}));
+  recentPays.forEach(p=>activities.push({dot:'pay',icon:'\uD83D\uDCB3',label:'\u062f\u0641\u0639\u0629',name:p.customer_name||'_',amount:fmtM(p.amount),meta:fmtD(p.payment_date),ts:p.payment_date||'',page:'invoices'}));
+  recentWds.forEach(w=>activities.push({dot:'wd',icon:'\uD83D\uDCBC',label:'\u0633\u062d\u0628',name:w.partner||'_',amount:fmtM(w.amount),meta:fmtD(w.date),ts:w.date||'',page:'invoices'}));
   activities.sort((a,b)=>b.ts>a.ts?1:b.ts<a.ts?-1:0).splice(8);
-
-  // ════════════════════════════════════════════
-  // v73 RENDER — CLEAN & MINIMAL
-  // ════════════════════════════════════════════
+  const alerts=[];
+  if(totalProfit<0)alerts.push({sev:'critical',icon:'\uD83D\uDEA8',title:'\u0627\u0644\u0623\u0631\u0628\u0627\u062d \u0633\u0627\u0644\u0628\u0629',sub:'\u0645\u0631\u0627\u062c\u0639\u0629 \u0639\u0627\u062c\u0644\u0629 \u0644\u0644\u062a\u0643\u0627\u0644\u064a\u0641',action:'reports'});
+  if(overdue>0)alerts.push({sev:'warn',icon:'\u23F0',title:overdue+' \u0641\u0627\u062a\u0648\u0631\u0629 \u0645\u062a\u0623\u062e\u0631\u0629',sub:'\u062a\u062c\u0627\u0648\u0632\u062a \u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0627\u0633\u062a\u062d\u0642\u0627\u0642',action:'receivables'});
+  if(collectionRate<70&&totalRem>0)alerts.push({sev:'warn',icon:'\uD83D\uDCE5',title:'\u0646\u0633\u0628\u0629 \u062a\u062d\u0635\u064a\u0644 \u0645\u0646\u062e\u0641\u0636\u0629',sub:collectionRate.toFixed(1)+'% \u0641\u0642\u0637 \u0645\u0646 \u0627\u0644\u0645\u0633\u062a\u062d\u0642\u0627\u062a',action:'receivables'});
+  if(profitMargin>0&&profitMargin<10)alerts.push({sev:'info',icon:'\uD83D\uDCA1',title:'\u0647\u0627\u0645\u0634 \u0631\u0628\u062d \u0623\u0642\u0644 \u0645\u0646 10%',sub:'\u0631\u0627\u062c\u0639 \u0627\u0644\u062a\u0633\u0639\u064a\u0631',action:'reports'});
+  const sparkData=months.map(m=>monthly[m]?.s||0);
+  const sparkMax=Math.max(...sparkData,1);
+  const todayKey=new Date().toISOString().slice(0,10);
+  const todaySales=invs.filter(i=>i.date&&i.date.slice(0,10)===todayKey).reduce((s,i)=>s+(+i.sale_amount||0),0);
+  const todayCount=invs.filter(i=>i.date&&i.date.slice(0,10)===todayKey).length;
+  const top5=biCustomers.slice(0,5);
+  const maxRev=Math.max(...top5.map(c=>c.revenue),1);
   const pc=document.getElementById('page-content');
   pc.innerHTML='';
-  pc.style.cssText='padding:24px 28px;max-width:1200px;margin:0 auto;';
-
-  // ── 1. HERO ──
-  const hero=document.createElement('div');
-  hero.className='v73-hero';
-  hero.style.cssText=`background:${heroBg};border-color:${heroBorder};color:${heroColor};`;
-  hero.innerHTML=`
-    <div class="v73-hero-left">
-      <span style="font-size:26px">${heroEmoji}</span>
-      <div class="v73-hero-text">
-        <div class="v73-hero-title">${heroTitle}</div>
-        <div class="v73-hero-sub">${heroSub}</div>
-      </div>
-    </div>
-    <div class="v73-hero-actions">
-      <button class="v73-btn primary" onclick="openInvoiceModal()">➕ فاتورة جديدة</button>
-      <button class="v73-btn ghost" onclick="showPage('invoices')">الفواتير</button>
-      <button class="v73-btn ghost" onclick="showPage('logs')">النشاط</button>
-    </div>`;
-  pc.appendChild(hero);
-
-  // ── 2. KPI ROW — 4 cards only ──
-  const kpiRow=document.createElement('div');
-  kpiRow.className='v73-kpi-row';
-  const kpiColors={blue:'#2563eb',green:'#16a34a',orange:'#ea580c',purple:'#7c3aed'};
+  pc.style.cssText='padding:0;background:var(--bg3);min-height:100vh;';
+  if(!document.getElementById('pd16-css')){
+    const sty=document.createElement('style');
+    sty.id='pd16-css';
+    sty.textContent=`.pd-root{display:flex;flex-direction:column;padding:20px 24px 32px;max-width:1280px;margin:0 auto;}
+.pd-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+.pd-date{font-size:11px;color:var(--text4);font-weight:500;letter-spacing:.3px;text-transform:uppercase;margin-bottom:3px;}
+.pd-greeting{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.02em;}
+.pd-header-actions{display:flex;gap:8px;align-items:center;}
+.pd-hbtn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;}
+.pd-hbtn.primary{background:var(--accent);color:#fff;}.pd-hbtn.primary:hover{background:#1d4ed8;transform:translateY(-1px);}
+.pd-hbtn.ghost{background:#fff;color:var(--text2);border:1px solid var(--border2);}.pd-hbtn.ghost:hover{background:var(--bg2);transform:translateY(-1px);}
+.pd-alert-strip{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.pd-alert{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid transparent;}
+.pd-alert:hover{transform:translateY(-1px);}.pd-alert.critical{background:#fff1f2;border-color:#fca5a5;color:#9b1c1c;}
+.pd-alert.warn{background:#fffbeb;border-color:#fde68a;color:#92400e;}.pd-alert.info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af;}
+.pd-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+@media(max-width:900px){.pd-kpi-strip{grid-template-columns:1fr 1fr;}}
+@media(max-width:540px){.pd-kpi-strip{grid-template-columns:1fr;}}
+.pd-kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 20px 14px;cursor:pointer;position:relative;overflow:hidden;transition:all .18s;}
+.pd-kpi:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.07);}
+.pd-kpi-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
+.pd-kpi-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
+.pd-kpi-label{font-size:10.5px;font-weight:600;color:var(--text3);letter-spacing:.4px;text-transform:uppercase;}
+.pd-kpi-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+.pd-kpi-badge.up{color:#166534;background:#dcfce7;}.pd-kpi-badge.down{color:#9b1c1c;background:#fee2e2;}
+.pd-kpi-badge.warn{color:#92400e;background:#fef3c7;}.pd-kpi-badge.ok{color:#166534;background:#dcfce7;}
+.pd-kpi-badge.flat{color:#64748b;background:#f1f5f9;}
+.pd-kpi-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text);letter-spacing:-.02em;line-height:1;}
+.pd-kpi-sub{font-size:11px;color:var(--text4);margin-top:6px;}
+.pd-spark{display:flex;align-items:flex-end;gap:2px;height:22px;margin-top:8px;}
+.pd-spark-bar{flex:1;border-radius:2px 2px 0 0;min-height:2px;}
+.pd-main-grid{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:14px;}
+@media(max-width:1024px){.pd-main-grid{grid-template-columns:1fr;}}
+.pd-chart-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.pd-card-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;}
+.pd-card-title{font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+.pd-card-sub{font-size:11px;color:var(--text3);}
+.pd-toggle{display:flex;background:var(--bg3);border-radius:6px;padding:2px;gap:2px;}
+.pd-toggle-btn{padding:4px 10px;border-radius:4px;border:none;background:transparent;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;font-family:inherit;transition:all .12s;}
+.pd-toggle-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+.pd-canvas-wrap{position:relative;padding:0 16px 14px;height:220px;}
+.pd-canvas-wrap canvas{width:100%;height:100%;}
+.pd-chart-tooltip{position:absolute;background:#0f172a;color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;font-family:var(--mono);pointer-events:none;display:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+.pd-clients-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.pd-client-bar-row{padding:5px 20px;}
+.pd-client-name{font-size:11px;font-weight:600;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:3px;}
+.pd-client-track{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.pd-client-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.16,1,.3,1);}
+.pd-client-val{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.pd-bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:1024px){.pd-bottom-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:640px){.pd-bottom-grid{grid-template-columns:1fr;}}
+.pd-actions-card,.pd-activity-card,.pd-perf-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.pd-actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+.pd-action{background:#fff;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:5px;transition:background .12s;border:none;font-family:inherit;text-align:right;width:100%;}
+.pd-action:hover{background:#f8faff;}
+.pd-action-icon{font-size:18px;line-height:1;}
+.pd-action-label{font-size:12px;font-weight:700;color:var(--text2);}
+.pd-action-sub{font-size:10.5px;color:var(--text4);}
+.pd-act-item{display:flex;align-items:center;gap:11px;padding:10px 18px;border-bottom:1px solid var(--bg3);cursor:pointer;transition:background .12s;}
+.pd-act-item:last-child{border-bottom:none;}.pd-act-item:hover{background:var(--bg2);}
+.pd-act-dot{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pd-act-dot.inv{background:#eff6ff;}.pd-act-dot.pay{background:#f0fdf4;}.pd-act-dot.wd{background:#fef3c7;}
+.pd-act-body{flex:1;min-width:0;}
+.pd-act-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pd-act-meta{font-size:10.5px;color:var(--text4);margin-top:1px;}
+.pd-act-amount{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text2);white-space:nowrap;}
+.pd-metric-row{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--bg3);}
+.pd-metric-row:last-child{border-bottom:none;}
+.pd-metric-label{font-size:11.5px;color:var(--text3);font-weight:500;}
+.pd-metric-val{font-size:12px;font-weight:700;font-family:var(--mono);}
+.pd-metric-track{height:3px;background:var(--bg3);border-radius:2px;width:70px;overflow:hidden;margin-top:3px;}
+.pd-metric-fill{height:100%;border-radius:2px;}
+.pd-metric-right{display:flex;flex-direction:column;align-items:flex-end;}
+body.dark .pd-kpi,body.dark .pd-chart-card,body.dark .pd-clients-card,
+body.dark .pd-actions-card,body.dark .pd-activity-card,body.dark .pd-perf-card,
+body.dark .pd-action,body.dark .pd-hbtn.ghost{background:#1e293b;border-color:#334155;}
+body.dark .pd-toggle{background:#0f172a;}body.dark .pd-toggle-btn.active{background:#1e293b;}
+body.dark .pd-actions-grid{background:#334155;}body.dark .pd-action:hover{background:#263548;}
+body.dark .pd-act-item:hover{background:#263548;}
+body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{background:#14432a;}body.dark .pd-act-dot.wd{background:#44330a;}`;
+    document.head.appendChild(sty);
+  }
+  const root=document.createElement('div');root.className='pd-root';
+  const now=new Date();
+  const dayN=['\u0627\u0644\u0623\u062d\u062f','\u0627\u0644\u0627\u062b\u0646\u064a\u0646','\u0627\u0644\u062b\u0644\u0627\u062b\u0627\u0621','\u0627\u0644\u0623\u0631\u0628\u0639\u0627\u0621','\u0627\u0644\u062e\u0645\u064a\u0633','\u0627\u0644\u062c\u0645\u0639\u0629','\u0627\u0644\u0633\u0628\u062a'];
+  const monN=['\u064a\u0646\u0627\u064a\u0631','\u0641\u0628\u0631\u0627\u064a\u0631','\u0645\u0627\u0631\u0633','\u0623\u0628\u0631\u064a\u0644','\u0645\u0627\u064a\u0648','\u064a\u0648\u0646\u064a\u0648','\u064a\u0648\u0644\u064a\u0648','\u0623\u063a\u0633\u0637\u0633','\u0633\u0628\u062a\u0645\u0628\u0631','\u0623\u0643\u062a\u0648\u0628\u0631','\u0646\u0648\u0641\u0645\u0628\u0631','\u062f\u064a\u0633\u0645\u0628\u0631'];
+  const h=now.getHours();const greet=h<12?'\u0635\u0628\u0627\u062d \u0627\u0644\u062e\u064a\u0631':'\u0623\u0647\u0644\u0627\u064b';
+  const header=document.createElement('div');header.className='pd-header';
+  header.innerHTML=`<div class="pd-header-left"><div class="pd-date">${dayN[now.getDay()]} &middot; ${now.getDate()} ${monN[now.getMonth()]} ${now.getFullYear()}</div><div class="pd-greeting">${greet} &mdash; \u0648\u0627\u062f\u064a \u0627\u0644\u0637\u0627\u0642\u0629 \uD83D\uDC4B</div></div><div class="pd-header-actions"><button class="pd-hbtn ghost" onclick="showPage('reports')">\uD83D\uDCCA \u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631</button><button class="pd-hbtn primary" onclick="openInvoiceModal()">\u2795 \u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629</button></div>`;
+  root.appendChild(header);
+  if(alerts.length>0){const strip=document.createElement('div');strip.className='pd-alert-strip';alerts.forEach(a=>{const el=document.createElement('div');el.className='pd-alert '+a.sev;el.innerHTML=a.icon+' <b>'+a.title+'</b> <span style="opacity:.75;margin-right:4px">&middot; '+a.sub+'</span>';el.onclick=()=>showPage(a.action);strip.appendChild(el);});root.appendChild(strip);}
+  const kpiStrip=document.createElement('div');kpiStrip.className='pd-kpi-strip';
+  const buildSpark=(data,color)=>data.map((v,i)=>{const pct=Math.max(10,Math.round((v/Math.max(...data,1))*100));return '<div class="pd-spark-bar" style="height:'+pct+'%;background:'+color+';opacity:'+(i===data.length-1?1:.4)+'"></div>';}).join('');
+  const dSalesSign=dSales.pct!=='_'?dSales.sign+dSales.pct+'%':null;
+  const dProfitSign=dProfit.pct!=='_'?dProfit.sign+dProfit.pct+'%':null;
   const kpis=[
-    {color:kpiColors.blue,  label:'إجمالي المبيعات', val:fmtM(totalSales),
-      sub:`${invs.length} فاتورة`, badge:dSales.pct!=='—'?{text:`${dSales.sign}${dSales.pct}%`,cls:dSales.cls==='up'?'v73-badge-up':'v73-badge-dn'}:null, page:'invoices'},
-    {color:kpiColors.green, label:'صافي الأرباح',    val:fmtM(totalProfit),
-      sub:`هامش ${profitMargin.toFixed(1)}%`, badge:null, page:'reports'},
-    {color:kpiColors.orange,label:'الذمم المتبقية',   val:fmtM(totalRem),
-      sub:'إجمالي المستحق', badge:overdue>0?{text:`${overdue} متأخرة`,cls:'v73-badge-warn'}:{text:'لا متأخرات',cls:'v73-badge-ok'}, page:'invoices'},
-    {color:kpiColors.purple,label:'فواتير نشطة',     val:active.toString(),
-      sub:`من ${invs.length} إجمالي`, badge:null, page:'invoices'},
+    {label:'\u0645\u0628\u064a\u0639\u0627\u062a \u0627\u0644\u064a\u0648\u0645',val:fmtM(todaySales),sub:todayCount+' \u0641\u0627\u062a\u0648\u0631\u0629 \u0627\u0644\u064a\u0648\u0645',color:'#2563eb',badge:todaySales>0?{text:'\u0646\u0634\u0637',cls:'up'}:null,spark:null,page:'invoices'},
+    {label:'\u0645\u0628\u064a\u0639\u0627\u062a \u0627\u0644\u0634\u0647\u0631',val:fmtM(thisM.s),sub:'\u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u062d\u0627\u0644\u064a',color:'#0891b2',badge:dSalesSign?{text:dSalesSign,cls:dSales.cls==='up'?'up':dSales.cls==='down'?'down':'flat'}:null,spark:sparkData,sparkColor:'#0891b2',page:'invoices'},
+    {label:'\u0635\u0627\u0641\u064a \u0627\u0644\u0623\u0631\u0628\u0627\u062d',val:fmtM(totalProfit),sub:'\u0647\u0627\u0645\u0634 '+profitMargin.toFixed(1)+'%',color:totalProfit>=0?'#16a34a':'#dc2626',badge:dProfitSign?{text:dProfitSign,cls:dProfit.cls==='up'?'up':dProfit.cls==='down'?'down':'flat'}:null,spark:null,page:'reports'},
+    {label:'\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062a',val:fmtM(totalExp),sub:(totalSales>0?((totalExp/totalSales)*100).toFixed(1):0)+'% \u0645\u0646 \u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a',color:'#ea580c',badge:null,spark:null,page:'expenses'},
+    {label:'\u0627\u0644\u0630\u0645\u0645 \u0627\u0644\u0645\u062a\u0628\u0642\u064a\u0629',val:fmtM(totalRem),sub:'\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0633\u062a\u062d\u0642',color:'#7c3aed',badge:overdue>0?{text:overdue+' \u0645\u062a\u0623\u062e\u0631\u0629',cls:'warn'}:{text:'\u0644\u0627 \u0645\u062a\u0623\u062e\u0631\u0627\u062a',cls:'ok'},spark:null,page:'receivables'},
+    {label:'\u0646\u0633\u0628\u0629 \u0627\u0644\u062a\u062d\u0635\u064a\u0644',val:collectionRate.toFixed(1)+'%',sub:'\u0645\u0646 \u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a',color:collectionRate>=70?'#059669':'#dc2626',badge:null,spark:null,page:'receivables'},
+    {label:'\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0641\u0648\u0627\u062a\u064a\u0631',val:invs.length.toString(),sub:active+' \u0646\u0634\u0637\u0629 &middot; '+(invs.length-active)+' \u0645\u063a\u0644\u0642\u0629',color:'#0284c7',badge:null,spark:null,page:'invoices'},
+    {label:'\u0633\u062d\u0648\u0628\u0627\u062a \u0627\u0644\u0634\u0631\u0643\u0627\u0621',val:fmtM(totalWd),sub:'\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0633\u062d\u0648\u0628\u0627\u062a',color:'#be185d',badge:null,spark:null,page:'withdrawals'},
   ];
-  kpis.forEach(k=>{
-    const card=document.createElement('div');
-    card.className='v73-kpi';
-    card.onclick=()=>showPage(k.page);
-    card.innerHTML=`
-      <div class="v73-kpi-bar" style="background:${k.color}"></div>
-      <div class="v73-kpi-label">${k.label}</div>
-      <div class="v73-kpi-value">${k.val}</div>
-      <div class="v73-kpi-sub">
-        <span>${k.sub}</span>
-        ${k.badge?`<span class="v73-kpi-badge ${k.badge.cls}">${k.badge.text}</span>`:''}
-      </div>`;
-    kpiRow.appendChild(card);
-  });
-  pc.appendChild(kpiRow);
-
-  // Alert container (keep for buildIntelligenceLayer)
-  const alertCont=document.createElement('div');
-  alertCont.id='alert-intel-container';
-  pc.appendChild(alertCont);
-
-  // ── 3. CHART — single line chart ──
-  const chartCard=document.createElement('div');
-  chartCard.className='v73-chart-card';
-  chartCard.innerHTML=`
-    <div class="v73-card-header">
-      <div class="v73-card-title">المبيعات خلال 6 أشهر</div>
-      <div class="v73-card-sub">${months[0]} — ${months[months.length-1]}</div>
-    </div>
-    <div class="chart-container"><div class="chart-canvas-wrap"><canvas id="chart-sales"></canvas></div><div class="chart-tooltip" id="chart-tooltip"></div></div>`;
-  pc.appendChild(chartCard);
-
-  // ── 4. BOTTOM ROW: INSIGHT + FORECAST ──
-  const bottomRow=document.createElement('div');
-  bottomRow.className='v73-bottom';
-
-  // Insight card
-  const insightCard=document.createElement('div');
-  insightCard.className='v73-insight';
-  insightCard.innerHTML=`<div class="v73-insight-title">رؤى ذكية</div>`;
-  insights.slice(0,2).forEach(ins=>{
-    insightCard.innerHTML+=`
-      <div class="v73-insight-item">
-        <div class="v73-insight-icon" style="background:${ins.bg}">${ins.icon}</div>
-        <div class="v73-insight-text">
-          <div class="v73-insight-msg">${ins.msg}</div>
-          <div class="v73-insight-hint">${ins.hint}</div>
-        </div>
-      </div>`;
-  });
-  bottomRow.appendChild(insightCard);
-
-  // Forecast card
-  const fmtPct=v=>v>0?`↑ +${v.toFixed(1)}%`:v<0?`↓ ${v.toFixed(1)}%`:'→ مستقر';
-  const fcastColor=forecastPct>0?'#16a34a':forecastPct<0?'#dc2626':'#64748b';
-  const forecastCard=document.createElement('div');
-  forecastCard.className='v73-forecast';
-  forecastCard.innerHTML=`
-    <div class="v73-forecast-title">توقعات الشهر القادم</div>
-    <div class="v73-forecast-val">${forecastVal>0?fmtM(forecastVal):'—'}</div>
-    <div class="v73-forecast-label">المبيعات المتوقعة</div>
-    <div class="v73-forecast-trend">
-      <div style="flex:1">
-        <div style="font-size:12px;font-weight:700;color:${fcastColor}">${fmtPct(forecastPct)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px">مقارنة بالشهر الحالي</div>
-      </div>
-      <div style="text-align:left">
-        <div style="font-size:11px;color:var(--text3)">نسبة التحصيل</div>
-        <div style="font-size:13px;font-weight:700;color:${collectionRate>=70?'#16a34a':'#dc2626'}">${collectionRate.toFixed(1)}%</div>
-      </div>
-    </div>`;
-  bottomRow.appendChild(forecastCard);
-  pc.appendChild(bottomRow);
-
-  // ── 5. TABS: Overview / Analysis / Activity ──
-  const tabsWrap=document.createElement('div');
-  tabsWrap.className='v73-tabs-wrap';
-  const tabDefs=[
-    {id:'overview', label:'نظرة عامة'},
-    {id:'analysis', label:'تحليل'},
-    {id:'activity', label:'النشاط'},
-  ];
-  let activeTab='overview';
-  const tabBar=document.createElement('div');
-  tabBar.className='v73-tabs';
-  tabDefs.forEach(t=>{
-    const btn=document.createElement('button');
-    btn.className='v73-tab'+(t.id===activeTab?' active':'');
-    btn.textContent=t.label;
-    btn.onclick=()=>{
-      activeTab=t.id;
-      tabBar.querySelectorAll('.v73-tab').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      renderTabContent(t.id);
-    };
-    tabBar.appendChild(btn);
-  });
-  tabsWrap.appendChild(tabBar);
-
-  const tabContent=document.createElement('div');
-  tabContent.id='v73-tab-content';
-
-  function renderTabContent(id){
-    tabContent.innerHTML='';
-    if(id==='overview'){
-      // Latest invoices table
-      const wrap=document.createElement('div');
-      wrap.className='v73-chart-card';
-      wrap.style.marginBottom='0';
-      wrap.innerHTML=`
-        <div class="v73-card-header">
-          <div class="v73-card-title">آخر الفواتير</div>
-          <button class="v73-btn ghost" style="font-size:11px;padding:5px 10px" onclick="showPage('invoices')">عرض الكل</button>
-        </div>
-        ${invs.length===0
-          ?'<div style="padding:32px;text-align:center;color:var(--text3);font-size:13px">لا توجد فواتير بعد</div>'
-          :`<div class="v73-table-wrap"><table class="v73-table">
-            <thead><tr><th>رقم</th><th>العميل</th><th>المبلغ</th><th>المرحلة</th></tr></thead>
-            <tbody>${(last||[]).map(i=>`
-              <tr style="cursor:pointer" onclick="showPage('invoices')">
-                <td class="mono bold" style="color:var(--accent)">${i.id||'—'}</td>
-                <td>${i.customer_name||'—'}</td>
-                <td class="mono" style="color:var(--green)">${fmtM(i.sale_amount)}</td>
-                <td>${stageBadge(i.stage)}</td>
-              </tr>`).join('')}
-            </tbody></table></div>`}`;
-      tabContent.appendChild(wrap);
-    } else if(id==='analysis'){
-      // Monthly comparison + quick stats
-      const wrap=document.createElement('div');
-      wrap.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:14px';
-      wrap.innerHTML=`
-        <div class="v73-insight">
-          <div class="v73-insight-title">مقارنة شهرية — ${nowKey} vs ${prevKey}</div>
-          <div class="v73-compare-row"><span class="v73-compare-label">المبيعات (سابق)</span><span class="v73-compare-prev">${fmtM(prevM.s)}</span><span class="v73-compare-curr">${fmtM(thisM.s)}</span><span class="v73-compare-chg" style="color:${dSales.cls==='up'?'#16a34a':dSales.cls==='down'?'#dc2626':'#64748b'}">${dSales.pct==='—'?'—':dSales.sign+dSales.pct+'%'}</span></div>
-          <div class="v73-compare-row"><span class="v73-compare-label">الأرباح (سابق)</span><span class="v73-compare-prev">${fmtM(prevM.p)}</span><span class="v73-compare-curr">${fmtM(thisM.p)}</span><span class="v73-compare-chg" style="color:${dProfit.cls==='up'?'#16a34a':dProfit.cls==='down'?'#dc2626':'#64748b'}">${dProfit.pct==='—'?'—':dProfit.sign+dProfit.pct+'%'}</span></div>
-          <div class="v73-compare-row"><span class="v73-compare-label">فواتير هذا الشهر</span><span class="v73-compare-prev"></span><span class="v73-compare-curr">${invs.filter(i=>i.date?.startsWith(nowKey)).length} فاتورة</span><span class="v73-compare-chg"></span></div>
-        </div>
-        <div class="v73-insight">
-          <div class="v73-insight-title">ملخص الأداء</div>
-          <div class="v73-compare-row"><span class="v73-compare-label">هامش الربح</span><span class="v73-compare-curr" style="color:${profitMargin>=10?'#16a34a':'#dc2626'}">${profitMargin.toFixed(1)}%</span></div>
-          <div class="v73-compare-row"><span class="v73-compare-label">متوسط الفاتورة</span><span class="v73-compare-curr">${fmtM(invs.length?totalSales/invs.length:0)}</span></div>
-          <div class="v73-compare-row"><span class="v73-compare-label">نسبة التحصيل</span><span class="v73-compare-curr" style="color:${collectionRate>=70?'#16a34a':'#dc2626'}">${collectionRate.toFixed(1)}%</span></div>
-          <div class="v73-compare-row"><span class="v73-compare-label">المصروفات</span><span class="v73-compare-curr">${fmtM(totalExp)}</span></div>
-          <div class="v73-compare-row"><span class="v73-compare-label">سحوبات الشركاء</span><span class="v73-compare-curr">${fmtM(totalWd)}</span></div>
-        </div>`;
-      tabContent.appendChild(wrap);
-      // BI Section below analysis
-      const biWrap=document.createElement('div');
-      biWrap.style.marginTop='14px';
-      biWrap.innerHTML=renderBISection(biAnalytics, biCustomers, biProducts, biForecast, biDecisions, biCashflow, months, monthly);
-      tabContent.appendChild(biWrap);
-    } else if(id==='activity'){
-      const wrap=document.createElement('div');
-      wrap.className='v73-chart-card';
-      wrap.style.marginBottom='0';
-      wrap.innerHTML=`<div class="v73-card-header"><div class="v73-card-title">آخر النشاطات</div><span style="font-size:11px;color:var(--text3)">${activities.length} عملية</span></div>`;
-      if(activities.length===0){
-        wrap.innerHTML+='<div style="padding:32px;text-align:center;color:var(--text3);font-size:13px">لا توجد نشاطات بعد</div>';
-      } else {
-        activities.forEach(a=>{
-          const item=document.createElement('div');
-          item.className='v73-activity-item';
-          item.onclick=()=>showPage(a.page);
-          item.innerHTML=`
-            <div class="v73-act-dot ${a.dot}">${a.icon}</div>
-            <div class="v73-act-body">
-              <div class="v73-act-name">${a.name}</div>
-              <div class="v73-act-meta">${a.label} · ${a.meta}</div>
-            </div>
-            <div class="v73-act-amount">${a.amount}</div>`;
-          wrap.appendChild(item);
-        });
-      }
-      tabContent.appendChild(wrap);
-    }
+  kpis.forEach(k=>{const card=document.createElement('div');card.className='pd-kpi';card.onclick=()=>showPage(k.page);card.innerHTML='<div class="pd-kpi-accent" style="background:'+k.color+'"></div><div class="pd-kpi-top"><div class="pd-kpi-label">'+k.label+'</div>'+(k.badge?'<span class="pd-kpi-badge '+k.badge.cls+'">'+k.badge.text+'</span>':'')+'</div><div class="pd-kpi-val">'+k.val+'</div><div class="pd-kpi-sub">'+k.sub+'</div>'+(k.spark?'<div class="pd-spark">'+buildSpark(k.spark,k.sparkColor)+'</div>':'');kpiStrip.appendChild(card);});
+  root.appendChild(kpiStrip);
+  const mainGrid=document.createElement('div');mainGrid.className='pd-main-grid';
+  const chartCard=document.createElement('div');chartCard.className='pd-chart-card';
+  chartCard.innerHTML='<div class="pd-card-header"><div><div class="pd-card-title">\u0627\u0644\u0623\u062f\u0627\u0621 \u062e\u0644\u0627\u0644 6 \u0623\u0634\u0647\u0631</div><div class="pd-card-sub">'+months[0]+' \u2190 '+months[months.length-1]+'</div></div><div class="pd-toggle" id="pd-chart-toggle"><button class="pd-toggle-btn active" data-mode="sales">\u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a</button><button class="pd-toggle-btn" data-mode="profit">\u0627\u0644\u0623\u0631\u0628\u0627\u062d</button></div></div><div class="pd-canvas-wrap" id="pd-canvas-wrap"><canvas id="pd-chart-main"></canvas><div class="pd-chart-tooltip" id="pd-chart-tooltip"></div></div>';
+  mainGrid.appendChild(chartCard);
+  const clientsCard=document.createElement('div');clientsCard.className='pd-clients-card';
+  clientsCard.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0623\u0641\u0636\u0644 \u0627\u0644\u0639\u0645\u0644\u0627\u0621</div><div class="pd-card-sub">\u062d\u0633\u0628 \u0627\u0644\u0625\u064a\u0631\u0627\u062f\u0627\u062a</div></div>';
+  if(top5.length===0){clientsCard.innerHTML+='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">\u0644\u0627 \u064a\u0648\u062c\u062f \u0628\u064a\u0627\u0646\u0627\u062a</div>';}
+  else{const clColors=['#2563eb','#0891b2','#16a34a','#7c3aed','#ea580c'];top5.forEach((c,i)=>{const pct=Math.round((c.revenue/maxRev)*100);const row=document.createElement('div');row.className='pd-client-bar-row';row.innerHTML='<div class="pd-client-name"><span>'+c.name+'</span><span class="pd-client-val">'+fmtM(c.revenue)+'</span></div><div class="pd-client-track"><div class="pd-client-fill" style="width:'+pct+'%;background:'+clColors[i%clColors.length]+'"></div></div>';clientsCard.appendChild(row);});}
+  mainGrid.appendChild(clientsCard);root.appendChild(mainGrid);
+  const bottomGrid=document.createElement('div');bottomGrid.className='pd-bottom-grid';
+  const actionsCard=document.createElement('div');actionsCard.className='pd-actions-card';
+  actionsCard.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0633\u0631\u064a\u0639\u0629</div></div>';
+  const actionsGrid=document.createElement('div');actionsGrid.className='pd-actions-grid';
+  [{icon:'\uD83E\uDDFE',label:'\u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629',sub:'\u0625\u0646\u0634\u0627\u0621 \u0648\u0625\u0631\u0633\u0627\u0644',fn:'openInvoiceModal()'},{icon:'\uD83D\uDCAC',label:'\u0643\u0648\u062a\u064a\u0634\u0648\u0646',sub:'\u0639\u0631\u0636 \u0633\u0639\u0631',fn:"showPage('quotations')"},{icon:'\uD83D\uDCB3',label:'\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629',sub:'\u062a\u062d\u0635\u064a\u0644 \u0645\u0628\u0627\u0644\u063a',fn:"showPage('receivables')"},{icon:'\uD83D\uDCBC',label:'\u0645\u0635\u0631\u0648\u0641',sub:'\u062a\u0633\u062c\u064a\u0644 \u0645\u0635\u0631\u0648\u0641',fn:"showPage('expenses')"},{icon:'\uD83D\uDC65',label:'\u0627\u0644\u0639\u0645\u0644\u0627\u0621',sub:'\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a',fn:"showPage('clients')"},{icon:'\uD83D\uDCCA',label:'\u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631',sub:'\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0623\u062f\u0627\u0621',fn:"showPage('reports')"}].forEach(a=>{const btn=document.createElement('button');btn.className='pd-action';btn.innerHTML='<div class="pd-action-icon">'+a.icon+'</div><div class="pd-action-label">'+a.label+'</div><div class="pd-action-sub">'+a.sub+'</div>';btn.onclick=new Function(a.fn);actionsGrid.appendChild(btn);});
+  actionsCard.appendChild(actionsGrid);bottomGrid.appendChild(actionsCard);
+  const actFeed=document.createElement('div');actFeed.className='pd-activity-card';
+  actFeed.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0622\u062e\u0631 \u0627\u0644\u0646\u0634\u0627\u0637\u0627\u062a</div><div class="pd-card-sub">'+activities.length+' \u0639\u0645\u0644\u064a\u0629</div></div>';
+  if(activities.length===0){actFeed.innerHTML+='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">\u0644\u0627 \u062a\u0648\u062c\u062f \u0646\u0634\u0627\u0637\u0627\u062a \u0628\u0639\u062f</div>';}
+  else{activities.slice(0,6).forEach(a=>{const item=document.createElement('div');item.className='pd-act-item';item.onclick=()=>showPage(a.page);item.innerHTML='<div class="pd-act-dot '+a.dot+'">'+a.icon+'</div><div class="pd-act-body"><div class="pd-act-name">'+a.name+'</div><div class="pd-act-meta">'+a.label+' &middot; '+a.meta+'</div></div><div class="pd-act-amount">'+a.amount+'</div>';actFeed.appendChild(item);});}
+  bottomGrid.appendChild(actFeed);
+  const perfCard=document.createElement('div');perfCard.className='pd-perf-card';
+  perfCard.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0645\u0624\u0634\u0631\u0627\u062a \u0627\u0644\u0623\u062f\u0627\u0621</div></div>';
+  [{label:'\u0647\u0627\u0645\u0634 \u0627\u0644\u0631\u0628\u062d',val:profitMargin.toFixed(1)+'%',pct:Math.min(100,Math.max(0,profitMargin)),color:profitMargin>=15?'#16a34a':profitMargin>=5?'#f59e0b':'#dc2626'},
+   {label:'\u0646\u0633\u0628\u0629 \u0627\u0644\u062a\u062d\u0635\u064a\u0644',val:collectionRate.toFixed(1)+'%',pct:Math.min(100,collectionRate),color:collectionRate>=80?'#16a34a':collectionRate>=60?'#f59e0b':'#dc2626'},
+   {label:'\u0646\u0645\u0648 \u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a',val:dSalesSign||'_',pct:Math.min(100,Math.max(0,50+salesDelta/2)),color:salesDelta>=0?'#16a34a':'#dc2626'},
+   {label:'\u0645\u062a\u0648\u0633\u0637 \u0627\u0644\u0641\u0627\u062a\u0648\u0631\u0629',val:fmtM(invs.length?totalSales/invs.length:0),pct:null,color:'#2563eb'},
+   {label:'\u0641\u0648\u0627\u062a\u064a\u0631 \u0646\u0634\u0637\u0629',val:active+' / '+invs.length,pct:invs.length?Math.round(active/invs.length*100):0,color:'#7c3aed'},
+   {label:'\u062a\u0648\u0642\u0639\u0627\u062a \u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u0642\u0627\u062f\u0645',val:forecastVal>0?fmtM(forecastVal):'_',pct:null,color:forecastPct>=0?'#059669':'#dc2626'}
+  ].forEach(m=>{const row=document.createElement('div');row.className='pd-metric-row';row.innerHTML='<div class="pd-metric-label">'+m.label+'</div><div class="pd-metric-right"><div class="pd-metric-val" style="color:'+m.color+'">'+m.val+'</div>'+(m.pct!==null?'<div class="pd-metric-track"><div class="pd-metric-fill" style="width:'+m.pct+'%;background:'+m.color+'"></div></div>':'')+'</div>';perfCard.appendChild(row);});
+  bottomGrid.appendChild(perfCard);root.appendChild(bottomGrid);
+  const alertCont=document.createElement('div');alertCont.id='alert-intel-container';root.appendChild(alertCont);
+  pc.appendChild(root);
+  let _chartMode='sales';
+  function drawProChart(mode){
+    const canvas=document.getElementById('pd-chart-main');if(!canvas)return;
+    const wrap=document.getElementById('pd-canvas-wrap');if(!wrap)return;
+    const W=wrap.clientWidth||wrap.offsetWidth||600;const H=220;
+    canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext('2d');
+    const vals=months.map(m=>mode==='sales'?(monthly[m]?.s||0):(monthly[m]?.p||0));
+    const maxV=Math.max(...vals.map(Math.abs),1);
+    const minV=Math.min(...vals,0);const range=maxV-Math.min(minV,0)||1;
+    const pad={top:20,right:16,bottom:36,left:68};
+    const cW=W-pad.left-pad.right;const cH=H-pad.top-pad.bottom;
+    const color=mode==='sales'?'#2563eb':'#16a34a';
+    const colorFaded=mode==='sales'?'rgba(37,99,235,.08)':'rgba(22,163,74,.08)';
+    ctx.clearRect(0,0,W,H);
+    const fmtY=v=>{if(Math.abs(v)>=1e6)return (v/1e6).toFixed(1)+'M';if(Math.abs(v)>=1e3)return (v/1e3).toFixed(0)+'K';return v.toFixed(0);};
+    ctx.strokeStyle='rgba(0,0,0,.06)';ctx.lineWidth=1;
+    [0,.25,.5,.75,1].forEach(f=>{const yv=Math.min(minV,0)+(range*f);const y=pad.top+cH*(1-(yv-Math.min(minV,0))/range);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();ctx.fillStyle='#94a3b8';ctx.font='9.5px monospace';ctx.textAlign='right';ctx.fillText(fmtY(yv),pad.left-5,y+3.5);});
+    if(minV<0){const zy=pad.top+cH*(1-(0-Math.min(minV,0))/range);ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pad.left,zy);ctx.lineTo(W-pad.right,zy);ctx.stroke();}
+    const pts=vals.map((v,i)=>({x:pad.left+(i/(months.length-1||1))*cW,y:pad.top+cH*(1-(v-Math.min(minV,0))/range),v}));
+    if(pts.length>1){const zy=pad.top+cH*(1-(0-Math.min(minV,0))/range);ctx.beginPath();ctx.moveTo(pts[0].x,zy);pts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.lineTo(pts[pts.length-1].x,zy);ctx.closePath();ctx.fillStyle=colorFaded;ctx.fill();}
+    if(pts.length>1){ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();}
+    pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#94a3b8';ctx.font='9.5px monospace';ctx.textAlign='center';ctx.fillText(months[i].slice(5),p.x,H-pad.bottom+16);});
+    const tooltip=document.getElementById('pd-chart-tooltip');
+    if(tooltip&&pts.length>0){canvas.onmousemove=function(e){const r=canvas.getBoundingClientRect();const scaleX=W/r.width;const mx=(e.clientX-r.left)*scaleX;let closest=pts[0],minDist=999999;pts.forEach(p=>{const d=Math.abs(p.x-mx);if(d<minDist){minDist=d;closest=p;}});if(minDist<cW/(months.length*1.5)){tooltip.style.display='block';tooltip.style.left=Math.min(closest.x+8,W-100)/((W/r.width)||1)+'px';tooltip.style.top='10px';tooltip.innerHTML='<b>'+months[pts.indexOf(closest)]+'</b><br>'+(mode==='sales'?'\u0645\u0628\u064a\u0639\u0627\u062a':'\u0623\u0631\u0628\u0627\u062d')+': '+fmtM(closest.v);}else{tooltip.style.display='none';}};canvas.onmouseleave=()=>tooltip.style.display='none';}
   }
-
-  renderTabContent('overview');
-  tabsWrap.appendChild(tabContent);
-  pc.appendChild(tabsWrap);
-
-  // ── Render chart + BI intelligence ──
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    try{
-      const canvas=document.getElementById('chart-sales');
-      if(canvas&&canvas.offsetWidth>0) drawSalesChart(months,monthly);
-    }catch(e){ console.warn('chart error:',e); }
+    drawProChart(_chartMode);
+    const tBtns=document.querySelectorAll('#pd-chart-toggle .pd-toggle-btn');
+    tBtns.forEach(btn=>{btn.onclick=()=>{_chartMode=btn.dataset.mode;tBtns.forEach(b=>b.classList.remove('active'));btn.classList.add('active');drawProChart(_chartMode);};});
   }));
-
-  setTimeout(()=>buildIntelligenceLayer({
-    invs, recs, monthly, nowKey, prevKey,
-    biPays, biRecsBI, biLines,
-    totalSales, totalProfit, totalRem, totalExp, totalWd,
-    overdue, active, collectionRate, profitMargin,
-    salesDelta, thisM, prevM, months
-  }),300);
-
+  setTimeout(()=>buildIntelligenceLayer({invs,recs,monthly,nowKey,prevKey,biPays,biRecsBI,biLines,totalSales,totalProfit,totalRem,totalExp,totalWd,overdue,active,collectionRate,profitMargin,salesDelta,thisM,prevM,months}),300);
   const topToasts=getTopDecisionsForToast(biDecisions);
-  if(topToasts.length>0&&!sessionStorage.getItem('wadi_bi_toast')){
-    setTimeout(()=>{
-      topToasts.slice(0,1).forEach(d=>showToast(d.icon+' '+d.title,'warning'));
-      sessionStorage.setItem('wadi_bi_toast','1');
-    },1800);
-  }
+  if(topToasts.length>0&&!sessionStorage.getItem('wadi_bi_toast')){setTimeout(()=>{topToasts.slice(0,1).forEach(d=>showToast(d.icon+' '+d.title,'warning'));sessionStorage.setItem('wadi_bi_toast','1');},1800);}
   if(typeof window._wadiProactive==='function') window._wadiProactive();
-
   }catch(e){
     console.error('Dashboard error:',e);
-    document.getElementById('page-content').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:8px">فشل تحميل Dashboard</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">${e.message}</div><button class="btn btn-primary" onclick="renderDashboard()">إعادة المحاولة</button></div>`;
+    document.getElementById('page-content').innerHTML='<div class="empty-state"><div class="empty-icon">\u26A0\uFE0F</div><div style="font-size:16px;font-weight:700;color:var(--red);margin-bottom:8px">\u0641\u0634\u0644 \u062a\u062d\u0645\u064a\u0644 Dashboard</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">'+e.message+'</div><button class="btn btn-primary" onclick="renderDashboard()">\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629</button></div>';
   }
 }
+
 
 // ── INVOICES — ALL COLUMNS ──
 
@@ -9998,7 +9873,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.15';
+const APP_VERSION = 'v76.16';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
