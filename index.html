@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.11">
+<meta name="app-version" content="v76.12">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3686,11 +3686,11 @@ function showApp(){
   // جلب profile — يجب أن يكتمل قبل عرض أي صفحة
   _fetchProfile().then(function() {
     _applyNavPermissions();
-    showPage('dashboard');
+    restoreLastPage(); // v76.12 — Phase 2: restore saved page or dashboard
   }).catch(function(e) {
     console.error('[showApp] profile fetch failed:', e);
     _applyNavPermissions();
-    showPage('dashboard');
+    restoreLastPage(); // v76.12 — fallback: restore or dashboard
   });
   // تحميل إعدادات المستخدم من Supabase (non-blocking)
   loadSettingsFromSupabase();
@@ -13815,6 +13815,210 @@ async function _copyPublicLink(invId){
 }
 
 
+
+// ══════════════════════════════════════════
+// 📍 PAGE RESTORE MANAGER — v76.12
+// Phase 2: Save & Restore Last Page
+// ── ISOLATED IIFE — لا يعدّل أي كود موجود ──
+// ══════════════════════════════════════════
+(function initPageRestoreManager() {
+
+  // ════════════════════════════════
+  // ⚙️ CONFIG
+  // ════════════════════════════════
+  var STORAGE_KEY = 'wadi_last_page';
+
+  // ✅ الصفحات المسموح بحفظها واسترجاعها
+  // ❌ مستبعدة: quotation_detail, quotation_new, print, invoice_center
+  //    (تحتاج ID أو context خاص)
+  var VALID_PAGES = [
+    'dashboard',
+    'invoices',
+    'lines',
+    'quotations',
+    'receivables',
+    'aging',
+    'expenses',
+    'withdrawals',
+    'capital',
+    'profit',
+    'cashflow',
+    'clients',
+    'credits',
+    'reports',
+    'settings',
+    'logs',
+    'activity',
+    'login_log',
+    'admin',
+  ];
+
+  // خريطة الصفحة → permission key (null = لا يحتاج permission)
+  var PAGE_PERMISSION = {
+    dashboard    : null,
+    settings     : null,
+    invoices     : 'invoices_view',
+    lines        : 'invoices_view',
+    quotations   : 'invoices_view',
+    workflow     : 'invoices_view',
+    receivables  : 'payments',
+    aging        : 'payments',
+    credits      : 'payments',
+    expenses     : 'expenses',
+    withdrawals  : 'withdrawals',
+    capital      : 'capital',
+    profit       : 'reports',
+    cashflow     : 'reports',
+    clients      : 'clients_view',
+    reports      : 'reports',
+    logs         : 'admin_panel',
+    activity     : 'admin_panel',
+    login_log    : 'admin_panel',
+    admin        : 'admin_panel',
+  };
+
+  // ════════════════════════════════
+  // 🔒 Restore Flag — مرة واحدة فقط
+  // ════════════════════════════════
+  var _restoreDone = false;
+
+  // ════════════════════════════════
+  // 💾 saveCurrentPage(page)
+  // تُستدعى من الـ Monkey Patch تلقائياً
+  // ════════════════════════════════
+  function saveCurrentPage(page) {
+    if (!page) return;
+    // نحفظ فقط الصفحات الموجودة في القائمة البيضاء
+    if (VALID_PAGES.indexOf(page) === -1) return;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, page);
+    } catch(e) {
+      // sessionStorage غير متاح (private mode متطرف) — نتجاهل
+      console.warn('[PageRestore] sessionStorage unavailable:', e.message);
+    }
+  }
+
+  // ════════════════════════════════
+  // 📂 restoreLastPage()
+  // تُستدعى من showApp — مرة واحدة
+  // ════════════════════════════════
+  function restoreLastPage() {
+    // ── Guard: مرة واحدة فقط ──
+    if (_restoreDone) {
+      if (window.DEBUG) console.log('[PageRestore] already restored — skipping');
+      showPage('dashboard');
+      return;
+    }
+    _restoreDone = true;
+
+    var saved = null;
+    try {
+      saved = sessionStorage.getItem(STORAGE_KEY);
+    } catch(e) {
+      console.warn('[PageRestore] sessionStorage read error:', e.message);
+    }
+
+    // ── Validation 1: موجودة؟ ──
+    if (!saved) {
+      if (window.DEBUG) console.log('[PageRestore] no saved page → dashboard');
+      showPage('dashboard');
+      return;
+    }
+
+    // ── Validation 2: في القائمة البيضاء؟ ──
+    if (VALID_PAGES.indexOf(saved) === -1) {
+      if (window.DEBUG) console.log('[PageRestore] invalid page "' + saved + '" → dashboard');
+      _clearSaved();
+      showPage('dashboard');
+      return;
+    }
+
+    // ── Validation 3: صلاحية؟ ──
+    var permKey = PAGE_PERMISSION[saved];
+    if (permKey !== null && permKey !== undefined) {
+      // hasPermission موجودة في الكود الأصلي
+      if (typeof hasPermission === 'function' && !hasPermission(permKey)) {
+        if (window.DEBUG) console.log('[PageRestore] no permission for "' + saved + '" → dashboard');
+        _clearSaved();
+        showPage('dashboard');
+        return;
+      }
+    }
+
+    // ✅ كل الـ validations اجتازت → استرجع الصفحة
+    if (window.DEBUG) console.log('[PageRestore] restoring → "' + saved + '"');
+    showPage(saved);
+  }
+
+  // ── مسح الصفحة المحفوظة (عند invalid) ──
+  function _clearSaved() {
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  }
+
+  // ════════════════════════════════
+  // 🔗 Monkey Patch على showPage
+  // آمن — يتأكد من وجودها أولاً
+  // ════════════════════════════════
+  function _applyMonkeyPatch() {
+    // ── Guard: showPage موجودة؟ ──
+    if (typeof showPage !== 'function') {
+      console.warn('[PageRestore] showPage not found — patch skipped');
+      return;
+    }
+    // ── Guard: ما تم patch مسبقاً؟ ──
+    if (showPage._prPatched) {
+      if (window.DEBUG) console.log('[PageRestore] already patched — skip');
+      return;
+    }
+
+    var _orig = showPage;
+
+    window.showPage = function _patchedShowPage(page) {
+      // 1) حفظ الصفحة (قبل التنفيذ)
+      saveCurrentPage(page);
+      // 2) استدعاء الأصلي بنفس الـ arguments
+      return _orig.apply(this, arguments);
+    };
+
+    // علامة للحماية من double-patch
+    window.showPage._prPatched = true;
+    window.showPage._orig      = _orig; // للـ debug
+
+    if (window.DEBUG) console.log('[PageRestore] ✅ showPage patched successfully');
+  }
+
+  // ════════════════════════════════
+  // ▶️ Init — تطبيق الـ patch
+  // ════════════════════════════════
+  // نؤخر قليلاً لضمان تعريف showPage قبلنا
+  // (DOMContentLoaded بدل مباشر — أضمن)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _applyMonkeyPatch);
+  } else {
+    // DOM جاهز بالفعل
+    _applyMonkeyPatch();
+  }
+
+  // ════════════════════════════════
+  // 🌐 Expose للاستخدام الخارجي
+  // ════════════════════════════════
+  window.saveCurrentPage  = saveCurrentPage;
+  window.restoreLastPage  = restoreLastPage;
+
+  // للـ debug من Console:
+  // _pageRestore.getSaved()    → يعرض الصفحة المحفوظة
+  // _pageRestore.clear()       → يمسحها
+  // _pageRestore.resetFlag()   → يعيد تفعيل الـ restore (للتجربة)
+  window._pageRestore = {
+    getSaved   : function() {
+      try { return sessionStorage.getItem(STORAGE_KEY); } catch(e) { return null; }
+    },
+    clear      : function() { _clearSaved(); console.log('[PageRestore] cleared'); },
+    resetFlag  : function() { _restoreDone = false; console.log('[PageRestore] flag reset — next restoreLastPage() will run'); },
+    validPages : VALID_PAGES,
+  };
+
+})();
 
 // ══════════════════════════════════════════
 // 🔒 SESSION MANAGER — v76.11
