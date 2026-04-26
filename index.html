@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v75.9.2">
+<meta name="app-version" content="v75.9.3">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -5499,7 +5499,7 @@ async function renderLines(page=0,filterInv=''){
 // ── WORKFLOW ──
 async function renderWorkflow(){
   setLoading();
-  const rows=(await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,stage,next_action,sale_amount').eq('is_deleted',false).order('date',{ascending:false}))).filter(r=>r.stage&&!r.stage.includes('🏁'));
+  const rows=(await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,stage,next_action,sale_amount').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}))).filter(r=>r.stage&&!r.stage.includes('🏁'));
   const stages=['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل'];
   const colors=['gray','blue','yellow','green','orange'];
   document.getElementById('page-content').innerHTML=`
@@ -5540,7 +5540,7 @@ async function updateStage(id,stage){
 // ── PRINT ──
 async function renderPrint(invId){
   if(invId){ await _buildInvoiceA4(invId); return; }
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').eq('is_deleted',false).order('date',{ascending:false}));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}));
   document.getElementById('page-content').innerHTML=`
   <div class="table-card" style="max-width:640px">
     <div class="table-header"><div class="table-title">🖨️ طباعة فاتورة — Wadi Style</div></div>
@@ -9940,7 +9940,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v75.9.2';
+const APP_VERSION = 'v75.9.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12882,7 +12882,7 @@ body.dark .perm-row { background:var(--bg2); }
 // ── INVOICE CENTER ──
 async function renderInvoiceCenter(){
   setLoading('جاري تحميل الفواتير...');
-  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount,stage,description').eq('is_deleted',false).order('date',{ascending:false}));
+  const invs=await safeQuery(()=>sb.from('invoices').select('id,customer_name,date,sale_amount,stage,description').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}));
   const list=invs||[];
   const stageOpts=['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل','🏁 مكتملة'];
   document.getElementById('page-content').innerHTML=`
