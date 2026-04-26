@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.19.1">
+<meta name="app-version" content="v76.19.2">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4035,11 +4035,11 @@ body.dark .pd-act-item:hover{background:#263548;}
 body.dark .pd-act-dot.inv{background:#1e3a5f;}body.dark .pd-act-dot.pay{background:#14432a;}body.dark .pd-act-dot.wd{background:#44330a;}
 /* ═══ v76.17 UX ENHANCEMENTS ═══ */
 @keyframes pd-kpi-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.pd-kpi{animation:pd-kpi-in .45s cubic-bezier(.16,1,.3,1) both;}
-.pd-kpi:nth-child(1){animation-delay:.30s}.pd-kpi:nth-child(2){animation-delay:.40s}
-.pd-kpi:nth-child(3){animation-delay:.50s}.pd-kpi:nth-child(4){animation-delay:.60s}
-.pd-kpi:nth-child(5){animation-delay:.70s}.pd-kpi:nth-child(6){animation-delay:.80s}
-.pd-kpi:nth-child(7){animation-delay:.90s}.pd-kpi:nth-child(8){animation-delay:1.0s}
+.pd-kpi{animation:pd-kpi-in .38s cubic-bezier(.16,1,.3,1) both;}
+.pd-kpi:nth-child(1){animation-delay:.05s}.pd-kpi:nth-child(2){animation-delay:.13s}
+.pd-kpi:nth-child(3){animation-delay:.21s}.pd-kpi:nth-child(4){animation-delay:.29s}
+.pd-kpi:nth-child(5){animation-delay:.37s}.pd-kpi:nth-child(6){animation-delay:.45s}
+.pd-kpi:nth-child(7){animation-delay:.53s}.pd-kpi:nth-child(8){animation-delay:.61s}
 .pd-kpi-vs{font-size:9.5px;color:var(--text4);margin-top:2px;letter-spacing:.2px;}
 @keyframes pd-chart-fade{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
 .pd-canvas-fade{animation:pd-chart-fade 280ms var(--ease-smooth);}
@@ -4108,11 +4108,12 @@ html { scroll-behavior: smooth; }
               box-shadow 200ms var(--ease-smooth),
               border-color 200ms ease;
   will-change: transform;
+  contain: layout style;  /* isolate repaint — scroll perf */
 }
 .pd-kpi:hover {
   transform: translateY(-6px);
-  box-shadow: 0 16px 48px rgba(0,0,0,.13), 0 6px 16px rgba(0,0,0,.08);
-  border-color: rgba(37,99,235,.25);
+  box-shadow: 0 10px 28px rgba(0,0,0,.09), 0 4px 10px rgba(0,0,0,.06);
+  border-color: rgba(37,99,235,.22);
 }
 .pd-kpi:active { transform: translateY(-2px); box-shadow: var(--shadow-2); }
 
@@ -4120,13 +4121,14 @@ html { scroll-behavior: smooth; }
 .pd-chart-card, .pd-clients-card, .pd-actions-card,
 .pd-activity-card, .pd-perf-card, .pd-today-chip {
   box-shadow: var(--shadow-1);
-  transition: box-shadow var(--dur-mid) var(--ease-smooth),
-              transform var(--dur-mid) var(--ease-smooth),
-              border-color var(--dur-mid) ease;
+  transition: box-shadow 180ms ease,
+              transform 180ms var(--ease-smooth),
+              border-color 150ms ease;
+  /* no will-change — prevents scroll repaint overhead */
 }
 .pd-chart-card:hover, .pd-clients-card:hover,
 .pd-activity-card:hover, .pd-perf-card:hover {
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 6px 20px rgba(0,0,0,.07);
   border-color: var(--border2);
 }
 .pd-today-chip:hover {
@@ -4168,12 +4170,12 @@ html { scroll-behavior: smooth; }
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.pd-header      { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 0ms; }
-.pd-alert-strip { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 80ms; }
-.pd-today-bar   { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 160ms; }
-.pd-kpi-strip   { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 240ms; }
-.pd-main-grid   { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 340ms; }
-.pd-bottom-grid { animation: wow-section-in 360ms var(--ease-smooth) both; animation-delay: 440ms; }
+.pd-header      { animation: wow-section-in 300ms var(--ease-smooth) both; animation-delay: 0ms; }
+.pd-alert-strip { animation: wow-section-in 300ms var(--ease-smooth) both; animation-delay: 50ms; }
+.pd-today-bar   { animation: wow-section-in 300ms var(--ease-smooth) both; animation-delay: 100ms; }
+.pd-kpi-strip   { animation: wow-section-in 300ms var(--ease-smooth) both; animation-delay: 150ms; }
+.pd-main-grid   { animation: wow-section-in 300ms var(--ease-smooth) both; animation-delay: 210ms; }
+.pd-bottom-grid { animation: wow-section-in 300ms var(--ease-smooth) both; animation-delay: 270ms; }
 
 /* ── 8. ACTIVITY FEED ITEMS ── */
 .pd-act-item {
@@ -4231,8 +4233,8 @@ html { scroll-behavior: smooth; }
 }
 
 /* ── 15. DARK MODE DEPTH ── */
-body.dark .pd-kpi { box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2); }
-body.dark .pd-kpi:hover { box-shadow: 0 8px 32px rgba(0,0,0,.4); border-color: rgba(96,165,250,.2); }
+body.dark .pd-kpi { box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+body.dark .pd-kpi:hover { box-shadow: 0 10px 28px rgba(0,0,0,.35); border-color: rgba(96,165,250,.18); }
 body.dark .pd-chart-card,body.dark .pd-clients-card,body.dark .pd-actions-card,
 body.dark .pd-activity-card,body.dark .pd-perf-card { box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 
@@ -4258,6 +4260,21 @@ body.dark .pd-activity-card,body.dark .pd-perf-card { box-shadow: 0 1px 4px rgba
 /* ── 19. HEADER ── */
 .pd-greeting { letter-spacing: -.025em; }
 .pd-hbtn.ghost { backdrop-filter: blur(4px); }
+
+/* v76.19.2 — Scroll Performance */
+.pd-root.is-scrolling .pd-kpi,
+.pd-root.is-scrolling .pd-chart-card,
+.pd-root.is-scrolling .pd-activity-card,
+.pd-root.is-scrolling .pd-perf-card {
+  pointer-events: none;
+  transition: none !important;
+}
+/* Touch scroll: use passive listeners, avoid repaints */
+.pd-kpi { backface-visibility: hidden; }
+.pd-chart-card,.pd-clients-card,.pd-actions-card,
+.pd-activity-card,.pd-perf-card {
+  backface-visibility: hidden;
+}
 `;
     document.head.appendChild(sty);
   }
@@ -4525,6 +4542,25 @@ body.dark .pd-activity-card,body.dark .pd-perf-card { box-shadow: 0 1px 4px rgba
       setTimeout(()=>{ el.style.width=w; }, 120);
     });
   }));
+
+  // v76.19.2 — Scroll throttle: disable hover repaint during scroll
+  (function(){
+    var root=document.querySelector('.pd-root');
+    if(!root) return;
+    var st;
+    var onScroll=function(){
+      root.classList.add('is-scrolling');
+      clearTimeout(st);
+      st=setTimeout(function(){ root.classList.remove('is-scrolling'); }, 120);
+    };
+    // Cover all scroll types: touch, keyboard, wheel
+    window.addEventListener('scroll', onScroll, {passive:true});
+    root.addEventListener('scroll', onScroll, {passive:true});
+    document.addEventListener('keydown', function(e){
+      var scrollKeys={ArrowUp:1,ArrowDown:1,PageUp:1,PageDown:1,Home:1,End:1};
+      if(scrollKeys[e.key]) onScroll();
+    }, {passive:true});
+  })();
   // ════════ end WOW LAYER ════════
 
   }catch(e){
@@ -10273,7 +10309,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.19.1';
+const APP_VERSION = 'v76.19.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
