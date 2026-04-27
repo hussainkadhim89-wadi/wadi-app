@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.26">
+<meta name="app-version" content="v76.29">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3484,8 +3484,8 @@ function sortRows(rows,page,defaultKey=''){
   });
 }
 
-function calcPay(r){
-  const p=(+r.payment1||0)+(+r.payment2||0)+(+r.payment3||0)+(+r.payment4||0);
+function calcPay(r,paidAmount){
+  const p=paidAmount!=null?(+paidAmount||0):(+r.payment1||0)+(+r.payment2||0)+(+r.payment3||0)+(+r.payment4||0);
   const rem=(+r.total_amount||0)-p;
   return{paid:p,rem:Math.max(0,rem),status:rem<=0?'✅ مسدد بالكامل':p>0?'🟡 سداد جزئي':'❌ لم يُسدد'};
 }
@@ -3881,7 +3881,12 @@ async function renderDashboard(){
   try{
   const invs=await safeQuery(()=>sb.from('invoices').select('id,sale_amount,cost_amount,comm_omar_pct,comm_hussain_pct,comm_sini_pct,extra_expenses,transport_cost,gift_expense,stage,date,customer_name,invoice_type,quotation_id').eq('is_deleted',false).neq('invoice_type','quotation'));
   setLoading('الذمم...');
-  const recs=await safeQuery(()=>sb.from('receivables').select('total_amount,payment1,payment2,payment3,payment4,due_date'));
+  const [recs,dashPays]=await Promise.all([
+    safeQuery(()=>sb.from('receivables').select('invoice_id,total_amount,due_date')),
+    safeQuery(()=>sb.from('payments').select('invoice_id,amount')),
+  ]);
+  const _dashPayMap={};
+  (dashPays||[]).forEach(p=>{_dashPayMap[p.invoice_id]=(_dashPayMap[p.invoice_id]||0)+(+p.amount||0);});
   const last=await safeQuery(()=>sb.from('invoices').select('id,date,customer_name,sale_amount,stage').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(6));
   const nowKey=new Date().toISOString().slice(0,7);
   const prevDate=new Date();prevDate.setMonth(prevDate.getMonth()-1);
@@ -3904,7 +3909,7 @@ async function renderDashboard(){
   }
   const totalSales=invs.reduce((s,i)=>s+(+i.sale_amount||0),0);
   const totalProfit=invs.reduce((s,i)=>s+calcInvoiceProfit(i).netProfit,0);
-  const recCalc=recs.map(r=>calcPay(r));
+  const recCalc=recs.map(r=>calcPay(r,_dashPayMap[r.invoice_id]||0));
   const totalRem=recCalc.reduce((s,r)=>s+r.rem,0);
   const overdue=recs.filter((r,i)=>recCalc[i].rem>0&&r.due_date&&new Date(r.due_date)<new Date()).length;
   const totalExp=biExpsBI.reduce((s,e)=>s+(+e.amount||0),0);
@@ -4776,12 +4781,17 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   const rows=data||[];
   const totalsData=(!tErr&&allRows)?allRows:[];
   _selectedInvIds.clear(); // reset عند كل render
-  // جلب حالة السداد من الذمم
+  // جلب حالة السداد من payments table (single source of truth)
   const invIds=rows.map(r=>r.id).filter(Boolean);
   let recMap={};
   if(invIds.length>0){
-    const recs=await safeQuery(()=>sb.from('receivables').select('invoice_id,payment1,payment2,payment3,payment4,total_amount').in('invoice_id',invIds));
-    recs.forEach(r=>{recMap[r.invoice_id]=calcPay(r).status;});
+    const [recs,invPays]=await Promise.all([
+      safeQuery(()=>sb.from('receivables').select('invoice_id,total_amount').in('invoice_id',invIds)),
+      safeQuery(()=>sb.from('payments').select('invoice_id,amount').in('invoice_id',invIds)),
+    ]);
+    const _invPayMap={};
+    (invPays||[]).forEach(p=>{_invPayMap[p.invoice_id]=(_invPayMap[p.invoice_id]||0)+(+p.amount||0);});
+    recs.forEach(r=>{recMap[r.invoice_id]=calcPay(r,_invPayMap[r.invoice_id]||0).status;});
   }
 
   // ── Phase 2: جلب view counts (batch) ──
@@ -10945,7 +10955,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.26';
+const APP_VERSION = 'v76.29';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
