@@ -9103,7 +9103,10 @@ async function saveInvoice(existingId, goToLines=false){
     //   v_line     jsonb;
     // BEGIN
     //   -- 1. Insert invoice
-    //   INSERT INTO invoices SELECT * FROM jsonb_populate_record(null::invoices, p_invoice)
+    //   INSERT INTO invoices SELECT * FROM jsonb_populate_record(
+    //     null::invoices,
+    //     p_invoice || jsonb_build_object('user_id', auth.uid(), 'is_deleted', false)
+    //   )
     //   RETURNING * INTO v_invoice;
     //
     //   -- 2. Insert invoice_lines (if any)
