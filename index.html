@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.35">
+<meta name="app-version" content="v76.38">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3939,7 +3939,7 @@ async function renderDashboard(){
   if(!_biData){
     setLoading('تحليل البيانات...');
     [biLines,biPays,biExpsBI,biWdsBI,biRecsBI]=await Promise.all([
-      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)').then(r=>({...r,data:(r.data||[]).filter(l=>l.invoices?.is_deleted===false).map(({invoices:_,...l})=>l)}))),
+      safeQuery(()=>sb.from('invoice_lines').select('description,unit_price,cost_unit,qty,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)').eq('invoices.is_deleted',false).then(r=>({...r,data:(r.data||[]).map(({invoices:_,...l})=>l)}))),
       safeQuery(()=>sb.from('payments').select('invoice_id,amount,payment_date,customer_name')),
       safeQuery(()=>sb.from('expenses').select('amount,expense_date')),
       safeQuery(()=>sb.from('withdrawals').select('amount,date,partner')),
@@ -5984,12 +5984,13 @@ async function renderLines(page=0,filterInv=''){
   // server-side JOIN — استبعاد بنود الفواتير المحذوفة
   let q=sb.from('invoice_lines')
     .select('*,invoices!fk_invoice_lines_invoice(id,is_deleted)',{count:'exact'})
+    .eq('invoices.is_deleted',false)
     .order('invoice_id')
     .range(from,to);
   if(filterInv)q=q.ilike('invoice_id',`%${filterInv}%`);
   const{data:rawData,count,error}=await q;
   if(error){showToast('خطأ في جلب البنود: '+error.message,'error');return;}
-  const data=(rawData||[]).filter(l=>l.invoices?.is_deleted===false).map(l=>{const{invoices:_,...rest}=l;return rest;});
+  const data=(rawData||[]).map(l=>{const{invoices:_,...rest}=l;return rest;});
   const rows=data||[];
 
   // جلب قائمة الفواتير للـ Quick Add
@@ -9671,11 +9672,12 @@ async function _loadPendingInvoices() {
 
     const { data: lineData, error: lineErr } = await sb
       .from('invoice_lines')
-      .select('invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)');
+      .select('invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)')
+      .eq('invoices.is_deleted', false);
     if (lineErr) throw lineErr;
 
     const allIds = (invData || []).map(i => i.id);
-    const withLinesSet = new Set((lineData || []).filter(l=>l.invoices?.is_deleted===false).map(l => l.invoice_id));
+    const withLinesSet = new Set((lineData || []).map(l => l.invoice_id));
     _pendingInvIds = allIds.filter(id => !withLinesSet.has(id));
 
     _renderPendingBanner();
@@ -10078,10 +10080,11 @@ async function _qaDescInputCore(val){
     box.style.display='block';
     const{data:_rawAuto}=await sb.from('invoice_lines')
       .select('description,unit_price,cost_unit,id,invoice_id,invoices!fk_invoice_lines_invoice(is_deleted)')
+      .eq('invoices.is_deleted',false)
       .ilike('description',`%${val}%`)
       .order('id',{ascending:false})
       .limit(20);
-    const data=(_rawAuto||[]).filter(l=>l.invoices?.is_deleted===false).map(l=>{const{invoices:_,...rest}=l;return rest;});
+    const data=(_rawAuto||[]).map(l=>{const{invoices:_,...rest}=l;return rest;});
     // تجاهل النتيجة لو جاء request أحدث
     if(myId !== _qaReqId) return;
     if(!data||data.length===0){
@@ -11033,7 +11036,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.35';
+const APP_VERSION = 'v76.38';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
