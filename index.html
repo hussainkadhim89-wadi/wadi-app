@@ -2831,10 +2831,7 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
   <button onclick="document.getElementById('pwa-banner').classList.remove('show')" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:18px;padding:0 0 0 4px">✕</button>
 </div>
 
-<script src="js/config.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/audit.js"></script>
+<!-- js/config.js · js/utils.js · js/ui.js · js/audit.js : مضمّنة مباشرة في index.html -->
 <script>
 // ════════════════════════════════════════
 // 🔌 SUPABASE CLIENT GUARD — v67.14
@@ -3298,6 +3295,33 @@ function activeInvoices(q) {
   // ── Start ──
   _fetchInvoice();
 })();
+
+
+// ── INLINE FALLBACKS — دوال كانت في js/ui.js وjs/audit.js ──
+if(typeof showToast==='undefined'){
+  window.showToast=function(msg,type='info',duration=3500){
+    var t=document.createElement('div');
+    var colors={'info':'#2563eb','success':'#16a34a','warning':'#d97706','error':'#dc2626'};
+    t.style.cssText='position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 20px;border-radius:10px;'
+      +'color:#fff;font-size:14px;font-weight:600;max-width:320px;box-shadow:0 4px 20px rgba(0,0,0,.25);'
+      +'background:'+(colors[type]||colors.info)+';animation:fadeIn .2s ease';
+    t.textContent=msg;
+    document.body.appendChild(t);
+    setTimeout(function(){t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(function(){t.remove();},300);},duration);
+  };
+}
+if(typeof btnLoad==='undefined'){
+  window.btnLoad=function(btn){
+    if(!btn)return function(){};
+    var orig=btn.innerHTML;
+    btn.disabled=true;
+    btn.innerHTML='<span style="opacity:.6">جاري...</span>';
+    return function(){btn.disabled=false;btn.innerHTML=orig;};
+  };
+}
+if(typeof logInvoiceAction==='undefined'){
+  window.logInvoiceAction=function(){/* audit disabled — js/audit.js غير موجود */};
+}
 
 const PS = 25;
 
@@ -9019,7 +9043,7 @@ async function saveInvoice(existingId, goToLines=false){
       const _qtOk=await _showConfirmDialog('⚠️ تأكيد التحويل',`سيتم إنشاء فاتورة نهائية من الكوتيشن ${_qtIdNow}\nهل أنت متأكد؟`);
       if(!_qtOk){restore();return;}
     }
-    const _basePayload={date:dateVal,customer_id:clientId,customer_name:cl?.name||'',
+    const payload={id,date:dateVal,customer_id:clientId,customer_name:cl?.name||'',
       invoice_type:(_qtIdNow?'detailed':invType),
       stage:        _val('f-stage','📋 طلب وارد'),
       transport_cost:+_val('f-transport','0')||0,
@@ -9029,12 +9053,10 @@ async function saveInvoice(existingId, goToLines=false){
       comm_hussain_pct:+_val('f-hcomm','0'),
       comm_sini_pct: +_val('f-sini','0'),
       next_action:   _val('f-next'),
+      created_date:new Date().toISOString().slice(0,10),
+      quotation_id:  _qtIdNow||null,
       ...(invType==='simple'&&!_qtIdNow?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
-    // عند الإنشاء فقط: أضف id و created_date و quotation_id
-    const payload=existingId
-      ?{..._basePayload}
-      :{..._basePayload,id,created_date:new Date().toISOString().slice(0,10),quotation_id:_qtIdNow||null};
     if(DEBUG) console.log('[SAVE_INVOICE]',{quotation_id:_qtIdNow,invoice_type:payload.invoice_type,id});
     // ── PRE-CHECK: رقم فاتورة مكرر؟ (فقط عند إنشاء جديد) ──
     if(!existingId){
