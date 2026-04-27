@@ -8912,9 +8912,9 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
       <div class="form-group"><label class="form-label">الإجراء التالي</label><input class="form-input" id="f-next" value="${inv.next_action||''}" placeholder="مثال: انتظار التسليم"></div>
     </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
-   <button class="btn btn-secondary" id="btn-save-only" onclick="saveInvoice('${invId||''}',false)" style="display:${invType==='detailed'&&!invId&&!_isFromQt?'inline-flex':'none'}">💾 حفظ فقط</button>
-   <button class="btn btn-primary" id="btn-save-lines" onclick="saveInvoice('${invId||''}',true)" style="display:${invType==='detailed'&&!invId&&!_isFromQt?'inline-flex':'none'}">📦 حفظ وأضف بنود</button>
-   <button class="btn btn-primary" id="btn-save-simple" onclick="saveInvoice('${invId||''}',false)" style="display:${invType!=='detailed'||invId||_isFromQt?'inline-flex':'none'}">💾 حفظ الفاتورة</button>`);
+   <button class="btn btn-secondary" id="btn-save-only" onclick="saveInvoice(${JSON.stringify(invId||'')},false)" style="display:${invType==='detailed'&&!invId&&!_isFromQt?'inline-flex':'none'}">💾 حفظ فقط</button>
+   <button class="btn btn-primary" id="btn-save-lines" onclick="saveInvoice(${JSON.stringify(invId||'')},true)" style="display:${invType==='detailed'&&!invId&&!_isFromQt?'inline-flex':'none'}">📦 حفظ وأضف بنود</button>
+   <button class="btn btn-primary" id="btn-save-simple" onclick="saveInvoice(${JSON.stringify(invId||'')},false)" style="display:${invType!=='detailed'||invId||_isFromQt?'inline-flex':'none'}">💾 حفظ الفاتورة</button>`);
   // تحميل اقتراحات العميل تلقائياً لو تعديل
   if(inv.customer_id){
     setTimeout(()=>loadClientSuggestions(inv.customer_id),200);
