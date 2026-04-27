@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.32">
+<meta name="app-version" content="v76.35">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -9088,37 +9088,86 @@ async function saveInvoice(existingId, goToLines=false){
       const{data:_bs}=await sb.from('invoices').select('*').eq('id',existingId).single();
       _beforeSnap=_bs||null;
     }
-    const{data:_savedData,error}=existingId
-      ?await sb.from('invoices').update(payload).eq('id',existingId).select().single()
-      :await sb.from('invoices').insert(payload).select().single();
-    if(error){showToast('خطأ: '+error.message,'error');restore();return;}
-    // ── QT LINK: حفظ الأصناف من الجدول الـ inline + تحديث الكوتيشن ──
-    if(!existingId&&_savedData?.id&&_qtIdNow){
-      const inlineLines=_qtInlineGetLines();
-      console.log('[LINES DEBUG]',{
-        invoice_id: _savedData?.id,
-        qtId: _qtIdNow,
-        linesCount: inlineLines.length,
-        lines: inlineLines
+    // ══════════════════════════════════════════════════════════════════
+    // ATOMIC CREATE via RPC — إنشاء فاتورة جديدة بمعاملة واحدة
+    // SQL function — run ONCE in Supabase SQL editor before deploying:
+    //
+    // CREATE OR REPLACE FUNCTION create_invoice_atomic(
+    //   p_invoice      jsonb,
+    //   p_lines        jsonb,
+    //   p_credit_days  integer
+    // ) RETURNS jsonb LANGUAGE plpgsql AS $$
+    // DECLARE
+    //   v_invoice  invoices%ROWTYPE;
+    //   v_due_date date;
+    //   v_line     jsonb;
+    // BEGIN
+    //   -- 1. Insert invoice
+    //   INSERT INTO invoices SELECT * FROM jsonb_populate_record(null::invoices, p_invoice)
+    //   RETURNING * INTO v_invoice;
+    //
+    //   -- 2. Insert invoice_lines (if any)
+    //   IF jsonb_array_length(p_lines) > 0 THEN
+    //     FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines) LOOP
+    //       INSERT INTO invoice_lines
+    //         (invoice_id, customer, date, description, qty, unit_price, cost_unit, notes)
+    //       VALUES (
+    //         v_invoice.id,
+    //         (v_line->>'customer'),
+    //         (v_line->>'date')::date,
+    //         (v_line->>'description'),
+    //         (v_line->>'qty')::numeric,
+    //         (v_line->>'unit_price')::numeric,
+    //         (v_line->>'cost_unit')::numeric,
+    //         (v_line->>'notes')
+    //       );
+    //     END LOOP;
+    //   END IF;
+    //
+    //   -- 3. Insert receivable — skip if already exists
+    //   v_due_date := (v_invoice.date::date) + (p_credit_days * INTERVAL '1 day');
+    //   INSERT INTO receivables (invoice_id, customer_name, invoice_date, total_amount, due_date)
+    //   VALUES (v_invoice.id, v_invoice.customer_name, v_invoice.date, 0, v_due_date)
+    //   ON CONFLICT (invoice_id) DO NOTHING;
+    //
+    //   RETURN to_jsonb(v_invoice);
+    // END;
+    // $$;
+    // ══════════════════════════════════════════════════════════════════
+    let _savedData;
+    if(existingId){
+      // UPDATE — لا يحتاج atomic (فاتورة موجودة، لا إنشاء receivable)
+      const{data,error}=await sb.from('invoices').update(payload).eq('id',existingId).select().single();
+      if(error){showToast('خطأ: '+error.message,'error');restore();return;}
+      _savedData=data;
+    } else {
+      // CREATE — atomic via RPC (invoice + lines + receivable في transaction واحدة)
+      const{data:cl2}=await sb.from('clients').select('credit_days').eq('id',clientId).single();
+      const creditDays=cl2?.credit_days||60;
+      const inlineLines=_qtIdNow?_qtInlineGetLines():[];
+      if(DEBUG&&_qtIdNow){console.log('[LINES DEBUG]',{invoice_id:id,qtId:_qtIdNow,linesCount:inlineLines.length,lines:inlineLines});}
+      const linesForRpc=inlineLines.map(l=>({
+        customer:    cl?.name||'',
+        date:        dateVal,
+        description: l.description,
+        qty:         l.qty,
+        unit_price:  l.unit_price,
+        cost_unit:   l.cost_unit,
+        notes:       null,
+      }));
+      const{data:rpcResult,error:rpcErr}=await sb.rpc('create_invoice_atomic',{
+        p_invoice:     payload,
+        p_lines:       linesForRpc,
+        p_credit_days: creditDays,
       });
-      if(inlineLines.length>0){
-        const linesPayload=inlineLines.map(l=>({
-          invoice_id:  _savedData.id,
-          customer:    cl?.name||'',
-          date:        dateVal,
-          description: l.description,
-          qty:         l.qty,
-          unit_price:  l.unit_price,
-          cost_unit:   l.cost_unit,
-          notes:       null,
-        }));
-        console.log('[LINES PAYLOAD]', linesPayload);
-        const{error:cpErr,data:cpData}=await sb.from('invoice_lines').insert(linesPayload).select();
-        console.log('[LINES INSERT RESULT]',{error:cpErr?.message||null,inserted:cpData?.length||0});
-        if(cpErr) console.warn('[QT LINES SAVE ERROR]',cpErr.message);
+      if(rpcErr){showToast('خطأ: '+rpcErr.message,'error');restore();return;}
+      _savedData=rpcResult;
+      if(DEBUG){console.log('[LINES INSERT RESULT]',{inserted:linesForRpc.length});}
+      // ── QT LINK: تحديث الكوتيشن بعد الـ atomic insert ──
+      if(_qtIdNow){
+        await _qtMarkConverted(_qtIdNow,_savedData.id);
+        clearCache();
       }
-      await _qtMarkConverted(_qtIdNow,_savedData.id);
-      clearCache(); // invalidate after quotation revert
     }
     // ── audit trail → logInvoiceAction ──
     if(typeof logInvoiceAction === 'function'){
@@ -9128,16 +9177,6 @@ async function saveInvoice(existingId, goToLines=false){
         _beforeSnap||null,
         _savedData
       );
-    }
-    if(!existingId){
-      const{data:cl2}=await sb.from('clients').select('credit_days').eq('id',clientId).single();
-      const creditDays=cl2?.credit_days||60;
-      const dueDate=new Date(dateVal);
-      dueDate.setDate(dueDate.getDate()+creditDays);
-      const{data:existRec}=await sb.from('receivables').select('id').eq('invoice_id',id).maybeSingle();
-      if(!existRec){
-        await sb.from('receivables').insert({invoice_id:id,customer_name:cl?.name||'',invoice_date:dateVal,total_amount:0,due_date:dueDate.toISOString().slice(0,10)});
-      }
     }
     closeModal();clearCache();
     // ── Invalidate Risk Cache للعميل ──
@@ -10997,7 +11036,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.32';
+const APP_VERSION = 'v76.35';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
