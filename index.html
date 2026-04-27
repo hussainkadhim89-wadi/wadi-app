@@ -9019,7 +9019,7 @@ async function saveInvoice(existingId, goToLines=false){
       const _qtOk=await _showConfirmDialog('⚠️ تأكيد التحويل',`سيتم إنشاء فاتورة نهائية من الكوتيشن ${_qtIdNow}\nهل أنت متأكد؟`);
       if(!_qtOk){restore();return;}
     }
-    const payload={id,date:dateVal,customer_id:clientId,customer_name:cl?.name||'',
+    const _basePayload={date:dateVal,customer_id:clientId,customer_name:cl?.name||'',
       invoice_type:(_qtIdNow?'detailed':invType),
       stage:        _val('f-stage','📋 طلب وارد'),
       transport_cost:+_val('f-transport','0')||0,
@@ -9029,10 +9029,12 @@ async function saveInvoice(existingId, goToLines=false){
       comm_hussain_pct:+_val('f-hcomm','0'),
       comm_sini_pct: +_val('f-sini','0'),
       next_action:   _val('f-next'),
-      created_date:new Date().toISOString().slice(0,10),
-      quotation_id:  _qtIdNow||null,
       ...(invType==='simple'&&!_qtIdNow?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
+    // عند الإنشاء فقط: أضف id و created_date و quotation_id
+    const payload=existingId
+      ?{..._basePayload}
+      :{..._basePayload,id,created_date:new Date().toISOString().slice(0,10),quotation_id:_qtIdNow||null};
     if(DEBUG) console.log('[SAVE_INVOICE]',{quotation_id:_qtIdNow,invoice_type:payload.invoice_type,id});
     // ── PRE-CHECK: رقم فاتورة مكرر؟ (فقط عند إنشاء جديد) ──
     if(!existingId){
