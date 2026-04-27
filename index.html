@@ -3305,9 +3305,27 @@ const PS = 25;
 // ── CORE HELPERS & UTILS ────────────────
 // ════════════════════════════════════════
 
-// fmt, fmtM, fmtD, fmtPct → js/utils.js
+// fmt, fmtM, fmtD, fmtPct → js/utils.js (inline fallbacks below)
+if(typeof fmt==='undefined'){
+  window.fmt=function(v){return(+v||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});};
+}
+if(typeof fmtM==='undefined'){
+  window.fmtM=function(v){return(+v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' د.ع';};
+}
+if(typeof fmtD==='undefined'){
+  window.fmtD=function(d){if(!d)return'—';try{const[y,m,dd]=(d||'').split('-');return dd+'/'+m+'/'+y;}catch{return d||'—';}};
+}
+if(typeof fmtPct==='undefined'){
+  window.fmtPct=function(v){return(+v||0).toFixed(1)+'%';};
+}
 
-// sanitizeAmount, sanitizeText → js/utils.js
+// sanitizeAmount, sanitizeText → js/utils.js (inline fallbacks below)
+if(typeof sanitizeAmount==='undefined'){
+  window.sanitizeAmount=function(v){return isNaN(+v)?0:Math.max(0,+v);};
+}
+if(typeof sanitizeText==='undefined'){
+  window.sanitizeText=function(v){return String(v==null?'':v).trim();};
+}
 
 // ── UX HELPERS ──
 function setLoading(msg='',delay=0){
@@ -16456,7 +16474,13 @@ async function _copyPublicLink(invId){
 
   function reply(text) { addMsg(text, 'u'); respond(text); }
 
-  
+  // Expose
+  window.wadiToggle = toggle;
+  window.wadiSend = send;
+  window.wadiReply = reply;
+
+})();
+
 // ══════════════════════════════════════════
 // 🗓️ ARABIC DATE INPUTS — v67.4
 // Force Arabic locale display for date inputs
@@ -16477,13 +16501,6 @@ async function _copyPublicLink(invId){
       return d + ' ' + _arabicMonths[m] + ' ' + y;
     } catch(_){ return val; }
   };
-})();
-
-  // Expose
-  window.wadiToggle = toggle;
-  window.wadiSend = send;
-  window.wadiReply = reply;
-
 })();
 
 </script>
