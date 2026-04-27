@@ -4903,7 +4903,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
           return`<tr data-invoice-id="${esc(r.id)||''}">
-            <td style="text-align:center;width:32px"><input type="checkbox" class="inv-row-cb" data-id="${esc(r.id)}" ${_selectedInvIds.has(r.id)?'checked':''} onchange="onInvCheckbox('${r.id||''}',this.checked)"></td>
+            <td style="text-align:center;width:32px"><input type="checkbox" class="inv-row-cb" data-id="${esc(r.id)}" ${_selectedInvIds.has(r.id)?'checked':''} onchange='onInvCheckbox(${JSON.stringify(r.id||"")},this.checked)'></td>
             <td class="td-mono" style="color:var(--accent);font-weight:700"><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">${esc(r.id)||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;flex-shrink:0" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600;flex-shrink:0" title="لم تُفتح بعد">❌</span>`}</div></td>
             <td>${fmtD(r.date)}</td>
             <td class="td-mono text-muted">${esc(r.customer_id)||'—'}</td>
@@ -4934,9 +4934,9 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
             <td>${stageBadge(r.stage)}</td>
             <td class="td-wrap text-muted" style="font-size:11px">${esc(r.next_action)||'—'}</td>
             <td style="display:flex;gap:4px">
-              ${hasPermission('invoices_edit')?`<button class="btn btn-secondary btn-sm btn-icon" onclick="openInvoiceModal('${r.id||''}')">✏️</button>`:''}
-              <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvTrackingPanel('${r.id||''}')" title="تفاصيل الـ Tracking">📊</button>
-              ${hasPermission('invoices_delete')?`<button class="btn btn-danger btn-sm btn-icon" onclick="delInvoice('${r.id||''}')">🗑️</button>`:''}
+              ${hasPermission('invoices_edit')?`<button class="btn btn-secondary btn-sm btn-icon" onclick='openInvoiceModal(${JSON.stringify(r.id||"")})'>✏️</button>`:''}
+              <button class="btn btn-secondary btn-sm btn-icon" onclick='openInvTrackingPanel(${JSON.stringify(r.id||"")})' title="تفاصيل الـ Tracking">📊</button>
+              ${hasPermission('invoices_delete')?`<button class="btn btn-danger btn-sm btn-icon" onclick='delInvoice(${JSON.stringify(r.id||"")})'>🗑️</button>`:''}
             </td>
           </tr>`;}).join('')}
       </tbody>
