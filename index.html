@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.25">
+<meta name="app-version" content="v76.26">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -4755,7 +4755,9 @@ const _debouncedClientSearch = debounce(val => {
   renderClientsWithRisk(val);
 }, 350);
 
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 async function renderInvoices(page=0,search='',filterCustomer='',filterStage=''){
+  page=+page||0; search=search||''; filterCustomer=filterCustomer||''; filterStage=filterStage||'';
   _filterState.invoices={page,search,filterCustomer,filterStage};
   setLoading();
   try{
@@ -4764,9 +4766,15 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   if(search)q=q.ilike('id',`%${search}%`);
   if(filterCustomer)q=q.ilike('customer_name',`%${filterCustomer}%`);
   if(filterStage)q=q.eq('stage',filterStage);
-  const{data,count,error:qErr}=await q;
+  // ── Totals query: بالتوازي مع main query، بدون range، نفس الـ filters ──
+  let tq=sb.from('invoices').select('sale_amount,cost_amount,transport_cost,gift_expense,extra_expenses,comm_omar_pct,comm_hussain_pct,comm_sini_pct').eq('is_deleted',false).or('invoice_type.eq.simple,invoice_type.eq.detailed,invoice_type.is.null');
+  if(search)tq=tq.ilike('id',`%${search}%`);
+  if(filterCustomer)tq=tq.ilike('customer_name',`%${filterCustomer}%`);
+  if(filterStage)tq=tq.eq('stage',filterStage);
+  const[{data,count,error:qErr},{data:allRows,error:tErr}]=await Promise.all([q,tq]);
   if(qErr){showToast('خطأ في جلب الفواتير: '+qErr.message,'error');setLoading('فشل التحميل');return;}
   const rows=data||[];
+  const totalsData=(!tErr&&allRows)?allRows:[];
   _selectedInvIds.clear(); // reset عند كل render
   // جلب حالة السداد من الذمم
   const invIds=rows.map(r=>r.id).filter(Boolean);
@@ -4803,7 +4811,7 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
       oninput="_debouncedInvSearch(this.value)">
     ${['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل','🏁 مكتملة'].map(s=>`
     <button class="filter-chip${filterStage===s?' active':''}"
-      onclick="renderInvoices(0,'${search}','','${s===filterStage?'':s}')">
+      onclick="renderInvoices(0,${JSON.stringify(search)},'',${JSON.stringify(s===filterStage?'':s)})">
       ${s}${filterStage===s?' <span class="chip-x">✕</span>':''}
     </button>`).join('')}
     ${filterStage||search?`<button class="filter-chip" onclick="renderInvoices()" style="color:var(--red);border-color:var(--row-profit-low-border)">↺ مسح</button>`:''}
@@ -4842,22 +4850,22 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
       <tbody>
         ${rows.length===0?smartEmpty('invoices',{search,filterCustomer,filterStage}):rows.map(r=>{
           const p=calcInvoiceProfit(r);
-          return`<tr data-invoice-id="${r.id||''}">
-            <td style="text-align:center;width:32px"><input type="checkbox" class="inv-row-cb" data-id="${r.id}" ${_selectedInvIds.has(r.id)?'checked':''} onchange="onInvCheckbox('${r.id}',this.checked)"></td>
-            <td class="td-mono" style="color:var(--accent);font-weight:700"><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">${r.id||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;flex-shrink:0" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600;flex-shrink:0" title="لم تُفتح بعد">❌</span>`}</div></td>
+          return`<tr data-invoice-id="${esc(r.id)||''}">
+            <td style="text-align:center;width:32px"><input type="checkbox" class="inv-row-cb" data-id="${esc(r.id)}" ${_selectedInvIds.has(r.id)?'checked':''} onchange="onInvCheckbox(${JSON.stringify(r.id||'')},this.checked)"></td>
+            <td class="td-mono" style="color:var(--accent);font-weight:700"><div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">${esc(r.id)||'—'} ${r.invoice_type==='simple'?'<span class="badge badge-teal" style="font-size:9px" title="بسيطة — سعر مجمع مباشر ✓">📄 بسيطة</span>':'<span class="badge badge-purple" style="font-size:9px;letter-spacing:.2px" title="تفصيلية — Invoice Lines ✓">📋 تفصيلية</span>'} ${(viewMap[r.id]||0)>0?`<span class="views-badge" data-count="${viewMap[r.id]}" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#dcfce7;color:#16a34a;font-weight:700;flex-shrink:0" title="فُتحت ${viewMap[r.id]} مرة">✅ ${viewMap[r.id]}</span>`:`<span class="views-badge" data-count="0" style="font-size:9px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#dc2626;font-weight:600;flex-shrink:0" title="لم تُفتح بعد">❌</span>`}</div></td>
             <td>${fmtD(r.date)}</td>
-            <td class="td-mono text-muted">${r.customer_id||'—'}</td>
+            <td class="td-mono text-muted">${esc(r.customer_id)||'—'}</td>
             <td style="font-weight:600">
               ${r.customer_id
-                ?`<span class="link-cell" onclick="openClientInPanel('${r.customer_id}','${(r.customer_name||'').replace(/'/g,"\\'")}',2)" title="عرض تفاصيل العميل">${r.customer_name||'—'} <span style="font-size:10px;opacity:.5">↗</span></span>`
-                :(r.customer_name||'—')}
+                ?`<span class="link-cell" onclick="openClientInPanel(${JSON.stringify(r.customer_id||'')},${JSON.stringify(r.customer_name||'')},2)" title="عرض تفاصيل العميل">${esc(r.customer_name)||'—'} <span style="font-size:10px;opacity:.5">↗</span></span>`
+                :esc(r.customer_name||'—')}
             </td>
-            <td class="td-wrap text-muted">${r.description||'—'}</td>
+            <td class="td-wrap text-muted">${esc(r.description)||'—'}</td>
             <td class="td-mono text-green" style="font-weight:700">${fmtM(p.sale)}</td>
             <td class="td-mono text-red">${fmtM(p.cost)}</td>
             <td class="td-mono">${p.transport?fmtM(p.transport):'—'}</td>
             <td class="td-mono">${p.gift?fmtM(p.gift):'—'}</td>
-            <td class="td-wrap text-muted">${r.gift_note||'—'}</td>
+            <td class="td-wrap text-muted">${esc(r.gift_note)||'—'}</td>
             <td class="td-mono"><span class="badge badge-gray">${+r.comm_omar_pct||0}%</span></td>
             <td class="td-mono text-yellow">${p.omarComm?fmtM(p.omarComm):'—'}</td>
             <td class="td-mono"><span class="badge badge-gray">${+r.comm_hussain_pct||0}%</span></td>
@@ -4872,28 +4880,28 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
             <td>${payBadge(recMap[r.id]||r.payment_status)}</td>
             <td class="text-muted">${fmtD(r.created_date)}</td>
             <td>${stageBadge(r.stage)}</td>
-            <td class="td-wrap text-muted" style="font-size:11px">${r.next_action||'—'}</td>
+            <td class="td-wrap text-muted" style="font-size:11px">${esc(r.next_action)||'—'}</td>
             <td style="display:flex;gap:4px">
-              ${hasPermission('invoices_edit')?`<button class="btn btn-secondary btn-sm btn-icon" onclick="openInvoiceModal('${r.id}')">✏️</button>`:''}
-              <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvTrackingPanel('${r.id}')" title="تفاصيل الـ Tracking">📊</button>
-              ${hasPermission('invoices_delete')?`<button class="btn btn-danger btn-sm btn-icon" onclick="delInvoice('${r.id}')">🗑️</button>`:''}
+              ${hasPermission('invoices_edit')?`<button class="btn btn-secondary btn-sm btn-icon" onclick="openInvoiceModal(${JSON.stringify(r.id||'')})">✏️</button>`:''}
+              <button class="btn btn-secondary btn-sm btn-icon" onclick="openInvTrackingPanel(${JSON.stringify(r.id||'')})" title="تفاصيل الـ Tracking">📊</button>
+              ${hasPermission('invoices_delete')?`<button class="btn btn-danger btn-sm btn-icon" onclick="delInvoice(${JSON.stringify(r.id||'')})">🗑️</button>`:''}
             </td>
           </tr>`;}).join('')}
       </tbody>
       ${rows.length>0?`<tfoot><tr class="summary-row">
-        <td colspan="5"><b>المجموع (${rows.length} فاتورة)</b></td>
-        <td class="td-mono text-green"><b>${fmtM(rows.reduce((s,r)=>s+(+r.sale_amount||0),0))}</b></td>
-        <td class="td-mono text-red"><b>${fmtM(rows.reduce((s,r)=>s+(+r.cost_amount||0),0))}</b></td>
+        <td colspan="5"><b>المجموع (${count||0} فاتورة)</b></td>
+        <td class="td-mono text-green"><b>${fmtM(totalsData.reduce((s,r)=>s+(+r.sale_amount||0),0))}</b></td>
+        <td class="td-mono text-red"><b>${fmtM(totalsData.reduce((s,r)=>s+(+r.cost_amount||0),0))}</b></td>
         <td colspan="11"></td>
-        <td class="td-mono text-purple"><b>${fmtM(rows.reduce((s,r)=>{const sale=+r.sale_amount||0,cost=+r.cost_amount||0,tr=+r.transport_cost||0,g=+r.gift_expense||0,e=+r.extra_expenses||0,o=sale*(+r.comm_omar_pct||0)/100,h=sale*(+r.comm_hussain_pct||0)/100,si=sale*(+r.comm_sini_pct||0)/100;return s+(sale-cost-tr-g-o-h-si-e)*0.5;},0))}</b></td>
-        <td class="td-mono text-blue"><b>${fmtM(rows.reduce((s,r)=>{const sale=+r.sale_amount||0,cost=+r.cost_amount||0,tr=+r.transport_cost||0,g=+r.gift_expense||0,e=+r.extra_expenses||0,o=sale*(+r.comm_omar_pct||0)/100,h=sale*(+r.comm_hussain_pct||0)/100,si=sale*(+r.comm_sini_pct||0)/100;return s+(sale-cost-tr-g-o-h-si-e)*0.5;},0))}</b></td>
+        <td class="td-mono text-purple"><b>${fmtM(totalsData.reduce((s,r)=>{const sale=+r.sale_amount||0,cost=+r.cost_amount||0,tr=+r.transport_cost||0,g=+r.gift_expense||0,e=+r.extra_expenses||0,o=sale*(+r.comm_omar_pct||0)/100,h=sale*(+r.comm_hussain_pct||0)/100,si=sale*(+r.comm_sini_pct||0)/100;return s+(sale-cost-tr-g-o-h-si-e)*0.5;},0))}</b></td>
+        <td class="td-mono text-blue"><b>${fmtM(totalsData.reduce((s,r)=>{const sale=+r.sale_amount||0,cost=+r.cost_amount||0,tr=+r.transport_cost||0,g=+r.gift_expense||0,e=+r.extra_expenses||0,o=sale*(+r.comm_omar_pct||0)/100,h=sale*(+r.comm_hussain_pct||0)/100,si=sale*(+r.comm_sini_pct||0)/100;return s+(sale-cost-tr-g-o-h-si-e)*0.5;},0))}</b></td>
         <td colspan="6"></td>
       </tr></tfoot>`:''}
     </table></div>
     <div class="pagination">
-      <button class="btn btn-secondary btn-sm" onclick="renderInvoices(${page-1},'${search}','${filterCustomer}','${filterStage}')" ${page===0?'disabled':''}>‹ السابق</button>
+      <button class="btn btn-secondary btn-sm" onclick="renderInvoices(${page-1},${JSON.stringify(search)},${JSON.stringify(filterCustomer)},${JSON.stringify(filterStage)})" ${page===0?'disabled':''}>‹ السابق</button>
       <span>صفحة ${page+1} / ${Math.ceil((count||0)/PS)||1} · إجمالي ${count||0}</span>
-      <button class="btn btn-secondary btn-sm" onclick="renderInvoices(${page+1},'${search}','${filterCustomer}','${filterStage}')" ${(page+1)*PS>=(count||0)?'disabled':''}>التالي ›</button>
+      <button class="btn btn-secondary btn-sm" onclick="renderInvoices(${page+1},${JSON.stringify(search)},${JSON.stringify(filterCustomer)},${JSON.stringify(filterStage)})" ${(page+1)*PS>=(count||0)?'disabled':''}>التالي ›</button>
     </div>
   </div>`;
   }catch(e){
@@ -10937,7 +10945,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.25';
+const APP_VERSION = 'v76.26';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
