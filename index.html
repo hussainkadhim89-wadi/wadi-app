@@ -9057,7 +9057,7 @@ async function saveInvoice(existingId, goToLines=false){
       quotation_id:  _qtIdNow||null,
       ...(invType==='simple'&&!_qtIdNow?{sale_amount:simpleSale,cost_amount:simpleCost,description:simpleDesc}:{})
     };
-    if(DEBUG) console.log('[SAVE_INVOICE]',{quotation_id:_qtIdNow,invoice_type:payload.invoice_type,id});
+    if(window.DEBUG) console.log('[SAVE_INVOICE]',{quotation_id:_qtIdNow,invoice_type:payload.invoice_type,id});
     // ── PRE-CHECK: رقم فاتورة مكرر؟ (فقط عند إنشاء جديد) ──
     if(!existingId){
       const{data:dupCheck}=await sb.from('invoices')
@@ -9145,7 +9145,7 @@ async function saveInvoice(existingId, goToLines=false){
       const{data:cl2}=await sb.from('clients').select('credit_days').eq('id',clientId).single();
       const creditDays=cl2?.credit_days||60;
       const inlineLines=_qtIdNow?_qtInlineGetLines():[];
-      if(DEBUG&&_qtIdNow){console.log('[LINES DEBUG]',{invoice_id:id,qtId:_qtIdNow,linesCount:inlineLines.length,lines:inlineLines});}
+      if(window.DEBUG&&_qtIdNow){console.log('[LINES DEBUG]',{invoice_id:id,qtId:_qtIdNow,linesCount:inlineLines.length,lines:inlineLines});}
       const linesForRpc=inlineLines.map(l=>({
         customer:    cl?.name||'',
         date:        dateVal,
@@ -9162,7 +9162,7 @@ async function saveInvoice(existingId, goToLines=false){
       });
       if(rpcErr){showToast('خطأ: '+rpcErr.message,'error');restore();return;}
       _savedData=rpcResult;
-      if(DEBUG){console.log('[LINES INSERT RESULT]',{inserted:linesForRpc.length});}
+      if(window.DEBUG){console.log('[LINES INSERT RESULT]',{inserted:linesForRpc.length});}
       // ── QT LINK: تحديث الكوتيشن بعد الـ atomic insert ──
       if(_qtIdNow){
         await _qtMarkConverted(_qtIdNow,_savedData.id);
@@ -11803,7 +11803,7 @@ document.addEventListener('keydown',e=>{
       showToast('تم إنهاء الإدخال','info');
       return;
     }
-    closeModal();hideToast();
+    closeModal();
   }
   // Enter داخل الـ modal = حفظ
   if(e.key==='Enter'&&!e.shiftKey){
