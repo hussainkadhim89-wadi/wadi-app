@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v77">
+<meta name="app-version" content="v77.1">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3472,10 +3472,13 @@ async function confirmDelete(msg='هل أنت متأكد من الحذف؟'){
         <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">${msg}</div>
         <div style="font-size:13px;color:var(--text3)">هذا الإجراء لا يمكن التراجع عنه</div>
       </div>`,
-      `<button class="btn btn-secondary" onclick="closeModal();window._delResolve(false)">إلغاء</button>
-       <button class="btn btn-danger" onclick="closeModal();window._delResolve(true)">🗑️ حذف</button>`
+      `<button class="btn btn-secondary" id="_cdel-cancel">إلغاء</button>
+       <button class="btn btn-danger"    id="_cdel-confirm">🗑️ حذف</button>`
     );
-    window._delResolve=resolve;
+    setTimeout(()=>{
+      document.getElementById('_cdel-cancel') ?.addEventListener('click',()=>{closeModal();resolve(false);},{once:true});
+      document.getElementById('_cdel-confirm')?.addEventListener('click',()=>{closeModal();resolve(true); },{once:true});
+    },0);
   });
 }
 
@@ -3487,10 +3490,13 @@ async function confirmAction(msg, icon='⚠️') {
         '<div style="font-size:40px;margin-bottom:16px">' + icon + '</div>' +
         '<div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">' + msg + '</div>' +
       '</div>',
-      '<button class="btn btn-secondary" onclick="closeModal();window._delResolve(false)">إلغاء</button>' +
-      '<button class="btn btn-primary" onclick="closeModal();window._delResolve(true)">نعم</button>'
+      '<button class="btn btn-secondary" id="_cact-cancel">إلغاء</button>' +
+      '<button class="btn btn-primary"   id="_cact-confirm">نعم</button>'
     );
-    window._delResolve = resolve;
+    setTimeout(()=>{
+      document.getElementById('_cact-cancel') ?.addEventListener('click',()=>{closeModal();resolve(false);},{once:true});
+      document.getElementById('_cact-confirm')?.addEventListener('click',()=>{closeModal();resolve(true); },{once:true});
+    },0);
   });
 }
 
@@ -5021,12 +5027,15 @@ function _qtExpiryLabel(d){
 
 function _showConfirmDialog(title,msg){
   return new Promise(resolve=>{
-    window._delResolve=resolve;
     openModal(title,
       `<p style="font-size:14px;color:var(--text1);line-height:1.7">${msg}</p>`,
-      `<button class="btn btn-secondary" onclick="closeModal();window._delResolve(false)">إلغاء</button>
-       <button class="btn btn-primary" onclick="closeModal();window._delResolve(true)">✅ تأكيد</button>`
+      `<button class="btn btn-secondary" id="_scd-cancel">إلغاء</button>
+       <button class="btn btn-primary"   id="_scd-confirm">✅ تأكيد</button>`
     );
+    setTimeout(()=>{
+      document.getElementById('_scd-cancel') ?.addEventListener('click',()=>{closeModal();resolve(false);},{once:true});
+      document.getElementById('_scd-confirm')?.addEventListener('click',()=>{closeModal();resolve(true); },{once:true});
+    },0);
   });
 }
 
@@ -9009,10 +9018,12 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
   }
 }
 
+// ── double-click guard — module-scope (not window) ──
+let _savingInvoice = false;
 async function saveInvoice(existingId, goToLines=false){
   // ── Single execution guard (double-click protection) ──
-  if(window._savingInvoice){return;}
-  window._savingInvoice=true;
+  if(_savingInvoice){return;}
+  _savingInvoice=true;
   // ── Safe DOM accessor ──
   function _val(id, fallback=''){const el=document.getElementById(id);return el?el.value:fallback;}
   var _sp = existingId ? 'invoices_edit' : 'invoices_create';
@@ -9020,7 +9031,7 @@ async function saveInvoice(existingId, goToLines=false){
   const id=document.getElementById('f-id').value.trim();
   const clientId=document.getElementById('f-client').value;
   const dateVal=document.getElementById('f-date').value;
-  function _resetSaving(){window._savingInvoice=false;}
+  function _resetSaving(){_savingInvoice=false;}
   // ── Validation ──
   if(!id){showToast('أدخل رقم الفاتورة','warning');document.getElementById('f-id').focus();_resetSaving();return;}
   if(!clientId){showToast('اختر العميل','warning');_resetSaving();return;}
@@ -9232,7 +9243,7 @@ async function saveInvoice(existingId, goToLines=false){
     showToast('خطأ غير متوقع: '+e.message,'error');
     restore();
   }finally{
-    window._savingInvoice=false;
+    _savingInvoice=false;
   }
 }
 
@@ -10531,10 +10542,13 @@ async function savePayment(){
             </div>
             <div style="font-size:12px;color:var(--text3)">الفرق سيُسجَّل تلقائياً كرصيد دائن للعميل</div>
           </div>`,
-          `<button class="btn btn-secondary" onclick="closeModal();window._payResolve(false)">إلغاء</button>
-           <button class="btn btn-primary" onclick="closeModal();window._payResolve(true)">✅ متابعة</button>`
+          `<button class="btn btn-secondary" id="_pay-cancel">إلغاء</button>
+           <button class="btn btn-primary"   id="_pay-confirm">✅ متابعة</button>`
         );
-        window._payResolve=resolve;
+        setTimeout(()=>{
+          document.getElementById('_pay-cancel') ?.addEventListener('click',()=>{closeModal();resolve(false);},{once:true});
+          document.getElementById('_pay-confirm')?.addEventListener('click',()=>{closeModal();resolve(true); },{once:true});
+        },0);
       });
       if(!confirmed) return;
       btnLoad(btn);
@@ -11053,7 +11067,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v77.1';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
