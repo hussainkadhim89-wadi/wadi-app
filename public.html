@@ -121,9 +121,17 @@ function fmtD(d) {
 }
 function sanitizeText(v) { return (v || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 function sanitizeAmount(v) { return isNaN(+v) ? 0 : +v; }
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // ════════════════════════════════════════
-// 🌐 PUBLIC INVOICE VIEW — v48.5
+// 🌐 PUBLIC INVOICE VIEW — v48.6
 // ─ GitHub Pages only
 // ─ Isolated: no login, no localStorage,
 //   no app init, no internal listeners
@@ -304,14 +312,14 @@ function sanitizeAmount(v) { return isNaN(+v) ? 0 : +v; }
   // ── بناء A4 ─ مستقل تماماً ──
   function _buildA4(inv, lines, id){
     const S = (typeof APP_SETTINGS !== 'undefined') ? APP_SETTINGS : {};
-    const co    = S.companyNameEn  || 'Wadi Al-Taqaa For General Trade';
-    const addr  = S.companyAddress || 'Apt 2, Plot 118, Al-Tuwaisa, Basra, Iraq';
-    const iban  = S.companyIBAN    || 'IQ37BABI716007234428054';
-    const swift = S.companySWIFT   || 'BABIIQBA';
-    const ph1   = S.phoneHussain  || '+964 780 147 2330';
-    const ph2   = S.phoneNwar     || '+964 771 672 0051';
-    const em1   = S.emailHussain  || 'wadilataqaa2016@gmail.com';
-    const em2   = S.emailNwar     || 'nwaroil81@gmail.com';
+    const co    = esc(S.companyNameEn  || 'Wadi Al-Taqaa For General Trade');
+    const addr  = esc(S.companyAddress || 'Apt 2, Plot 118, Al-Tuwaisa, Basra, Iraq');
+    const iban  = esc(S.companyIBAN    || 'IQ37BABI716007234428054');
+    const swift = esc(S.companySWIFT   || 'BABIIQBA');
+    const ph1   = esc(S.phoneHussain  || '+964 780 147 2330');
+    const ph2   = esc(S.phoneNwar     || '+964 771 672 0051');
+    const em1   = esc(S.emailHussain  || 'wadilataqaa2016@gmail.com');
+    const em2   = esc(S.emailNwar     || 'nwaroil81@gmail.com');
 
     // حالة بدون lines: detailed بس ما فيه lines → يرجع لـ simple mode
     const _hasLines = Array.isArray(lines) && lines.length > 0;
@@ -323,25 +331,25 @@ function sanitizeAmount(v) { return isNaN(+v) ? 0 : +v; }
     const fmtD = d => { try{ const [y,m,dd]=(d||'').split('-'); return dd+'/'+m+'/'+y; }catch{ return d||'—'; } };
     const fmtN = n => n.toLocaleString('en-US',{minimumFractionDigits:2});
 
-    const lpoNum  = inv.lpo_number||'—'; const orderNo = inv.order_number||'—';
-    const bcRef   = inv.bc_reference||'—'; const intRef  = inv.internal_ref||'—';
-    const reqBy   = inv.requested_by||'—'; const lpoDate = inv.lpo_date?fmtD(inv.lpo_date):'—';
-    const credit  = inv.credit_terms||'60 Days';
-    const reqDel  = inv.required_delivery?fmtD(inv.required_delivery):'—';
-    const crBy    = inv.created_by||'—'; const delTo   = inv.delivery_to||'—';
-    const site    = inv.project_site||inv.reference||'—';
-    const cAddr   = inv.customer_address||'Al Majal Business Park – Zubair Street, Near Well 20, Basra, Iraq';
+    const lpoNum  = esc(inv.lpo_number||'—'); const orderNo = esc(inv.order_number||'—');
+    const bcRef   = esc(inv.bc_reference||'—'); const intRef  = esc(inv.internal_ref||'—');
+    const reqBy   = esc(inv.requested_by||'—'); const lpoDate = inv.lpo_date?esc(fmtD(inv.lpo_date)):'—';
+    const credit  = esc(inv.credit_terms||'60 Days');
+    const reqDel  = inv.required_delivery?esc(fmtD(inv.required_delivery)):'—';
+    const crBy    = esc(inv.created_by||'—'); const delTo   = esc(inv.delivery_to||'—');
+    const site    = esc(inv.project_site||inv.reference||'—');
+    const cAddr   = esc(inv.customer_address||'Al Majal Business Park – Zubair Street, Near Well 20, Basra, Iraq');
 
     const rowsHTML = isDetailed
       ? lines.map((l,i)=>{
           const amt=(+l.qty||0)*(+l.unit_price||0);
           return '<tr>'
             +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">'+(i+1)+'</td>'
-            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace;font-size:9.5px">'+(l.item_code||'—')+'</td>'
-            +'<td style="padding:6px 7px;text-align:left;border:1px solid #ddd;font-weight:500">'+(l.description||'—')+'</td>'
-            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;color:#666">'+(l.origin||'NA')+'</td>'
-            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;color:#666">'+(l.brand||'NA')+'</td>'
-            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">'+(l.uom||'EA')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace;font-size:9.5px">'+esc(l.item_code||'—')+'</td>'
+            +'<td style="padding:6px 7px;text-align:left;border:1px solid #ddd;font-weight:500">'+esc(l.description||'—')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;color:#666">'+esc(l.origin||'NA')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;color:#666">'+esc(l.brand||'NA')+'</td>'
+            +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">'+esc(l.uom||'EA')+'</td>'
             +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace">'+(l.qty||0)+'</td>'
             +'<td style="padding:6px 7px;text-align:right;border:1px solid #ddd;font-family:monospace">'+fmtN(+l.unit_price||0)+'</td>'
             +'<td style="padding:6px 7px;text-align:right;border:1px solid #ddd;font-family:monospace;font-weight:700">'+fmtN(amt)+'</td>'
@@ -350,7 +358,7 @@ function sanitizeAmount(v) { return isNaN(+v) ? 0 : +v; }
       : '<tr>'
         +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">1</td>'
         +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd;font-family:monospace;font-size:9.5px">—</td>'
-        +'<td style="padding:6px 7px;text-align:left;border:1px solid #ddd;font-weight:500">'+(inv.description||'—')+'</td>'
+        +'<td style="padding:6px 7px;text-align:left;border:1px solid #ddd;font-weight:500">'+esc(inv.description||'—')+'</td>'
         +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">NA</td>'
         +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">NA</td>'
         +'<td style="padding:6px 7px;text-align:center;border:1px solid #ddd">EA</td>'
@@ -397,12 +405,12 @@ function sanitizeAmount(v) { return isNaN(+v) ? 0 : +v; }
       +'<div style="display:grid;grid-template-columns:1fr 1fr;border:1px solid #ccc;margin:0 28px 12px;border-radius:2px">'
         +'<div style="border-right:1px solid #ccc">'
           +infoRow('INVOICE NO.','<b>'+id+'</b>')
-          +infoRow('INVOICE DATE', inv.date?inv.date.split('-').reverse().join('/'):'—')
+          +infoRow('INVOICE DATE', inv.date?esc(inv.date.split('-').reverse().join('/')):'—')
           +infoRow('PROJECT / SITE', site)
-          +infoRow('REFERENCE', inv.reference||id.split('-').slice(-1)[0]||'—')
+          +infoRow('REFERENCE', esc(inv.reference||id.split('-').slice(-1)[0]||'—'))
         +'</div>'
         +'<div>'
-          +infoRowR('BILL TO', inv.customer_name||'—')
+          +infoRowR('BILL TO', esc(inv.customer_name||'—'))
           +'<div style="display:grid;grid-template-columns:90px 1fr;border-bottom:1px solid #eee">'
             +'<div style="background:#f5f5f5;padding:5px 8px;font-weight:700;font-size:9px;color:#555;text-transform:uppercase;border-right:1px solid #eee">ADDRESS</div>'
             +'<div style="padding:5px 8px;font-size:10px;line-height:1.4">'+cAddr+'</div>'
@@ -492,7 +500,7 @@ function sanitizeAmount(v) { return isNaN(+v) ? 0 : +v; }
         +'</div>'
         +'<div style="padding:14px 16px">'
           +'<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Received &amp; Approved By</div>'
-          +'<div style="font-size:11px;font-weight:700;margin-bottom:18px">'+(inv.customer_name||'—')+'</div>'
+          +'<div style="font-size:11px;font-weight:700;margin-bottom:18px">'+esc(inv.customer_name||'—')+'</div>'
           +'<div style="font-size:9.5px;color:#777;margin-bottom:14px">Signature &amp; Stamp: ___________________</div>'
           +'<div style="font-size:9.5px;color:#777">Date: _______________________________</div>'
         +'</div>'
