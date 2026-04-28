@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v76.38">
+<meta name="app-version" content="v77">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -2833,6 +2833,9 @@ body.dark .activity-log-item:hover { background:var(--bg2); }
 
 <!-- js/config.js · js/utils.js · js/ui.js · js/audit.js : مضمّنة مباشرة في index.html -->
 <script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 1 — SUPABASE INIT GUARD                                ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ════════════════════════════════════════
 // 🔌 SUPABASE CLIENT GUARD — v67.14
 // يتأكد من تهيئة الـ client بشكل صحيح
@@ -2882,6 +2885,9 @@ function activeInvoices(q) {
 // يُستخدم activeInvoices() في JS بدل إنشاء view في DB
 
 // ← sb, rt, currentUser → js/config.js
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 2 — PUBLIC INVOICE VIEW (isolated IIFE, no auth)       ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ════════════════════════════════════════
 // 🌐 PUBLIC INVOICE VIEW — v48.5
 // ─ GitHub Pages only
@@ -3297,6 +3303,10 @@ function activeInvoices(q) {
 })();
 
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 3 — INLINE FALLBACKS (ui.js / audit.js)               ║
+// ║  Activates only if external JS files are not loaded             ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ── INLINE FALLBACKS — دوال كانت في js/ui.js وjs/audit.js ──
 if(typeof showToast==='undefined'){
   window.showToast=function(msg,type='info',duration=3500){
@@ -3325,9 +3335,10 @@ if(typeof logInvoiceAction==='undefined'){
 
 const PS = 25;
 
-// ════════════════════════════════════════
-// ── CORE HELPERS & UTILS ────────────────
-// ════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 4 — CORE HELPERS & UTILITIES                           ║
+// ║  fmt, fmtM, fmtD, sanitize, sort, calcPay, calcInvoiceProfit   ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
 // fmt, fmtM, fmtD, fmtPct → js/utils.js (inline fallbacks below)
 if(typeof fmt==='undefined'){
@@ -3589,6 +3600,10 @@ async function safeQuery(fn, fallback=[], timeoutMs=12000){
   }
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 5 — AUTHENTICATION & PERMISSIONS                       ║
+// ║  initAuth, doLogin, doLogout, hasPermission, _fetchProfile      ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ── AUTH ──
 async function initAuth(){
   const{data:{session}}=await sb.auth.getSession();
@@ -3720,6 +3735,10 @@ async function _fetchProfile() {
   }
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 6 — APP INIT, NAVIGATION & PAGE ROUTER                 ║
+// ║  showApp, showLoginScreen, toggleSidebar, showPage, pageInfo    ║
+// ╚══════════════════════════════════════════════════════════════════╝
 function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -3913,9 +3932,11 @@ function _filterPageAction(page, rawA) {
   return hasPermission(key) ? rawA : '';
 }
 
-// ════════════════════════════════════════
-// ── RENDER FUNCTIONS ────────────────────
-// ════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 7 — PAGE RENDER FUNCTIONS                              ║
+// ║  renderDashboard, renderInvoices, renderQuotations,             ║
+// ║  renderReceivables, renderExpenses, renderReports, ...          ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
 // ── DASHBOARD ──
 async function renderDashboard(){
@@ -4594,7 +4615,8 @@ body.dark .pd-ins-action.info{background:rgba(37,99,235,.12);color:#93c5fd;borde
   const actionsCard=document.createElement('div');actionsCard.className='pd-actions-card';
   actionsCard.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0633\u0631\u064a\u0639\u0629</div></div>';
   const actionsGrid=document.createElement('div');actionsGrid.className='pd-actions-grid';
-  [{icon:'\uD83E\uDDFE',label:'\u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629',sub:'\u0625\u0646\u0634\u0627\u0621 \u0648\u0625\u0631\u0633\u0627\u0644',fn:'openInvoiceModal()'},{icon:'\uD83D\uDCAC',label:'\u0643\u0648\u062a\u064a\u0634\u0648\u0646',sub:'\u0639\u0631\u0636 \u0633\u0639\u0631',fn:"showPage('quotations')"},{icon:'\uD83D\uDCB3',label:'\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629',sub:'\u062a\u062d\u0635\u064a\u0644 \u0645\u0628\u0627\u0644\u063a',fn:"showPage('receivables')"},{icon:'\uD83D\uDCBC',label:'\u0645\u0635\u0631\u0648\u0641',sub:'\u062a\u0633\u062c\u064a\u0644 \u0645\u0635\u0631\u0648\u0641',fn:"showPage('expenses')"},{icon:'\uD83D\uDC65',label:'\u0627\u0644\u0639\u0645\u0644\u0627\u0621',sub:'\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a',fn:"showPage('clients')"},{icon:'\uD83D\uDCCA',label:'\u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631',sub:'\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0623\u062f\u0627\u0621',fn:"showPage('reports')"}].forEach(a=>{const btn=document.createElement('button');btn.className='pd-action';btn.innerHTML='<div class="pd-action-icon">'+a.icon+'</div><div class="pd-action-label">'+a.label+'</div><div class="pd-action-sub">'+a.sub+'</div>';btn.onclick=new Function(a.fn);actionsGrid.appendChild(btn);});
+  const _SAFE_ACTIONS={'openInvoiceModal()':function(){openInvoiceModal();},"showPage('quotations')":function(){showPage('quotations');},"showPage('receivables')":function(){showPage('receivables');},"showPage('expenses')":function(){showPage('expenses');},"showPage('clients')":function(){showPage('clients');},"showPage('reports')":function(){showPage('reports');}};
+  [{icon:'\uD83E\uDDFE',label:'\u0641\u0627\u062a\u0648\u0631\u0629 \u062c\u062f\u064a\u062f\u0629',sub:'\u0625\u0646\u0634\u0627\u0621 \u0648\u0625\u0631\u0633\u0627\u0644',fn:'openInvoiceModal()'},{icon:'\uD83D\uDCAC',label:'\u0643\u0648\u062a\u064a\u0634\u0648\u0646',sub:'\u0639\u0631\u0636 \u0633\u0639\u0631',fn:"showPage('quotations')"},{icon:'\uD83D\uDCB3',label:'\u062a\u0633\u062c\u064a\u0644 \u062f\u0641\u0639\u0629',sub:'\u062a\u062d\u0635\u064a\u0644 \u0645\u0628\u0627\u0644\u063a',fn:"showPage('receivables')"},{icon:'\uD83D\uDCBC',label:'\u0645\u0635\u0631\u0648\u0641',sub:'\u062a\u0633\u062c\u064a\u0644 \u0645\u0635\u0631\u0648\u0641',fn:"showPage('expenses')"},{icon:'\uD83D\uDC65',label:'\u0627\u0644\u0639\u0645\u0644\u0627\u0621',sub:'\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u062d\u0633\u0627\u0628\u0627\u062a',fn:"showPage('clients')"},{icon:'\uD83D\uDCCA',label:'\u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631',sub:'\u062a\u062d\u0644\u064a\u0644 \u0627\u0644\u0623\u062f\u0627\u0621',fn:"showPage('reports')"}].forEach(a=>{const btn=document.createElement('button');btn.className='pd-action';btn.innerHTML='<div class="pd-action-icon">'+a.icon+'</div><div class="pd-action-label">'+a.label+'</div><div class="pd-action-sub">'+a.sub+'</div>';btn.onclick=_SAFE_ACTIONS[a.fn]||function(){};actionsGrid.appendChild(btn);});
   actionsCard.appendChild(actionsGrid);bottomGrid.appendChild(actionsCard);
   const actFeed=document.createElement('div');actFeed.className='pd-activity-card';
   actFeed.innerHTML='<div class="pd-card-header"><div class="pd-card-title">\u0622\u062e\u0631 \u0627\u0644\u0646\u0634\u0627\u0637\u0627\u062a</div><div class="pd-card-sub">'+activities.length+' \u0639\u0645\u0644\u064a\u0629</div></div>';
@@ -4963,10 +4985,11 @@ async function renderInvoices(page=0,search='',filterCustomer='',filterStage='')
   }
 }
 
-// ════════════════════════════════════════
-// ── QUOTATIONS MODULE v72.0 ─────────────
-// Uses invoices table — invoice_type='quotation'
-// ════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 8 — QUOTATIONS MODULE                                  ║
+// ║  renderQuotations, renderQuotationNew, saveQuotation,           ║
+// ║  convertQuotation, _qtDelete, printQuotation                    ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
 let _modalQtId=null;
 let _modalQtPrefill=null;
@@ -6485,6 +6508,11 @@ async function loadPrint(){
   </div>`;
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 9 — RECEIVABLES, EXPENSES, WITHDRAWALS & CAPITAL       ║
+// ║  renderReceivables, renderAging, renderExpenses,                ║
+// ║  renderWithdrawals, renderCapital, renderProfit, renderCashflow ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ── RECEIVABLES — ALL COLUMNS ──
 async function renderReceivables(filterStatus='',filterCustomer=''){
   _filterState.receivables={filterStatus,filterCustomer};
@@ -7169,9 +7197,10 @@ async function saveCredit(){
 
 // ── CLIENTS — ALL COLUMNS ──
 
-// ══════════════════════════════════════════
-// 🧠 RISK INDICATOR — Phase 3
-// ══════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 10 — CLIENTS, RISK INDICATOR & CLIENT PROFILE          ║
+// ║  calcClientRisk, renderClientsWithRisk, openClientProfile       ║
+// ╚══════════════════════════════════════════════════════════════════╝
 const _riskCache={}; // legacy — استخدم _smartCache الآن
 
 async function calcClientRisk(clientName){
@@ -7512,6 +7541,11 @@ function _cpInjectButtons() {
   });
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 11 — REPORTS, SETTINGS & LOGS                          ║
+// ║  renderReports, exportCSV, renderSettings,                      ║
+// ║  renderAuditLogs, renderLoginLog, renderActivity                ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ── REPORTS ──
 async function renderReports(dateFrom='',dateTo='',filterType=''){
   setLoading();
@@ -8451,9 +8485,10 @@ async function showLogsPage(tab) {
   }
 }
 
-// ══════════════════════════════════════════
-// 🪟 SLIDE PANEL SYSTEM — Premium UX
-// ══════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 12 — PANEL & MODAL SYSTEM                              ║
+// ║  openPanel, closePanelLevel2, openModal, closeModal             ║
+// ╚══════════════════════════════════════════════════════════════════╝
 const _panelStack = {
   stack: [],
   push(id, triggerEl=null){ this.stack.push({id, triggerEl: triggerEl||document.activeElement}); },
@@ -8604,33 +8639,6 @@ function closePanelLevel2(restoreFocusFlag=true){
   },320);
 }
 
-// ── Escape: step-by-step إغلاق تدريجي ──
-function _gsearchKeyNav(e){
-  const res=document.getElementById('gsearch-results');
-  if(!res) return;
-  const items=res.querySelectorAll('.gsearch-item');
-  if(!items.length) return;
-  if(e.key==='ArrowDown'){
-    e.preventDefault();
-    _gsearchIndex=Math.min(_gsearchIndex+1,items.length-1);
-    items.forEach((el,i)=>el.classList.toggle('gsearch-focused',i===_gsearchIndex));
-    items[_gsearchIndex]?.scrollIntoView({block:'nearest'});
-  }else if(e.key==='ArrowUp'){
-    e.preventDefault();
-    _gsearchIndex=Math.max(_gsearchIndex-1,0);
-    items.forEach((el,i)=>el.classList.toggle('gsearch-focused',i===_gsearchIndex));
-    items[_gsearchIndex]?.scrollIntoView({block:'nearest'});
-  }else if(e.key==='Enter'){
-    e.preventDefault();
-    if(_gsearchIndex>=0&&items[_gsearchIndex]){
-      items[_gsearchIndex].click();
-    }else if(items.length>0){
-      items[0].click();
-    }
-  }else if(e.key==='Escape'){
-    closeGSearch();
-  }
-}
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='k'){
     e.preventDefault();
@@ -8814,6 +8822,10 @@ function getModalSaveBtn(){
   return document.querySelector('#panel-footer .btn-primary,#panel-footer .btn-success,#modal-footer .btn-primary,#modal-footer .btn-success');
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 13 — INVOICE MODAL & CRUD                              ║
+// ║  openInvoiceModal, saveInvoice, delInvoice, bulkDeleteInvoices  ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // Invoice Modal
 async function openInvoiceModal(invId=null, _qtOpts=null){
   // ── QT STATE RESET ──
@@ -10432,6 +10444,11 @@ async function delLine(id,invId){
   showToast('تم الحذف','success');renderLines();
 }
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 14 — PAYMENT, EXPENSE, WITHDRAWAL & CAPITAL MODALS     ║
+// ║  openPaymentModal, savePayment, openExpenseModal,               ║
+// ║  openWithdrawalModal, openCapitalModal, openClientModal         ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // Payment Modal
 async function openPaymentModal(invId=null){
   if(!hasPermission('payments')) return;
@@ -11036,7 +11053,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v76.38';
+const APP_VERSION = 'v77';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -11759,6 +11776,11 @@ window.addEventListener('offline',showOfflineBanner);
 window.addEventListener('online',hideOfflineBanner);
 if(!navigator.onLine)showOfflineBanner();
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 18 — KEYBOARD SHORTCUTS & APP BOOT                     ║
+// ║  _gsearchKeyNav, keydown listeners (Ctrl+K/N/D, Esc, Enter),   ║
+// ║  checkForUpdates, _initNavGroups, initAuth call                 ║
+// ╚══════════════════════════════════════════════════════════════════╝
 // ── KEYBOARD SHORTCUTS ──
 function _gsearchKeyNav(e){
   const res=document.getElementById('gsearch-results');
@@ -12067,9 +12089,11 @@ async function doRestore(input){
   }
 }
 
-// ══════════════════════════════════════════
-// 📊 PHASE 4 — BUSINESS INTELLIGENCE ENGINE
-// ══════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 15 — BUSINESS INTELLIGENCE ENGINE                      ║
+// ║  calcProfitAnalytics, calcCustomerRanking, calcForecast,        ║
+// ║  calcDecisions, calcCashflow, buildIntelligenceLayer            ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
 // ══════════════════════════════════════════
 // 🪟 NESTED PANEL USE CASES
@@ -13000,8 +13024,7 @@ function buildIntelligenceLayer(data){
   }
 }
 
-// Keep old function name as alias for backward compat
-function runAlertIntelligence(){ /* replaced by buildIntelligenceLayer v71.0 */ }
+
 
 // ══════════════════════════════════════════
 // 🧠 SMART FEATURES
@@ -14448,6 +14471,11 @@ const _PERM_KEYS = [
   ['admin_panel',     '👑 لوحة الإدارة'],
 ];
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 16 — ADMIN PANEL                                       ║
+// ║  _adminCall, renderAdminPanel, _changeRole, _setPassword,       ║
+// ║  _savePermissions, _createUser, _deleteUser                     ║
+// ╚══════════════════════════════════════════════════════════════════╝
 var _adminUsers = []; // cache
 var _adminSearch = '';
 var _adminFilter = ''; // 'admin' | 'user' | ''
@@ -14979,11 +15007,11 @@ async function _copyPublicLink(invId){
 
 
 
-// ══════════════════════════════════════════
-// ⚡ PERFORMANCE MANAGER — v76.13
-// Phase 5: Cache · Debounce · In-Flight Guard
-// ── ISOLATED IIFE — لا يعدّل أي كود موجود ──
-// ══════════════════════════════════════════
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  SECTION 17 — SYSTEM MANAGERS (isolated IIFEs)                  ║
+// ║  initPerfManager, initPageRestoreManager,                       ║
+// ║  initSessionManager, initWadiAssistant                          ║
+// ╚══════════════════════════════════════════════════════════════════╝
 (function initPerfManager() {
 
   // ════════════════════════════════
