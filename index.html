@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v77.1">
+<meta name="app-version" content="v77.2">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -3424,16 +3424,18 @@ function emptyState(icon,title,sub='',action='',hint=''){
 
 // ── Error State — موحّد لكل الصفحات ──
 function setErrorState({message='خطأ غير متوقع', retry=null}={}){
-  // نخزن الـ retry على window حتى يشتغل الـ onclick بشكل موثوق
-  window._errorRetryFn = retry || null;
   document.getElementById('page-content').innerHTML=`
   <div class="empty-state">
     <div class="empty-icon">⚠️</div>
     <h3 style="color:var(--red)">فشل التحميل</h3>
     <p style="font-size:13px;color:var(--text3);margin-top:6px">${message}</p>
     ${retry ? `<button class="btn btn-primary btn-sm" style="margin-top:16px"
-      onclick="window._errorRetryFn&&window._errorRetryFn()">↺ إعادة المحاولة</button>` : ''}
+      id="_err-retry-btn">↺ إعادة المحاولة</button>` : ''}
   </div>`;
+  if(retry){
+    document.getElementById('_err-retry-btn')
+      ?.addEventListener('click', retry, {once:true});
+  }
 }
 
 // Smart empty state — context-aware messages
@@ -7556,6 +7558,7 @@ function _cpInjectButtons() {
 // ║  renderAuditLogs, renderLoginLog, renderActivity                ║
 // ╚══════════════════════════════════════════════════════════════════╝
 // ── REPORTS ──
+let _reportData = null; // module-scope — shared with exportInvoicesCSV / exportSummaryCSV
 async function renderReports(dateFrom='',dateTo='',filterType=''){
   setLoading();
   const[allInvs,exps,pays,recs]=await Promise.all([
@@ -7659,7 +7662,7 @@ async function renderReports(dateFrom='',dateTo='',filterType=''){
     </div>
   </div>`;
   // تخزين البيانات للـ export
-  window._reportData={invs,byC,byE,totalSales,totalProfit,totalRem,totalExp};
+  _reportData={invs,byC,byE,totalSales,totalProfit,totalRem,totalExp};
 }
 
 
@@ -7754,7 +7757,7 @@ function downloadCSV(rows,filename){
 }
 
 function exportInvoicesCSV(){
-  const d=window._reportData;
+  const d=_reportData;
   if(!d){showToast('افتح صفحة التقارير أولاً','warning');return;}
   const rows=[['رقم الفاتورة','التاريخ','العميل','قيمة البيع','تكلفة الشراء','النقل','الهدايا','عمولة عمر%','عمولة حسين%','عمولة الصيني%','مصاريف إضافية','إجمالي التكاليف','صافي الربح','حصة نوار','حصة حسين','المرحلة']];
   (d.invs||[]).forEach(i=>{
@@ -7765,7 +7768,7 @@ function exportInvoicesCSV(){
 }
 
 function exportSummaryCSV(){
-  const d=window._reportData;
+  const d=_reportData;
   if(!d){showToast('افتح صفحة التقارير أولاً','warning');return;}
   const rows=[['الملخص المالي — وادي الطاقة',new Date().toLocaleDateString('ar-IQ')],[''],
     ['البند','القيمة (د.ع)'],
@@ -11067,7 +11070,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v77.1';
+const APP_VERSION = 'v77.2';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -13343,8 +13346,7 @@ function useLastPrice(sale, cost){
     showToast('تم تعبئة آخر سعر','info');
     return;
   }
-  // لو مو مفتوح، نحفظ للاستخدام لاحقاً
-  window._lastPrice={sale,cost};
+  // لو مو مفتوح، أعلم المستخدم فقط
   showToast(`آخر سعر: ${fmtM(sale)} — افتح بند جديد لتطبيقه`,'info');
 }
 
