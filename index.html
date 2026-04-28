@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
   <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="app-version" content="v77.2">
+<meta name="app-version" content="v77.3">
 <title>وادي الطاقة</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -2979,8 +2979,8 @@ function activeInvoices(q) {
 
     try{
       const [r1, r2] = await Promise.all([
-        sb.from('invoices').select('*').eq('id', _invId).abortSignal(_ctrl.signal).single(),
-        sb.from('invoice_lines').select('*').eq('invoice_id', _invId).abortSignal(_ctrl.signal).order('id'),
+        sb.from('invoices').select('id,date,customer_name,customer_address,invoice_type,sale_amount,description,lpo_number,order_number,bc_reference,internal_ref,requested_by,lpo_date,credit_terms,required_delivery,created_by,delivery_to,project_site,reference').eq('id', _invId).abortSignal(_ctrl.signal).single(),
+        sb.from('invoice_lines').select('id,item_code,description,origin,brand,uom,qty,unit_price').eq('invoice_id', _invId).abortSignal(_ctrl.signal).order('id'),
       ]);
 
       // تجاهل response من request قديم
@@ -5043,11 +5043,11 @@ function _showConfirmDialog(title,msg){
 
 async function _qtLoadForConvert(qtId){
   try{
-    const{data:qt,error}=await sb.from('invoices').select('*').eq('id',qtId).eq('invoice_type','quotation').single();
+    const{data:qt,error}=await sb.from('invoices').select('id,stage,customer_id,customer_name,date,transport_cost,gift_expense,gift_note,comm_omar_pct,comm_hussain_pct,comm_sini_pct,next_action,invoice_type,description,sale_amount').eq('id',qtId).eq('invoice_type','quotation').single();
     if(error||!qt){showToast('تعذّر تحميل بيانات الكوتيشن','error');return null;}
     if(qt.stage==='converted'){showToast('هذا الكوتيشن محوّل مسبقاً','warning');return null;}
     if(qt.stage!=='approved'){showToast('يجب أن يكون الكوتيشن بحالة "موافق" قبل التحويل','warning');return null;}
-    const{data:lines}=await sb.from('invoice_lines').select('*').eq('invoice_id',qtId).order('id');
+    const{data:lines}=await sb.from('invoice_lines').select('id,description,qty,unit_price,cost_unit,uom').eq('invoice_id',qtId).order('id');
     return{qt,lines:lines||[]};
   }catch(e){handleError(e,'خطأ في تحميل الكوتيشن');return null;}
 }
@@ -5375,8 +5375,8 @@ async function renderQuotationNew(qtId=null){
     let qt={};let existingLines=[];
     if(qtId){
       const[{data:qtData},{data:linesData}]=await Promise.all([
-        sb.from('invoices').select('*').eq('id',qtId).eq('invoice_type','quotation').single(),
-        sb.from('invoice_lines').select('*').eq('invoice_id',qtId).order('id'),
+        sb.from('invoices').select('id,stage,customer_id,date,transport_cost,gift_expense,gift_note,comm_omar_pct,comm_hussain_pct,comm_sini_pct,next_action').eq('id',qtId).eq('invoice_type','quotation').single(),
+        sb.from('invoice_lines').select('id,description,qty,unit_price,cost_unit,uom').eq('invoice_id',qtId).order('id'),
       ]);
       qt=qtData||{};existingLines=linesData||[];
       if(qt.stage==='converted'){showToast('هذا العرض محوّل ولا يمكن تعديله','warning');showPage('quotation_detail',qtId);return;}
@@ -5581,8 +5581,8 @@ async function renderQuotationDetail(qtId){
   el.innerHTML='<div class="loading"><div class="spinner"></div><span>جاري التحميل...</span></div>';
   try{
     const[{data:qt},{data:lines},{data:relatedInvs},{data:auditLogs}]=await Promise.all([
-      sb.from('invoices').select('*').eq('id',qtId).single(),
-      sb.from('invoice_lines').select('*').eq('invoice_id',qtId).order('id'),
+      sb.from('invoices').select('id,stage,customer_name,date,transport_cost,gift_expense,comm_omar_pct,comm_hussain_pct,comm_sini_pct,next_action,invoice_type').eq('id',qtId).single(),
+      sb.from('invoice_lines').select('id,description,qty,unit_price,cost_unit,uom').eq('invoice_id',qtId).order('id'),
       sb.from('invoices').select('id,stage,sale_amount,date').eq('quotation_id',qtId).eq('is_deleted',false),
       sb.from('audit_logs').select('id,action_type,details,created_at,user_id')
         .eq('details->>entity','quotation')
@@ -5909,8 +5909,8 @@ async function _qtUnlink(qtId, invId){
 
 async function printQuotation(qtId,internal=false){
   const[{data:qt},{data:lines}]=await Promise.all([
-    sb.from('invoices').select('*').eq('id',qtId).single(),
-    sb.from('invoice_lines').select('*').eq('invoice_id',qtId).order('id'),
+    sb.from('invoices').select('id,stage,customer_name,date,transport_cost,gift_expense,next_action').eq('id',qtId).single(),
+    sb.from('invoice_lines').select('id,description,qty,unit_price,cost_unit,uom').eq('invoice_id',qtId).order('id'),
   ]);
   if(!qt){showToast('لم يُوجد العرض','error');return;}
   const subtotal=(lines||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.unit_price||0),0);
@@ -6269,14 +6269,12 @@ function numToWordsIQD(n){
 async function loadPrint(){
   const id=document.getElementById('print-sel')?.value;
   if(!id) return;
-  const[invRes,linesRes,recRes]=await Promise.all([
-    sb.from('invoices').select('*').eq('id',id).single(),
-    sb.from('invoice_lines').select('*').eq('invoice_id',id).order('id'),
-    sb.from('receivables').select('*').eq('invoice_id',id).maybeSingle(),
+  const[invRes,linesRes]=await Promise.all([
+    sb.from('invoices').select('id,date,customer_name,customer_id,customer_address,invoice_type,sale_amount,description,lpo_number,order_number,bc_reference,internal_ref,requested_by,lpo_date,credit_terms,required_delivery,created_by,delivery_to,project_site,reference').eq('id',id).single(),
+    sb.from('invoice_lines').select('id,item_code,description,origin,brand,uom,qty,unit_price').eq('invoice_id',id).order('id'),
   ]);
   const inv=invRes.data||{};
   const lines=linesRes.data||[];
-  const rec=recRes.data;
 
   // حساب المبالغ
   const isDetailed=inv.invoice_type==='detailed';
@@ -8855,7 +8853,7 @@ async function openInvoiceModal(invId=null, _qtOpts=null){
   const{data:clients}=await sb.from('clients').select('id,name');
   const stages=['📋 طلب وارد','🛒 شراء','🚚 توصيل','✅ تسليم','💳 تحصيل','🏁 مكتملة'];
   let inv={};
-  if(invId){const{data}=await sb.from('invoices').select('*').eq('id',invId).single();inv=data||{};}
+  if(invId){const{data}=await sb.from('invoices').select('id,date,customer_id,invoice_type,stage,sale_amount,cost_amount,transport_cost,gift_expense,gift_note,description,comm_omar_pct,comm_hussain_pct,comm_sini_pct,next_action').eq('id',invId).single();inv=data||{};}
   // ── QT PREFILL: map quotation → invoice fields ──
   if(_modalQtPrefill){
     const qt=_modalQtPrefill.qt;
@@ -9781,7 +9779,7 @@ async function openLineModal(lineId=null,preselectedInvId=null){
   if(!hasPermission('invoices_edit')) return;
   const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false});
   let line={};
-  if(lineId){const{data}=await sb.from('invoice_lines').select('*').eq('id',lineId).single();line=data||{};}
+  if(lineId){const{data}=await sb.from('invoice_lines').select('id,invoice_id,date,description,qty,unit_price,cost_unit,notes').eq('id',lineId).single();line=data||{};}
   // أولوية: preselected → آخر مستخدم → من البند نفسه
   const selInvId=preselectedInvId||_lastLineInvId||line.invoice_id;
   const lineCount=await sb.from('invoice_lines').select('id',{count:'exact',head:true}).eq('invoice_id',selInvId||'');
@@ -10524,7 +10522,7 @@ async function savePayment(){
   const btn=getModalSaveBtn();const restore=btnLoad(btn);
   try{
     const[{data:rec},{data:inv},{data:prevPays}]=await Promise.all([
-      sb.from('receivables').select('*').eq('invoice_id',invId).maybeSingle(),
+      sb.from('receivables').select('total_amount').eq('invoice_id',invId).maybeSingle(),
       sb.from('invoices').select('sale_amount,customer_name,customer_id,date').eq('id',invId).single(),
       sb.from('payments').select('amount').eq('invoice_id',invId),
     ]);
@@ -10736,7 +10734,7 @@ async function saveCapital(){
 async function openClientModal(clientId=null){
   if(!hasPermission('clients_edit')) return;
   let cl={};
-  if(clientId){const{data}=await sb.from('clients').select('*').eq('id',clientId).single();cl=data||{};}
+  if(clientId){const{data}=await sb.from('clients').select('id,name,address,phone,credit_days,notes').eq('id',clientId).single();cl=data||{};}
   // لو panel مفتوح — افتح كـ L2 فوقه بدل ما يفتح خلفه
   const _openFn = document.getElementById('panel-overlay')?.classList.contains('open')
     ? (t,b,f) => openPanelLevel2(t,b,f,{contextLabel:'تعديل عميل',panelId:'edit-client-'+(clientId||'new')})
@@ -10896,7 +10894,7 @@ async function showClientStatement(clientId, clientName){
 
 async function openEditExpense(id){
   if(!hasPermission('expenses')) return;
-  const{data:r}=await sb.from('expenses').select('*').eq('id',id).single();
+  const{data:r}=await sb.from('expenses').select('id,amount,expense_type,expense_subtype,paid_by,invoice_id,note').eq('id',id).single();
   if(!r) return;
   const{data:invs}=await sb.from('invoices').select('id,customer_name').eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false});
   openModal('✏️ تعديل مصروف',`
@@ -10960,7 +10958,7 @@ async function delRow(table,id,rerender){
 
   // لو رصيد دائن — احذف الدفعة المرتبطة من payments أيضاً
   if(table==='client_credits'){
-    const{data:cr}=await sb.from('client_credits').select('*').eq('id',id).single();
+    const{data:cr}=await sb.from('client_credits').select('id,amount,client_name').eq('id',id).single();
     if(cr){
       // احذف الدفعة من payments اللي ملاحظتها "زيادة من فاتورة X"
       const{data:pays}=await sb.from('payments').select('id,invoice_id,amount')
@@ -11070,7 +11068,7 @@ async function delRow(table,id,rerender){
 
 })();
 
-const APP_VERSION = 'v77.2';
+const APP_VERSION = 'v77.3';
 
 // ════════════════════════════════════════
 // ⚙️ APP_SETTINGS — Single Source of Truth
@@ -12124,7 +12122,7 @@ async function openClientInPanel(clientId, clientName, level=2){
 
   try{
     const[{data:cl},{data:invs},{data:pays}]=await Promise.all([
-      sb.from('clients').select('*').eq('id',clientId).maybeSingle(),
+      sb.from('clients').select('id,name,phone,credit_limit,credit_days,notes').eq('id',clientId).maybeSingle(),
       sb.from('invoices').select('id,date,sale_amount,stage').eq('customer_id',clientId).eq('is_deleted',false).neq('invoice_type','quotation').order('date',{ascending:false}).limit(5),
       sb.from('payments').select('amount,payment_date').eq('customer_name',clientName).order('payment_date',{ascending:false}).limit(5),
     ]);
